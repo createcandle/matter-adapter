@@ -1,0 +1,300 @@
+/*  
+
+CSS for example addon
+
+It's important to always use the long class and ID names in order to avoid clashes with other installed addons. So they should all start with:
+
+extension-example-addon1-
+
+(with your addon ID)
+
+*/
+
+#extension-example-addon1-view {
+  	height: 100%; /*calc(100% - 7.6rem);*/
+  	box-sizing: border-box;
+	overflow: auto;
+	position: absolute;
+	top: 7.6rem;
+	left: 0;
+	padding: 2rem;
+}
+
+
+#extension-example-addon1-view img{
+    max-width:100%;
+}
+
+#extension-example-addon1-content-container {
+	display:flex;
+	flex-direction: column;
+	overflow: auto;
+  	position: relative;
+  	text-align: left;
+  	font-size: 1.6rem;
+  	color: #fff;
+	height:auto;
+}
+
+
+
+/*  TITLE  */
+
+#extension-example-addon1-title{
+	text-align:left;
+	font-family: 'Open Sans', sans-serif;
+	font-weight: normal;
+    margin: 0 auto;
+    display: block;
+    padding: 1rem;
+    padding-left: 3.8rem;
+    font-size: 1.8rem;
+    background-size: 2.8rem;
+    background-repeat: no-repeat;
+    background-position: 0;
+    background-image: url('../images/menu-icon.svg');
+	width:16rem; /* You might want to change this if you have a longer or shorter addon name */
+	margin:0 auto;
+}
+
+
+/* Main menu item */
+#main-menu #extension-example-addon1-menu-item {
+  	background-image: url('../images/menu-icon.svg');
+}
+
+
+
+
+/* In this example we hide the second page based on a CSS class that is added or removed from the content container div */
+#extension-example-addon1-second-page{
+    display:none;
+}
+.extension-example-addon1-showing-second-page #extension-example-addon1-second-page{
+    display:block;
+}
+.extension-example-addon1-showing-second-page #extension-example-addon1-main-page{
+    display:none;
+}
+
+
+
+
+
+.extension-example-addon1-centered-page{ /*  Creates a centered area inside each page/tab */
+    max-width:60rem;
+    margin:0 auto;
+}
+
+
+.extension-example-addon1-area{ /* A small area inside a page with a slightly darker background */
+    background-color:rgba(0,0,0,.1);
+    border-radius:.5rem;
+    padding:2rem;
+    margin:4rem 0;
+}
+
+.extension-example-addon1-hidden{ /* It's best to add this class to something you want to hide instead of doing .style.display = 'none' though javascript */
+    display:none;
+}
+
+
+
+
+
+/*  MAIN PAGE  */
+
+
+#extension-example-addon1-show-second-page-button{
+    font-size: 1.6rem;
+    padding: 1rem 2rem;
+    border: none;
+    background-color: #7aadd1;
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background-image: url(/images/add.svg);
+    border-radius: 2.8rem;
+    cursor: pointer;
+}
+
+
+/*  LIST OF ITEMS */
+
+#extension-example-addon1-main-items-list{
+    margin-bottom:4rem;
+}
+
+#extension-example-addon1-original-item{
+    display:none;
+}
+
+.extension-example-addon1-item{
+    margin: 2rem 0;
+    border-radius:.5rem;
+    background-color:rgba(0,0,0,.5);
+}
+
+.extension-example-addon1-item > div{
+    padding:2rem;
+}
+
+
+.extension-example-addon1-item-menu{
+    display:flex;
+    flex-direction:column;
+    justify-content:space-around;
+    border-left:1px solid rgba(255,255,255,.1);
+}
+
+/*  delete button */
+.extension-example-addon1-item-delete-button{
+	background: url(/images/delete-button.png);
+    background-size: 3.6rem;
+    width: 3.6rem;
+    height: 3.6rem;
+    padding: 0;
+    margin: 0;
+    border-radius: 50%;
+    border: 1px solid #979797;
+    cursor: pointer;
+	display:inline-block;
+	opacity:.5;
+}
+
+.extension-example-addon1-item-delete-button:hover{
+	opacity:1;
+	box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+}
+
+
+
+/*  SECOND PAGE  */
+
+
+/* back button */
+
+#extension-example-addon1-back-button-container {
+    top: 0rem;
+    left: 0rem;
+    position: fixed;
+    padding: 2rem 0 0 2rem;
+    width: 7.6rem;
+    height: 7.6rem;
+    z-index: 1000;
+}
+
+#extension-example-addon1-back-button{
+    font-size: 1.6rem;
+    padding: 1rem 2rem;
+    border: none;
+    background-color: #7aadd1;
+    user-select: none;    
+    outline: 0;
+    cursor: pointer;
+    overflow: hidden;
+    opacity: 1;
+    cursor: pointer;
+    background: #5d9bc7 no-repeat center/100% url(/images/back.png);
+    background-size: 5.6rem;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 6%), 0 1px 2px rgb(0 0 0 / 12%);
+}
+
+
+
+
+
+/*  loading spinner  */
+
+#extension-example-addon1-loading{
+    text-align:center;
+    margin-top:4rem;
+}
+
+.extension-example-addon1-spinner {
+  display: inline-block;
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin:0 auto;
+}
+.extension-example-addon1-spinner div {
+  position: absolute;
+  top: 33px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.5);
+  animation-timing-function: cubic-bezier(0, 1, 1, 0);
+}
+.extension-example-addon1-spinner div:nth-child(1) {
+  left: 8px;
+  animation: extension-example-addon1-spinner1 0.6s infinite;
+}
+.extension-example-addon1-spinner div:nth-child(2) {
+  left: 8px;
+  animation: extension-example-addon1-spinner2 0.6s infinite;
+}
+.extension-example-addon1-spinner div:nth-child(3) {
+  left: 32px;
+  animation: extension-example-addon1-spinner2 0.6s infinite;
+}
+.extension-example-addon1-spinner div:nth-child(4) {
+  left: 56px;
+  animation: extension-example-addon1-spinner3 0.6s infinite;
+}
+@keyframes extension-example-addon1-spinner1 {
+  0% {
+    transform: scale(0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes extension-example-addon1-spinner3 {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(0);
+  }
+}
+@keyframes extension-example-addon1-spinner2 {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(24px, 0);
+  }
+}
+
+
+
+#extension-example-addon1-debug-warning{
+    max-width:60rem;
+    margin:2rem auto;
+    padding:2rem;
+    background-color:red;
+    color:white;
+    border-radius:.5rem;
+}
+
+
+
+@media screen and (max-width: 640px) {
+
+}
+
+@media screen and (min-width: 641px) {
+    .extension-example-addon1-item{
+        display:flex;
+        justify-content:space-between;
+    }
+}
+
+
+@media screen and (min-width: 1025px) {
+	
+}
+
+

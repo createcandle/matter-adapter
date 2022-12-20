@@ -1,0 +1,85 @@
+{
+  "author": "CandleSmartHome.com",
+  "description": "Adds support for Matter devices",
+  "content_scripts": [
+    {
+      "css": [
+        "css/extension.css"
+      ],
+      "js": [
+        "js/extension.js"
+      ]
+    }
+  ],  
+  "gateway_specific_settings": {
+    "webthings": {
+      "exec": "python3 {path}/main.py",
+      "primary_type": "adapter",
+      "strict_max_version": "*",
+      "strict_min_version": "1.1.0"
+    }
+  },
+  "homepage_url": "https://github.com/createcandle/matter-adapter",
+  "id": "matter-adapter",
+  "license": "MIT",
+  "manifest_version": 1,
+  "name": "Adds support for Matter devices",
+  "options": {
+    "default": {
+	  "A boolean setting": false,
+	  "A number setting": 5.5,
+	  "A slider setting": 0,
+	  "A string setting": "Hello world",
+	  "An enum setting": "Auto",
+      "Debugging": false
+    },
+    "schema": {
+      "properties": {
+        "A boolean setting": {
+          "type": "boolean",
+          "description": "If you enable this feature, something will happen. Whenever users save new settings the addon will be restarted."
+		},
+        "A number setting": {
+          "type": "number",
+          "description": "Write a description here for a float."
+		},
+        "A slider setting": {
+          "description": "Write a description here for a number. This one will be displayed as a slider, and is useful if you want to limit the range that users can enter. The only difference is that a maximum and minimum is provided",
+		  "minimum": -10,
+		  "maximum": 10,
+		  "type": "number"
+		},
+        "A string setting": {
+          "type": "string",
+          "description": "Write a description here"
+		},
+        "An enum setting": {
+          "type": "string",
+          "description": "Write a description here. The only difference with a normal string is that enum is provided, which forces uses to select on of the options.",
+          "enum": [
+			"Auto",
+            "Option 1",
+			"Option 2"
+          ]
+		},
+        "Debugging": {
+          "type": "boolean",
+          "description": "Advanced. Starting this sentence with 'Advanced. ' will cause it be be shown under the advanced settings in the Candle store."
+        }
+      },
+      "required": ["A string setting"],
+      "type": "object"
+    }
+  },
+  "short_name": "matter",
+  "version": "0.0.1",
+  "web_accessible_resources": [
+    "css/*.css",
+    "images/*.svg",
+	"images/*.png",
+	"images/*.gif",
+	"images/*.jpg",
+    "js/*.js",
+    "views/*.html"
+  ]
+}

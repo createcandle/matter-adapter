@@ -65,6 +65,8 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.version }}
+    - name: update pip
+      run: python3 -m pip install --upgrade pip
     - name: Make build script executable
       run: chmod +x ./build.sh
     - name: Make packaging script executable

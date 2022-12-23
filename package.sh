@@ -27,6 +27,7 @@ mkdir -p lib package
 # Pull down Python dependencies
 #pip3 install -r requirements.txt -t lib --no-binary -no-cache-dir  :all: --prefix ""
 
+pip3 install home-assistant-chip-core -t lib  --prefix ""
 pip3 install python-matter-server[server] -t lib  --prefix ""
 
 # Put package together

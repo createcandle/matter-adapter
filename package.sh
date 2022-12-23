@@ -24,10 +24,13 @@ fi
 echo "creating package"
 mkdir -p lib package
 
+python3 -m pip install --upgrade pip
+
 # Pull down Python dependencies
 #pip3 install -r requirements.txt -t lib --no-binary -no-cache-dir  :all: --prefix ""
 
-pip3 install home-assistant-chip-core -t lib  --prefix ""
+wget https://github.com/home-assistant-libs/chip-wheels/releases/download/2022.12.0/home_assistant_chip_core-2022.12.0-cp37-abi3-manylinux_2_31_aarch64.whl
+pip3 install home_assistant_chip_core-2022.12.0-cp37-abi3-manylinux_2_31_aarch64.whl -t lib  --prefix ""
 pip3 install python-matter-server[server] -t lib  --prefix ""
 
 # Put package together

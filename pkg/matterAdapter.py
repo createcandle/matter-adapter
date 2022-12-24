@@ -243,7 +243,8 @@ class MatterAdapter(Adapter):
         
         # The addon is now ready
         self.ready = True 
-
+        if self.DEBUG:
+            print("init complete")
 
 
 
@@ -296,6 +297,9 @@ class MatterAdapter(Adapter):
 
 
 
+    def something_happened(self, message):
+        print("in something_happened. Message: " + str(message))
+
 
 
     async def run_matter(self):
@@ -312,8 +316,21 @@ class MatterAdapter(Adapter):
             async with MatterClient(url, session) as client:
                 print("client started")
                 self.client = client
+                
+                self.client.connect() # could give an error saying it's already connected
+            
                 # start listening
                 await self.client.start_listening()
+                
+                self.unsubscribe = self.client.subscribe(self.something_happened)
+                
+                set_wifi_result_code = self.client.set_wifi_credentials('ssid_name','wifi_password')
+                print("set_wifi_result_code: " + str(set_wifi_result_code))
+                
+                self.matter_nodes = self.client.get_nodes()
+                print("matter nodes: " + str(self.matter_nodes))
+                
+                
 
     async def handle_stop(self, loop: asyncio.AbstractEventLoop):
         print("in handle_stop")
@@ -435,7 +452,9 @@ class MatterAdapter(Adapter):
         
         # A final chance to save the data.
         self.save_persistent_data()
-
+        #if self.DEBUG:
+        print("goodbye")
+        return
 
     def remove_thing(self, device_id):
         """ Happens when the user deletes the thing."""
@@ -469,15 +488,13 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     print("Persistence file existed. Will try to save to it.")
 
-            with open(self.persistence_file_path) as f:
-                if self.DEBUG:
-                    print("saving: " + str(self.persistent_data))
-                try:
-                    json.dump( self.persistent_data, open( self.persistence_file_path, 'w+' ) )
-                except Exception as ex:
-                    print("Error saving to persistence file: " + str(ex))
-                return True
-            #self.previous_persistent_data = self.persistent_data.copy()
+
+            out_file = open(str(self.persistence_file_path), "w") 
+            json.dump(self.persistent_data, out_file, indent = 4) 
+            out_file.close()
+            if self.DEBUG:
+                print("persistent data saved to: " + str(self.persistence_file_path))
+            return True
 
         except Exception as ex:
             if self.DEBUG:

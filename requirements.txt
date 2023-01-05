@@ -1,1 +1,2 @@
+aiorun
 python-matter-server[server]

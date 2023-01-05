@@ -40,6 +40,8 @@ pip3 install home_assistant_chip_clusters-2022.12.0-py3-none-any.whl -t lib  --p
 
 pip3 install python-matter-server[server] -t lib  --prefix ""
 
+pip3 install aiorun -t lib --no-binary :all: --prefix ""
+
 # Put package together
 cp -r lib pkg LICENSE manifest.json *.py README.md  css images js views  package/
 find package -type f -name '*.pyc' -delete

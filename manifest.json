@@ -21,7 +21,7 @@
   },
   "homepage_url": "https://github.com/createcandle/matter-adapter",
   "id": "matter-adapter",
-  "license": "MIT",
+  "license": "",
   "manifest_version": 1,
   "name": "Matter adapter",
   "options": {

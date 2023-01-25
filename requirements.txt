@@ -1,2 +1,3 @@
 aiorun
+aiohttp
 python-matter-server[server]

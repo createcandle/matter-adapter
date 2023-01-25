@@ -45,9 +45,9 @@ if 'WEBTHINGS_HOME' in os.environ:
 
 
 
-import argparse
 import asyncio
 import logging
+import argparse
 from os.path import abspath, dirname
 from pathlib import Path
 from sys import path
@@ -67,8 +67,9 @@ DEFAULT_VENDOR_ID = 0xFFF1
 DEFAULT_FABRIC_ID = 1
 DEFAULT_PORT = 5580
 DEFAULT_URL = f"http://127.0.0.1:{DEFAULT_PORT}/ws"
-DEFAULT_STORAGE_PATH = os.path.join(Path.home(), ".matter_server")
+DEFAULT_STORAGE_PATH = '/home/pi/.webthings/data/matter-adapter/matter_server'#os.path.join(Path.home(), ".matter_server")
 
+print("Path.home(): " + str(Path.home()))
 
 
 
@@ -95,17 +96,6 @@ class MatterAdapter(Adapter):
 
         # set up some variables
         self.DEBUG = True
-        self.a_number_setting = 0
-        
-        # this is a completely random set of items. It is sent to the user interface through the API handler, which till turn it into a list
-        self.items_list = [
-                        {'name':'Item 1', 'value':55},
-                        {'name':'Item 2', 'value':25},
-                        {'name':'Item 4', 'value':200},
-                        {'name':'Item 3', 'value':88},
-                    ]
-
-
 
         # There is a very useful variable called "user_profile" that has useful values from the controller.
         print("self.user_profile: " + str(self.user_profile))
@@ -113,7 +103,7 @@ class MatterAdapter(Adapter):
         
         
         
-        self.storage_path = "/home/pi/.webthings/data/matter-adapter"
+        self.server = None
         self.port = 5580
         
         
@@ -159,14 +149,8 @@ class MatterAdapter(Adapter):
 
         # 3. Now we check if all the values that should exist actually do
 
-        if 'state' not in self.persistent_data:
-            self.persistent_data['state'] = False
-
-        if 'slider' not in self.persistent_data:
-            self.persistent_data['slider'] = 0
-            
-        if 'dropdown' not in self.persistent_data:
-            self.persistent_data['dropdown'] = 'Auto'
+        #if 'state' not in self.persistent_data:
+        #    self.persistent_data['state'] = False
 
 
 
@@ -183,6 +167,7 @@ class MatterAdapter(Adapter):
 
 
         # Create the thing
+        """
         try:
             # Create the device object
             matter_device = MatterDevice(self)
@@ -199,24 +184,22 @@ class MatterAdapter(Adapter):
 
         except Exception as ex:
             print("Could not create internet_radio_device: " + str(ex))
-
+        """
 
         
         
         
         # make sure storage path exists
-        if not os.path.isdir(self.storage_path):
-            print("creating matter_server storage path: " + str(self.storage_path))
-            os.mkdir(self.storage_path)
+        if not os.path.isdir(self.data_path):
+            print("creating matter_server storage path: " + str(self.data_path))
+            os.mkdir(self.data_path)
 
         if not os.path.isdir("/data"):
-            print("creating /data path")
-            os.mkdir("/data")
-            #os.system('sudo mkdir /data; chown pi:pi /data')
+            print("Error, could not find /data, which the server will be looking for")
 
         # Init matter server
         self.server = MatterServer(
-            self.storage_path, DEFAULT_VENDOR_ID, DEFAULT_FABRIC_ID, int(self.port)
+            self.data_path, DEFAULT_VENDOR_ID, DEFAULT_FABRIC_ID, int(self.port)
         )
 
             
@@ -232,8 +215,13 @@ class MatterAdapter(Adapter):
         
         
         
+        print("self.server DIR: " + str(dir(self.server)))
+        print("self.client DIR: " + str(dir(self.client)))
+        print("self.unsubscribe DIR: " + str(dir(self.unsubscribe)))
         
         
+        self.client.disconnect()
+        self.server.stop()
         
         
         
@@ -245,7 +233,7 @@ class MatterAdapter(Adapter):
         self.ready = True 
         if self.DEBUG:
             print("init complete")
-
+        exit()
 
 
 
@@ -280,16 +268,6 @@ class MatterAdapter(Adapter):
             if self.DEBUG:
                 print(str(config)) # Print the entire config data
                 
-            if 'A boolean setting' in config:
-                self.persistent_data['a_boolean_setting'] = bool(config['A boolean setting']) # sometime you may want the addon settings to override the persistent value
-                if self.DEBUG:
-                    print("A boolean setting preference was in config: " + str(self.a_boolean_setting))
-
-            if 'A number setting' in config:
-                #print("-Debugging was in config")
-                self.a_number_setting = int(config['A number setting'])
-                if self.DEBUG:
-                    print("A number setting preference was in config: " + str(not self.a_number_setting))
             
 
         except Exception as ex:
@@ -298,8 +276,10 @@ class MatterAdapter(Adapter):
 
 
     def something_happened(self, message):
-        print("in something_happened. Message: " + str(message))
+        print("\n\nBINGO\nin something_happened. Message: " + str(message))
 
+    def client_unsubscribe(self, message):
+        print("\n\nBINGO\n client_unsubscribe happened. Message: " + str(message))
 
 
     async def run_matter(self):
@@ -317,18 +297,27 @@ class MatterAdapter(Adapter):
                 print("client started")
                 self.client = client
                 
-                self.client.connect() # could give an error saying it's already connected
+                await self.client.connect() # could give an error saying it's already connected
             
                 # start listening
                 await self.client.start_listening()
                 
-                self.unsubscribe = self.client.subscribe(self.something_happened)
+                self.unsubscribe = self.client.subscribe(self.client_unsubscribe)
                 
                 set_wifi_result_code = self.client.set_wifi_credentials('ssid_name','wifi_password')
-                print("set_wifi_result_code: " + str(set_wifi_result_code))
+                print("\n\nset_wifi_result_code: " + str(set_wifi_result_code))
                 
                 self.matter_nodes = self.client.get_nodes()
-                print("matter nodes: " + str(self.matter_nodes))
+                print("\n\nmatter nodes: " + str(self.matter_nodes))
+                
+                {
+                    "message_id": "1",
+                    "command": "set_wifi_credentials",
+                    "args": {
+                      "ssid": "blah",
+                      "credentials": "bah"
+                    }
+                  }
                 
                 
 
@@ -440,7 +429,15 @@ class MatterAdapter(Adapter):
     def unload(self):
         """ Happens when the user addon / system is shut down."""
         if self.DEBUG:
-            print("Bye!")
+            print("Stopping matter addon")
+        
+        
+        if self.client != None:
+            self.client.stop()
+            
+        if self.server != None:
+            self.server.stop()
+        
             
         try:
             self.devices['matter-thing'].properties['status'].update( "Bye")
@@ -455,6 +452,7 @@ class MatterAdapter(Adapter):
         #if self.DEBUG:
         print("goodbye")
         return
+
 
     def remove_thing(self, device_id):
         """ Happens when the user deletes the thing."""
@@ -538,7 +536,7 @@ class MatterDevice(Device):
         self.DEBUG = adapter.DEBUG
 
         self.name = 'thing1' # TODO: is this still used? hasn't this been replaced by title?
-        self.title = 'Matter addon 1 thing'
+        self.title = 'Matter addon thing'
         self.description = 'Write a description here'
         
         # We give this device a "capability". This will cause it to have an icon that indicates what it can do. 
@@ -546,7 +544,7 @@ class MatterDevice(Device):
         # For example, here the device is a "multi level switch", which means it should have a boolean toggle property as well as a numeric value property
         # There are a lot of capabilities, read about them here: https://webthings.io/schemas/
         
-        self._type = ['MultiLevelSwitch'] # a combination of a toggle switch and a numeric value
+        #self._type = ['MultiLevelSwitch'] # a combination of a toggle switch and a numeric value
 
         try:
             
@@ -564,46 +562,6 @@ class MatterDevice(Device):
                             },
                             self.adapter.persistent_data['state']) # we give the new property the value that was remembered in the persistent data store
                             
-                            
-            # Creates a percentage slider
-            self.properties["slider"] = MatterProperty( # (here "slider" is just a random name)
-                            self,
-                            "slider",
-                            {
-                                '@type': 'LevelProperty', # by giving the property this "capability", it will create a special icon indicating what it can do.
-                                'title': "Slider example",
-                                'type': 'integer',
-                                'readOnly': False,
-                                'minimum': 0,
-                                'maximum': 100,
-                                'unit': 'percent'
-                            },
-                            self.adapter.persistent_data['slider'])
-                        
-                        
-            # This property shows a simple string in the interface. The user cannot change this string in the UI, it's "read-only" 
-            self.properties["status"] = MatterProperty(
-                            self,
-                            "status",
-                            {
-                                'title': "Status",
-                                'type': 'string',
-                                'readOnly': True
-                            },
-                            "Hello world")
-
-
-            self.properties["dropdown"] = MatterProperty(
-                            self,
-                            "dropdown",
-                            {
-                                'title': "Dropdown example",
-                                'type': 'string',
-                                'readOnly': False,
-                                'enum': ['Auto', 'Option 1', 'Option 2'],
-                            },
-                            self.adapter.persistent_data['dropdown']) 
-
 
 
         except Exception as ex:
@@ -774,10 +732,6 @@ class MatterAPIHandler(APIHandler):
                           status=200,
                           content_type='application/json',
                           content=json.dumps({
-                                      'a_number_setting':self.adapter.a_number_setting,
-                                      'thing_state' : self.adapter.persistent_data['state'],
-                                      'slider_value':self.adapter.persistent_data['slider'],
-                                      'items_list':self.adapter.items_list,
                                       'debug': self.adapter.DEBUG
                                       }),
                         )
@@ -794,7 +748,7 @@ class MatterAPIHandler(APIHandler):
                             name = str(request.body['name'])
                             value = str(request.body['value'])
                             
-                            self.adapter.items_list.append( {'name':name, 'value':value} )
+                            #self.adapter.items_list.append( {'name':name, 'value':value} )
                             
                             state = True
                             
@@ -821,7 +775,7 @@ class MatterAPIHandler(APIHandler):
                         try:
                             name = str(request.body['name'])
                             
-                            state = self.delete_item(name) # This method returns True if deletion was succesful
+                            #state = self.delete_item(name) # This method returns True if deletion was succesful
                             
                         except Exception as ex:
                             if self.DEBUG:

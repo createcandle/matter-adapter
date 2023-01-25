@@ -101,9 +101,10 @@ class MatterAdapter(Adapter):
         print("self.user_profile: " + str(self.user_profile))
         
         
-        
-        
         self.server = None
+        self.client = None
+        self.unsubscribe = None
+        
         self.port = 5580
         
         
@@ -215,13 +216,18 @@ class MatterAdapter(Adapter):
         
         
         
-        print("self.server DIR: " + str(dir(self.server)))
-        print("self.client DIR: " + str(dir(self.client)))
-        print("self.unsubscribe DIR: " + str(dir(self.unsubscribe)))
+        
+        if self.unsubscribe != None:
+            print("self.unsubscribe DIR: " + str(dir(self.unsubscribe)))
         
         
-        self.client.disconnect()
-        self.server.stop()
+        if self.client != None:
+            print("\nself.client DIR: " + str(dir(self.client)))
+            self.client.disconnect()
+        
+        if self.server != None:
+            print("\nself.server DIR: " + str(dir(self.server)))
+            self.server.stop()
         
         
         
@@ -302,14 +308,15 @@ class MatterAdapter(Adapter):
                 # start listening
                 await self.client.start_listening()
                 
-                self.unsubscribe = self.client.subscribe(self.client_unsubscribe)
+                self.unsubscribe = await self.client.subscribe(self.client_unsubscribe)
                 
-                set_wifi_result_code = self.client.set_wifi_credentials('ssid_name','wifi_password')
+                set_wifi_result_code = await self.client.set_wifi_credentials('ssid_name','wifi_password')
                 print("\n\nset_wifi_result_code: " + str(set_wifi_result_code))
                 
-                self.matter_nodes = self.client.get_nodes()
+                self.matter_nodes = await self.client.get_nodes()
                 print("\n\nmatter nodes: " + str(self.matter_nodes))
                 
+                """
                 {
                     "message_id": "1",
                     "command": "set_wifi_credentials",
@@ -318,7 +325,7 @@ class MatterAdapter(Adapter):
                       "credentials": "bah"
                     }
                   }
-                
+                """
                 
 
     async def handle_stop(self, loop: asyncio.AbstractEventLoop):

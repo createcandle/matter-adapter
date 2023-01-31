@@ -17,6 +17,13 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
     <div id="extension-matter-adapter-content">
         <h3 id="extension-matter-adapter-title">Matter</h3> <!-- The icon is loaded into this title as a background, through CSS -->
 
+        <!--
+		<div class="extension-matter-adapter-tab-buttons">
+            <button id="extension-matter-adapter-tab-button-overview" class="extension-matter-adapter-main-tab-button extension-matter-adapter-tab-selected">Overview</button>
+            <button id="extension-matter-adapter-tab-button-pairing" class="extension-matter-adapter-main-tab-button">Pairing</button>
+        </div>
+        -->
+
         <div id="extension-matter-adapter-tabs-container"> <!-- your addon might itself have multiple tabs/pages. In this example toggling between the two tabs is based on a class class on the content container div -->
             
             
@@ -24,20 +31,33 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
                 
                 <div class="extension-matter-adapter-centered-page"> <!-- This centered page div sets a maximum with for the content and centers it. -->
                     
-                    <h2>This addon is in very early development</h2>
-		            <p>It doesn't do anything yet. Well, it creates a matter server. But it doesn't use the data from that yet.</p>
-
+                    <div class="extension-matter-adapter-area">
+                        <h2>This addon is in very early development</h2>
+		                <p>Currently it already creates a Matter server and listens for incoming messages. But it doesn't turn those into devices yet.</p>
+                    </div>
 			
+                    <div id="extension-matter-adapter-install-hotspot-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+                        <p>To protect your privacy it's recommended to also install the Hotspot addon. It can create a WiFi guest network for your devices, and gives you control over which servers devices on that network may connect to. If you install it, this addon will automatically tell new WiFi-based Matter devices to connect to that network.</p>
+                    </div>
+                    <div id="extension-matter-adapter-missing-wifi-credentials-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+                        <p>This addon needs to know which Wi-Fi network new Matter devices should be told to connect to. It also needs to tell new Matter devives which WiFi password to use. If you are not using the Hotspot addon, then you will need to provide the WiFi name and password in this addon's settings.</p>
+                    </div>
+                    
+    			    <div id="extension-matter-adapter-loading">
+    				    <div class="extension-matter-adapter-spinner">
+    				        <div></div><div></div><div></div><div></div>
+    				    </div>
+    			    </div>
+                    
+                    
+                    <div id="extension-matter-adapter-paired-devices-list" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+                        
+                    </div>
+                    
 		            <div style="opacity:0">
                         
-        			    <div id="extension-matter-adapter-loading">
-        				    <div class="extension-matter-adapter-spinner">
-        				        <div></div><div></div><div></div><div></div>
-        				    </div>
-        			    </div>
-
-
-
+        			    
+                        
         			    <div id="extension-matter-adapter-main-items-list">(Items list will be loaded here)</div>
 
         			    <p>Or you could show the state of the thing here. At least, the state of the thing when the addon loaded. </p>
@@ -60,27 +80,21 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
             
             <div id="extension-matter-adapter-second-page">
                 
-                <div class="extension-matter-adapter-centered-page"> <!-- This centered page div sets a maximum with for the content and centers it. -->
+                <div class="extension-matter-adapter-centered-page">
                 
-        		<h2>Second page</h2>
-                <p>Do something else here. Maybe a settings page, or a page to add new items to the list, or don't use a second page at all.</p>
-                <p>It's up to you.</p>
-                
-                <div class="extension-matter-adapter-area">
-                    <p>This is an "area", which means it gets a slightly darker rounded background. In general padding is 2rem.</p>
-                    <p>This is useful as a way to indicate input forms, for example. In this case we'll show the number value from the settings:</p>
-                    <p>Settings number: <strong id="extension-matter-adapter-number-setting-output"></strong></p>
-                </div>
-                
+        		<h2>Pair a new Matter device</h2>
+                <p>Adding a new Matter device to your home is slightly more involved, so it must be done here.</p>
                 
                 <div class="extension-matter-adapter-area">
-                    <h3>Add new item</h3>
-                    <p>You could use this second page to allow users to add a new item to the list on the main page.</p>
-                    <input type="text" id="extension-matter-adapter-add-item-name" placeholder="name" />
-                    <input type="number" id="extension-matter-adapter-add-item-value" placeholder="value" />
-                    <button id="extension-matter-adapter-add-item-button" class="text-button">Add</button>
+                    <h4>STEP 1</h4>
+                    <p>Make sure the device is turned off or not already in its pairing state.</p>
+                    <button id="extension-matter-adapter-start-pairing-button" class="text-button">Start pairing</button>
                 </div>
                 
+                <div id="extension-matter-adapter-pairing-step2" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+                    <h4>STEP 2</h4>
+                    <p>Turn on the device or press the pairing button on the device.</p>
+                </div>
                 
         
                 <!--<img src="/extensions/matter-adapter/images/lotus.jpg" />-->
@@ -129,7 +143,7 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
         <br/>
         <br/>
 
-        <div id="extension-matter-adapter-debug-warning" style="display:none">
+        <div id="extension-matter-adapter-debug-warning" class="extension-matter-adapter-hidden">
             <h2>Debugging is enabled</h2>
             <p>This addon is currently set to save detailed information about its operation in the internal logs. This may impact your privacy, as this also means that insights into your behaviour might be stored in those logs.</p>
             <p>You can disable debugging mode at the settings page for this addon.</p>

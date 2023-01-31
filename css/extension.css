@@ -53,7 +53,7 @@ extension-matter-adapter-
     background-repeat: no-repeat;
     background-position: 0;
     background-image: url('../images/menu-icon.svg');
-	width:16rem; /* You might want to change this if you have a longer or shorter addon name */
+	width:7rem; /* You might want to change this if you have a longer or shorter addon name */
 	margin:0 auto;
 }
 
@@ -97,7 +97,6 @@ extension-matter-adapter-
 .extension-matter-adapter-hidden{ /* It's best to add this class to something you want to hide instead of doing .style.display = 'none' though javascript */
     display:none;
 }
-
 
 
 

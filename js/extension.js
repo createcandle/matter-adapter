@@ -195,6 +195,12 @@
                             }
                         }
                     
+                        if(typeof body.nodes != 'undefined'){
+                            console.log("nodes: ", body.nodes);
+                            const nodes_string = JSON.stringify(body.nodes, null, 4)
+                            document.getElementById('extension-matter-adapter-paired-devices-list-pre').innerHTML = nodes_string;
+                        }
+                        
                         /*
                         // Generate the list of items
                         if(typeof body.items_list != 'undefined'){

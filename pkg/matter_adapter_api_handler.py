@@ -10,7 +10,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')) 
 
 import json
-#import time
+import time
 
 from gateway_addon import APIHandler, APIResponse
 
@@ -98,6 +98,9 @@ class MatterAPIHandler(APIHandler):
                         if self.DEBUG:
                             print("API: in init")
                         
+                        self.adapter.get_nodes()
+                        time.sleep(2)
+                        
                         wifi_credentials_available = False
                         if self.adapter.wifi_ssid != "" and self.adapter.wifi_password != "":
                             wifi_credentials_available = True
@@ -111,6 +114,7 @@ class MatterAPIHandler(APIHandler):
                                       'hotspot_addon_installed': self.adapter.hotspot_addon_installed,
                                       'wifi_credentials_available': wifi_credentials_available,
                                       'client_connected': self.adapter.client_connected,
+                                      'nodes': self.adapter.nodes
                                       }),
                         )
                         
@@ -118,11 +122,11 @@ class MatterAPIHandler(APIHandler):
                     # START PAIRING
                     elif action == 'start_pairing':
                         if self.DEBUG:
-                            print("API: in start_pairing")
+                            print("\n\nAPI: in start_pairing")
                         state = False
                         
                         try:
-                            state = self.adapter.start_pairing()
+                            state = self.adapter.start_matter_pairing()
                         except Exception as ex:
                             if self.DEBUG:
                                 print("Error in start_pairing request: " + str(ex))

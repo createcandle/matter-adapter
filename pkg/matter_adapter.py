@@ -115,6 +115,8 @@ class MatterAdapter(Adapter):
         self.message_counter = 0
         self.client_connected = 0
         
+        self.nodes = []
+        
         # Hotspot
         self.use_hotspot = True
         self.hotspot_ssid = ""
@@ -421,6 +423,10 @@ class MatterAdapter(Adapter):
                         print("\n\nRECEIVED MATTER SERVER INFO\n\n")
                     self.client_connected = True
                     
+                    # Request Matter nodes list
+                    self.get_nodes()
+                    
+                    # Pass WiFi credentials to Matter
                     if self.wifi_ssid != "" and self.wifi_password != "":
                         if self.DEBUG:
                             print("Sharing wifi credentials with Matter server")
@@ -440,8 +446,22 @@ class MatterAdapter(Adapter):
                     
                 elif message['_type'] == "matter_server.common.models.message.SuccessResultMessage":
                     if self.DEBUG:
-                        print("\n\nWIFI CREDENTIALS WERE SET SUCCESFULLY\n\n")
-                    self.message_counter = 1
+                        print("\n\nOK message.SuccessResultMessage\n\n")
+                    
+                    if 'result' in message.keys():
+                        if message['result'] == None:
+                            print("\nThe result was None")
+                            
+                        elif isinstance(message['result'], list):
+                            print("\nThe result was a list")
+                            self.nodes = message['result'];
+                            
+                        else:
+                            print("\nThe result was something else")
+                    else:
+                        print("Warning, message does not have result attribute")
+                        
+                    #self.message_counter = 1
                     
             else:
                 print("Warning, there was no _type in the message")
@@ -467,23 +487,40 @@ class MatterAdapter(Adapter):
             print("\n.\nclient: opened connection")
         #print("ws: " + str(ws))
         
-            
-
-
-
-
-
-    def start_pairing(self):
+        
+    def get_nodes(self):
         try:
             if self.client_connected:
                 
                 if self.DEBUG:
-                    print("start_pairing: sending commissioning code to Matter server")
+                    print("start_pairing: Client is connected, so asking for latest node list")
+                self.message_counter += 1
+                message = {
+                        "message_id": str(self.message_counter),
+                        "command": "get_nodes"
+                      }
+                json_message = json.dumps(message)
+                self.ws.send(json_message)
+            
+                return True
+                
+        except Exception as ex:
+            print("Error in start_pairing: " + str(ex))
+        
+        return False
+
+
+    def start_matter_pairing(self):
+        try:
+            if self.client_connected:
+                
+                if self.DEBUG:
+                    print("start_pairing: Client is connected, so sending commissioning code to Matter server")
             
                 self.message_counter += 1
                 commission_with_code_message = {
                         "message_id": str(self.message_counter),
-                        "command": "set_wifi_credentials",
+                        "command": "commission_with_code",
                         "args": {
                             "code": "MT:Y.ABCDEFG123456789"
                         }
@@ -602,51 +639,6 @@ class MatterAdapter(Adapter):
             print("error in set_state: " + str(ex))
                 
         
-        
-        
-    def set_slider(self,value):
-        try:
-            if self.DEBUG:
-                print("in set_slider with value: " + str(value))
-        
-            # saves the new state in the persistent data file, so that the addon can restore the correct state if it restarts
-            self.persistent_data['slider'] = value
-            self.save_persistent_data() 
-        
-            try:
-                self.devices['matter-thing'].properties['slider'].update( value )
-            except Exception as ex:
-                if self.DEBUG:
-                    print("error setting slider value on thing: " + str(ex))
-            
-        except Exception as ex:
-            if self.DEBUG:
-                print("error in set_slider: " + str(ex))
-        
-        
-        
-    def set_dropdown(self,value):
-        try:
-            if self.DEBUG:
-                print("in set_dropdown with value: " + str(value))
-        
-            # saves the new state in the persistent data file, so that the addon can restore the correct state if it restarts
-            self.persistent_data['dropdown'] = value
-            self.save_persistent_data() 
-        
-            # A cool feature: you can create popups in the interface this way:
-            self.send_pairing_prompt("new dropdown value: " + str(value))
-        
-            try:
-                self.devices['matter-thing'].properties['dropdown'].update( value )
-            except Exception as ex:
-                print("error setting dropdown value on thing: " + str(ex))
-        
-        except Exception as ex:
-            print("error in set_dropdown: " + str(ex))
-
-
-
 
     #
     # The methods below are called by the controller

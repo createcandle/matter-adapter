@@ -33,7 +33,7 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
                     
                     <div class="extension-matter-adapter-area">
                         <h2>This addon is in very early development</h2>
-		                <p>Currently it already creates a Matter server and listens for incoming messages. But it doesn't turn those into devices yet.</p>
+		                <p>Currently it creates a Matter server and listens for incoming messages. But it doesn't turn those into devices yet.</p>
                     </div>
 			
                     <div id="extension-matter-adapter-install-hotspot-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
@@ -54,24 +54,12 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
                         
                     </div>
                     
-		            <div style="opacity:0">
-                        
-        			    
-                        
-        			    <div id="extension-matter-adapter-main-items-list">(Items list will be loaded here)</div>
-
-        			    <p>Or you could show the state of the thing here. At least, the state of the thing when the addon loaded. </p>
-
-        			    <div class="extension-matter-adapter-area">
-        				    <p>Slider value when the addon loaded: <span id="extension-matter-adapter-slider-value-output">...</span></p>
-        			    </div>
-
-        			    <p>You could create an interval to continuously get the latest values, but that's something for a more advanced example.</p>
-
-        			    <!-- By having this button inside of this tab, it will be automatically hidden when it's pressed-->
-        			    <button id="extension-matter-adapter-show-second-page-button" class="icon-button"></button>
-		            </div>
+                    <pre id="extension-matter-adapter-paired-devices-list-pre">
+                        Devices list is currently empty
+                    </pre>
                     
+                    <button id="extension-matter-adapter-show-second-page-button" class="icon-button"></button>
+
                 </div>
                 
             </div>

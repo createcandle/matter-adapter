@@ -1,5 +1,5 @@
 coloredlogs
 aiorun
 aiohttp
-home_assistant_chip_repl
+home-assistant-chip-repl
 python-matter-server[server]

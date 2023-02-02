@@ -49,8 +49,11 @@ python3 -m pip install --upgrade pip
 #pip3 install aiorun -t lib --no-binary :all: --prefix ""
 #pip3 install python-matter-server[server] -t lib  --prefix ""
 
-pip3 install -r requirements.txt -t lib -no-cache-dir  --no-binary  :all: --prefix ""
-
+if [ -e /usr/local/bin/pip3.11 ]; then
+  /usr/local/bin/pip3.11 -m pip install -r requirements.txt -t lib -no-cache-dir  --no-binary  :all: --prefix ""
+else
+  pip3 install -r requirements.txt -t lib -no-cache-dir  --no-binary  :all: --prefix ""
+fi
 # Put package together
 cp -r lib pkg LICENSE manifest.json *.py README.md  css images js views  package/
 find package -type f -name '*.pyc' -delete

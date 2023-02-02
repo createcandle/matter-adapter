@@ -31,7 +31,7 @@ echo "creating package"
 mkdir -p lib package
 
 PIPPY="pip3"
-pip3.11 --version && PIPPY="pip3.11 -m pip"
+pip3.11 --version && PIPPY="python3.11 -m pip"
 echo "PIP STRING: $PIPPY"
 
 # Is upgrading pip needed?

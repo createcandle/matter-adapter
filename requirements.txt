@@ -1,3 +1,4 @@
 aiorun
 aiohttp
 python-matter-server[server]
+coloredlogs

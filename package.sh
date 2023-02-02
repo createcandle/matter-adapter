@@ -50,7 +50,7 @@ python3 -m pip install --upgrade pip
 #pip3 install python-matter-server[server] -t lib  --prefix ""
 
 if [ -e /usr/local/bin/pip3.11 ]; then
-  /usr/local/bin/pip3.11 -m pip install -r requirements.txt -t lib -no-cache-dir  --no-binary  :all: --prefix ""
+  /usr/local/bin/pip3.11 -m pip install -r requirements.txt -t lib --no-cache-dir --no-binary  :all: --prefix ""
 else
   pip3 install -r requirements.txt -t lib -no-cache-dir  --no-binary  :all: --prefix ""
 fi

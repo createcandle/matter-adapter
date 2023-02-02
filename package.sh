@@ -64,7 +64,7 @@ wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/202
 python3.11 -m pip install home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -t lib  --prefix ""
 
 
-"$PIPPY" install -r requirements.txt -t lib --no-cache-dir --no-binary  :all: --prefix ""
+$PIPPY install -r requirements.txt -t lib --no-cache-dir --no-binary  :all: --prefix ""
 
 # Put package together
 cp -r lib pkg LICENSE manifest.json *.py README.md  css images js views  package/

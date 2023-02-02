@@ -25,6 +25,8 @@ sudo apt-get update
 sudo apt-get install libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential g++ -y
 # Not sure is libjpeg-dev is the correct one
 
+echo "installing rust compiler"
+curl https://sh.rustup.rs -sSf | sh -s -- -y
 
 # Prep new package
 echo "creating package"

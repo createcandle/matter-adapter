@@ -48,7 +48,7 @@ python3 -m pip install --upgrade pip
 #pip3 install aiorun -t lib --no-binary :all: --prefix ""
 #pip3 install python-matter-server[server] -t lib  --prefix ""
 
-pip3 install -r requirements.txt -t lib --no-binary -no-cache-dir  :all: --prefix ""
+pip3 install -r requirements.txt -t lib -no-cache-dir  --no-binary  :all: --prefix ""
 
 # Put package together
 cp -r lib pkg LICENSE manifest.json *.py README.md  css images js views  package/

@@ -20,13 +20,13 @@ else
 fi
 
 
-echo "installing apt packages"
-sudo apt-get update
-sudo apt-get install libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential g++ -y
+#echo "installing apt packages"
+#sudo apt-get update
+#sudo apt-get install libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential g++ -y
 # Not sure is libjpeg-dev is the correct one
 
-echo "installing rust compiler"
-curl https://sh.rustup.rs -sSf | sh -s -- -y
+#echo "installing rust compiler"
+#curl https://sh.rustup.rs -sSf | sh -s -- -y
 
 # Prep new package
 echo "creating package"
@@ -35,9 +35,9 @@ mkdir -p lib package
 PY11="no"
 python3.11 --version && PY11="yes"
 
-PIPPY="pip3"
-python3.11 --version && PIPPY="python3.11 -m pip"
-echo "PIP STRING: $PIPPY"
+#PIPPY="pip3"
+#python3.11 --version && PIPPY="python3.11 -m pip"
+#echo "PIP STRING: $PIPPY"
 
 # Is upgrading pip needed?
 # "$PIPPY" install --upgrade pip

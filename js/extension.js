@@ -10,7 +10,13 @@
 			console.log("Adding matter-adapter addon to main menu");
 			this.addMenuEntry('Matter');
         
-        
+            this.discovered = null;
+            this.nodes = null;
+            
+            this.busy_discovering = false;
+            this.busy_pairing = false;
+            this.device_to_pair = null;
+            
             this.hotspot_addon_installed = false;
             this.use_hotspot = false;
             this.wifi_credentials_available = false;
@@ -35,7 +41,7 @@
             
             
             // This is not needed, but might be interesting to see. It will show you the API that the controller has available. For example, you can get a list of all the things this way.
-            console.log("window API: ", window.API);
+            //console.log("window API: ", window.API);
             
 	    }
 
@@ -51,6 +57,13 @@
 	    show() {
 			console.log("matter-adapter show called");
             
+            try{
+				clearInterval(this.poll_interval);
+			}
+			catch(e){
+				//console.log("no interval to clear? ", e);
+			} 
+            
 			const main_view = document.getElementById('extension-matter-adapter-view');
 			
 			if(this.content == ''){
@@ -63,56 +76,113 @@
 			
             try{
                 
-                // Start pairing button press
-                document.getElementById('extension-matter-adapter-start-pairing-button').addEventListener('click', (event) => {
-                	console.log("Start pairing button clicked");
-                    document.getElementById('extension-matter-adapter-start-pairing-button').classList.add('extension-matter-adapter-hidden');
+                
+                // Discover button
+                document.getElementById('extension-matter-adapter-discover-button').addEventListener('click', (event) => {
+                	console.log("discover button clicked");
+                    document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-busy-discovering');
+                    document.getElementById('extension-matter-adapter-discovered-devices-list').innerHTML = '<div class="extension-matter-adapter-spinner"><div></div><div></div><div></div><div></div></div>';
                     
-                    // If we end up here, then a name and number were present in the input fields. We can now ask the backend to save the new item.
     				window.API.postJson(
     					`/extensions/${this.id}/api/ajax`,
-    					{'action':'start_pairing'}
+    					{'action':'discover'}
                         //{'action':'start_pairing', 'name':new_name  ,'value':new_value}
                     
     				).then((body) => {
-                        console.log("start pairing response: ", body);
+                        console.log("discover response: ", body);
                         if(body.state == true){
-                            console.log("start pairing response was OK");
-                            //document.getElementById('extension-matter-adapter-add-item-name').value = "";
-                            //document.getElementById('extension-matter-adapter-add-item-value').value = null;
-                            //console.log("new item was saved");
-                            document.getElementById('extension-matter-adapter-pairing-step2').style.display = 'block';
-                            
+                            console.log("discover response was OK");
                         }
                         else{
-                            console.log("start pairing failed?");
-                            document.getElementById('extension-matter-adapter-start-pairing-button').classList.remove('extension-matter-adapter-hidden');
+                            console.log("discover failed?");
                         }
                     
     				}).catch((e) => {
-    					console.log("matter-adapter: connnection error after start pairing button press: ", e);
-                        document.getElementById('extension-matter-adapter-start-pairing-button').classList.remove('extension-matter-adapter-hidden');
+    					console.log("matter-adapter: connnection error after discover button press: ", e);
     				});
             
                 });
+                
+                
+                // Start pairing button press
+                document.getElementById('extension-matter-adapter-start-pairing-button').addEventListener('click', (event) => {
+                	console.log("Start pairing button clicked");
+                    
+                    
+                    const code = document.getElementById('extension-matter-adapter-manual-pairing-code').value;
+                    
+                    if(code.length < 5){
+                        console.log("code was too short");
+                        alert("That code is too short");
+                        return;
+                    }
+                    if(this.device_to_pair == null){
+                        return // shouldn't be possible, but just to be safe
+                    }
+                    
+                    //document.getElementById('extension-matter-adapter-start-pairing-button').classList.add('extension-matter-adapter-hidden');
+                    //document.getElementById('extension-matter-adapter-busy-pairing-hint').classList.remove('extension-matter-adapter-hidden');
+                    
+					// Inform backend
+                    this.busy_pairing = true;
+                    
+                    console.log("Manual pairing code: ", code);
+					window.API.postJson(
+						`/extensions/${this.id}/api/ajax`,
+						{'action':'start_pairing',
+                        'code':code,
+                        'device': this.device_to_pair}
+					).then((body) => { 
+						console.log("pair device response: ", body);
+					}).catch((e) => {
+                        this.busy_pairing = false;
+						console.error("matter-adapter: error making pairing request: ", e);
+                        document.getElementById('extension-matter-adapter-start-pairing-button').classList.remove('extension-matter-adapter-hidden');
+					});
+                });
+                
+                
+                // Pairing failed, try again button
+    			document.getElementById('extension-matter-adapter-pairing-failed-try-again-button').addEventListener('click', (event) => {
+    				this.start_discovery();
+    			});
             
                 // Easter egg when clicking on the title
     			document.getElementById('extension-matter-adapter-title').addEventListener('click', (event) => {
     				this.show();
     			});
             
-                // Button to show the second page
+            
+                // ADD DEVICES BUTTON
                 document.getElementById('extension-matter-adapter-show-second-page-button').addEventListener('click', (event) => {
                     console.log("clicked on + button");
-                    document.getElementById('extension-matter-adapter-content-container').classList.add('extension-matter-adapter-showing-second-page');
-                
+                    
                     // iPhones need this fix to make the back button lay on top of the main menu button
                     document.getElementById('extension-matter-adapter-view').style.zIndex = '3';
+                    document.getElementById('extension-matter-adapter-content-container').classList.add('extension-matter-adapter-showing-second-page');
+                    
+                    this.start_discovery();
+                    
+                    // start polling for data
+                    this.poll_interval = setInterval(() =>{
+                        this.pairing_poll();
+                    },5000);
+                    
     			});
             
                 // Back button, shows main page
                 document.getElementById('extension-matter-adapter-back-button-container').addEventListener('click', (event) => {
                     console.log("clicked on back button");
+                    this.busy_discovering = false;
+                    this.busy_pairing = false;
+                    
+                    try{
+        				clearInterval(this.poll_interval);
+        			}
+        			catch(e){
+        				//console.log("no interval to clear? ", e);
+        			} 
+                    
                     document.getElementById('extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-showing-second-page');
                 
                     // Undo the iphone fix, so that the main menu button is clickable again
@@ -134,16 +204,20 @@
                 console.error("Matter: Show Error: ", e);
             }
             
-            
-            
 		}
 		
 	
 		// This is called then the user navigates away from the addon. It's an opportunity to do some cleanup. To remove the HTML, for example, or stop running intervals.
 		hide() {
 			console.log("matter-adapter hide called");
+            
+            try{
+				clearInterval(this.poll_interval);
+			}
+			catch(e){
+				//console.log("no interval to clear? ", e);
+			} 
 		}
-        
     
     
     
@@ -199,6 +273,9 @@
                             console.log("nodes: ", body.nodes);
                             const nodes_string = JSON.stringify(body.nodes, null, 4)
                             document.getElementById('extension-matter-adapter-paired-devices-list-pre').innerHTML = nodes_string;
+                            if(body.nodes.length > 0){
+                                alert("MATTER DEVICE PAIRED!");
+                            }
                         }
                         
                         /*
@@ -224,6 +301,176 @@
         }
     
 
+        // is called once every few seconds by poll_interval
+        pairing_poll(){
+            
+            if(this.busy_polling == true){
+                console.warn("still busy polling, not doing a new poll request");
+                return;
+            }
+            this.busy_polling = true;
+            
+			window.API.postJson(
+				`/extensions/${this.id}/api/ajax`,
+				{'action':'poll'}
+            
+			).then((body) => {
+                console.log("matter adapter: poll response: ", body);
+                this.busy_polling = false;
+                
+                if(typeof body.busy_discovering != 'undefined'){
+                    this.busy_discovering = body.busy_discovering;
+                    if(this.busy_discovering){
+                        document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-busy-discovering');
+                    }
+                    else{
+                        document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-discovering');
+                    }
+                }
+                if(typeof body.busy_pairing != 'undefined'){
+                    this.busy_pairing = body.busy_pairing;
+                    if(this.busy_pairing){
+                        document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-busy-pairing');
+                    }
+                    else{
+                        document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
+                    }
+                }
+                
+                
+                if(typeof body.discovered != 'undefined' && this.busy_discovering == false){
+                    this.discovered = body.discovered;
+                    this.list_discovered_devices();
+                }
+                if(typeof body.nodes != 'undefined'){
+                    this.nodes = body.nodes;
+                    //this.regenenerate_items();
+                }
+                
+                
+                
+                
+                
+			}).catch((e) => {
+                this.busy_polling = false;
+				console.log("matter-adapter: connnection error after start pairing button press: ", e);
+                document.getElementById('extension-matter-adapter-start-pairing-button').classList.remove('extension-matter-adapter-hidden');
+			});
+            
+        }
+        
+        
+        // Called whenever the addon should start discovering devices
+        start_discovery(){
+            
+            this.busy_discovering = true;
+            this.busy_pairing = false;
+            this.device_to_pair = null;
+            
+            document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-busy-discovering');
+            document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
+            document.getElementById('extension-matter-adapter-discovered-devices-list').innerHTML = '<div class="extension-matter-adapter-spinner"><div></div><div></div><div></div><div></div></div>';
+            document.getElementById('extension-matter-adapter-pairing-step1').classList.remove('hidden');
+            document.getElementById('extension-matter-adapter-pairing-step2').classList.add('hidden');
+            document.getElementById('extension-matter-adapter-pairing-step3').classList.add('hidden');
+            
+            document.getElementById('extension-matter-adapter-busy-pairing-hint').classList.add('extension-matter-adapter-hidden');
+            
+			window.API.postJson(
+				`/extensions/${this.id}/api/ajax`,
+				{'action':'discover'}
+                //{'action':'start_pairing', 'name':new_name  ,'value':new_value}
+            
+			).then((body) => {
+                console.log("discover response: ", body);
+                if(body.state == true){
+                    console.log("discover response was OK");
+                    //document.getElementById('extension-matter-adapter-add-item-name').value = "";
+                    //document.getElementById('extension-matter-adapter-add-item-value').value = null;
+                    //console.log("new item was saved");
+                    //document.getElementById('extension-matter-adapter-pairing-step2').style.display = 'block';
+                    
+                }
+                else{
+                    console.log("discover failed?");
+                    //document.getElementById('extension-matter-adapter-start-pairing-button').classList.remove('extension-matter-adapter-hidden');
+                }
+            
+			}).catch((e) => {
+				console.log("matter-adapter: connnection error after disover button press: ", e);
+                //document.getElementById('extension-matter-adapter-start-pairing-button').classList.remove('extension-matter-adapter-hidden');
+			});
+        }
+        
+        
+        
+        
+        //
+        //  GENERATE DISCOVERED DEVICES LIST
+        //
+        
+        list_discovered_devices(){
+            
+            let list_el = document.getElementById('extension-matter-adapter-discovered-devices-list');
+            if(list_el == null){
+                console.error("Error, the discovered devices list container did not exist yet");
+                return;
+            }
+            
+            // If the items list does not contain actual items, then stop
+            if(this.discovered.length == 0){
+                list_el.innerHTML = "No devices found";
+                return;
+            }
+            else{
+                list_el.innerHTML = "";
+            }
+            
+			for( var index in this.discovered ){
+                
+                const item = this.discovered[index];
+				console.log("creating discovered devices list. Item: ", item);
+                
+				let div_el = document.createElement('div');
+                div_el.classList.add('extension-matter-adapter-discovered-item');
+                
+                // add discovered device title
+				let title_el = document.createElement('h3');
+                title_el.classList.add('extension-matter-adapter-discovered-item-device-name');
+                title_el.innerText = item.deviceName;
+                div_el.appendChild(title_el);
+                
+                let pair_button_el = document.createElement('button');
+                pair_button_el.classList.add('extension-matter-adapter-discovered-item-pair-button');
+                pair_button_el.classList.add('text-button');
+                pair_button_el.innerText = "Pair";
+                
+				pair_button_el.addEventListener('click', (event) => {
+                    console.log("Pair button click. event: ", event);
+                    
+                    document.getElementById('extension-matter-adapter-pairing-step1').classList.add('extension-matter-adapter-hidden');
+                    document.getElementById('extension-matter-adapter-pairing-step2').classList.remove('extension-matter-adapter-hidden');
+                    document.getElementById('extension-matter-adapter-busy-pairing-hint').classList.add('extension-matter-adapter-hidden');
+                    document.getElementById('extension-matter-adapter-start-pairing-button').classList.remove('extension-matter-adapter-hidden');
+                    
+                    document.getElementById('extension-matter-adapter-pairing-step2-device-title').innerText = item.deviceName;
+                    this.device_to_pair = item;
+                    
+                    event.target.closest(".extension-matter-adapter-discovered-item").classList.add('extension-matter-adapter-discovered-item-being-paired');
+                    
+			  	});
+                
+                
+                div_el.appendChild(pair_button_el);
+                
+                // Add the clone to the list container
+				list_el.append(div_el);
+                
+			} // end of for loop
+            
+            
+            
+        }
         
         
     
@@ -263,16 +510,14 @@
 				items.sort((a, b) => (a.name.toLowerCase() > b.name.toLowerCase()) ? 1 : -1)
 				
                 
-				// Loop over all items in the list to create HTML for each item. 
-                // This is done by cloning an existing hidden HTML element, updating some of its values, and then appending it to the list element
 				for( var item in items ){
 					
 					var clone = original.cloneNode(true); // Clone the original item
 					clone.removeAttribute('id'); // Remove the ID from the clone
                     
                     // Place the name in the clone
-                    clone.querySelector(".extension-matter-adapter-item-name").innerText = items[item].name; // The original and its clones use classnames to avoid having the same ID twice
-                    clone.getElementsByClassName("extension-matter-adapter-item-value")[0].innerText = items[item].value; // another way to do the exact same thing - select the element by its class name
+                    clone.querySelector(".extension-matter-adapter-item-name").innerText = items[item].name; 
+                    clone.getElementsByClassName("extension-matter-adapter-item-value")[0].innerText = items[item].value;
                      
                     
                     // You could add a specific CSS class to an element depending, for example depending on some value
@@ -310,8 +555,6 @@
 
                     // Add the clone to the list container
 					list_el.append(clone);
-                    
-                    
                     
 				} // end of for loop
                 

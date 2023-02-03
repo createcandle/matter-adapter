@@ -118,6 +118,48 @@ class MatterAPIHandler(APIHandler):
                                       }),
                         )
                         
+                        
+                    # POLL
+                    if action == 'poll':
+                        if self.DEBUG:
+                            print("API: in poll")
+                        
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({
+                                      'debug': self.adapter.DEBUG,
+                                      'client_connected': self.adapter.client_connected,
+                                      'discovered': self.adapter.discovered,
+                                      'busy_discovering':self.adapter.busy_discovering,
+                                      'pairing_failed':self.adapter.pairing_failed,
+                                      'nodes': self.adapter.nodes
+                                      }),
+                        )
+                        
+                        
+                    
+                    # DISCOVER
+                    # does a bluetooth scan for pairable devices
+                    elif action == 'discover':
+                        if self.DEBUG:
+                            print("\n\nAPI: in discover")
+                        state = False
+                        
+                        code = "MT:Y.ABCDEFG123456789"
+                        
+                        try:
+                            state = self.adapter.discover()
+                        except Exception as ex:
+                            if self.DEBUG:
+                                print("Error in discover request: " + str(ex))
+                        
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state' : state}),
+                        )
+                    
                     
                     # START PAIRING
                     elif action == 'start_pairing':
@@ -125,12 +167,17 @@ class MatterAPIHandler(APIHandler):
                             print("\n\nAPI: in start_pairing")
                         state = False
                         
+                        code = "MT:Y.ABCDEFG123456789"
+                        
                         try:
-                            state = self.adapter.start_matter_pairing()
+                            if 'pairing_type' in request.body and 'code' in request.body and 'device' in request.body:
+                                code = str(request.body['code'])
+                                if len(code) > 5:
+                                    device = request.body['device']
+                                    state = self.adapter.start_matter_pairing(pairing_type, code, device) # device data isn't really needed, CHIP brute-force scans all devices on the network.
                         except Exception as ex:
                             if self.DEBUG:
                                 print("Error in start_pairing request: " + str(ex))
-                        
                         
                         return APIResponse(
                           status=200,

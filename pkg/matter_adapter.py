@@ -1,5 +1,21 @@
 """
 Matter addon for Candle Controller.
+
+    START_LISTENING = "start_listening"
+    SERVER_DIAGNOSTICS = "diagnostics"
+    SERVER_INFO = "server_info"
+    GET_NODES = "get_nodes"
+    GET_NODE = "get_node"
+    COMMISSION_WITH_CODE = "commission_with_code"
+    COMMISSION_ON_NETWORK = "commission_on_network"
+    SET_WIFI_CREDENTIALS = "set_wifi_credentials"
+    SET_THREAD_DATASET = "set_thread_dataset"
+    OPEN_COMMISSIONING_WINDOW = "open_commissioning_window"
+    DISCOVER = "discover"
+    INTERVIEW_NODE = "interview_node"
+    DEVICE_COMMAND = "device_command"
+    REMOVE_NODE = "remove_node"
+
 """
 
 
@@ -115,7 +131,12 @@ class MatterAdapter(Adapter):
         self.message_counter = 0
         self.client_connected = 0
         
+        self.discovered = []
         self.nodes = []
+        
+        self.busy_discovering = False
+        
+        self.pairing_failed = False
         
         # Hotspot
         self.use_hotspot = True
@@ -423,16 +444,24 @@ class MatterAdapter(Adapter):
                         print("\n\nRECEIVED MATTER SERVER INFO\n\n")
                     self.client_connected = True
                     
-                    # Request Matter nodes list
-                    self.get_nodes()
+                    
+                    # Start listening
+                    if self.DEBUG:
+                        print("Sending start_listening command")
+                    self.ws.send(
+                            json.dumps({
+                                "message_id": "start_listening",
+                                "command": "start_listening"
+                            })
+                          )
                     
                     # Pass WiFi credentials to Matter
                     if self.wifi_ssid != "" and self.wifi_password != "":
                         if self.DEBUG:
                             print("Sharing wifi credentials with Matter server")
-                        self.message_counter += 1
+                        
                         wifi_message = {
-                                "message_id": str(self.message_counter),
+                                "message_id": "set_wifi_credentials",
                                 "command": "set_wifi_credentials",
                                 "args": {
                                     "ssid": str(self.wifi_ssid),
@@ -444,24 +473,39 @@ class MatterAdapter(Adapter):
                 
                         self.ws.send(json_wifi_message)
                     
-                elif message['_type'] == "matter_server.common.models.message.SuccessResultMessage":
+                    
+                    # Request Matter nodes list
+                    self.get_nodes()
+                    
+                    
+                elif message['_type'].endswith("message.SuccessResultMessage"):
                     if self.DEBUG:
                         print("\n\nOK message.SuccessResultMessage\n\n")
                     
-                    if 'result' in message.keys():
-                        if message['result'] == None:
-                            print("\nThe result was None")
-                            
-                        elif isinstance(message['result'], list):
-                            print("\nThe result was a list")
-                            self.nodes = message['result'];
-                            
-                        else:
-                            print("\nThe result was something else")
-                    else:
-                        print("Warning, message does not have result attribute")
+                    if message['message_id'] == 'start_listening':
+                        if self.DEBUG:
+                            print("OK LISTENING")
+                    
+                    elif message['message_id'] == 'set_wifi_credentials':
+                        if self.DEBUG:
+                            print("OK WIFI CREDENTIALS SET")
+                    
+                    elif message['message_id'] == 'discover' and 'result' in message.keys():
+                        if self.DEBUG:
+                            print("OK DISCOVER RESPONSE")
+                        self.discovered = message['result']
+                        self.busy_discovering = False
+                    
+                    
+                elif message['_type'].endwith("message.ErrorResultMessage"):
+                    if self.DEBUG:
+                        print("\nRECEIVED ERROR MESSAGE\n")
                         
-                    #self.message_counter = 1
+                    if message['message_id'] == 'commission_with_code':
+                        if self.DEBUG:
+                            print("commission_with_code failed")
+                        self.pairing_failed = True
+                        
                     
             else:
                 print("Warning, there was no _type in the message")
@@ -494,9 +538,9 @@ class MatterAdapter(Adapter):
                 
                 if self.DEBUG:
                     print("start_pairing: Client is connected, so asking for latest node list")
-                self.message_counter += 1
+                
                 message = {
-                        "message_id": str(self.message_counter),
+                        "message_id": "get_nodes",
                         "command": "get_nodes"
                       }
                 json_message = json.dumps(message)
@@ -510,27 +554,69 @@ class MatterAdapter(Adapter):
         return False
 
 
-    def start_matter_pairing(self):
+
+    def discover(self):
         try:
             if self.client_connected:
                 
+                self.busy_discovering = True
+                
                 if self.DEBUG:
-                    print("start_pairing: Client is connected, so sending commissioning code to Matter server")
-            
-                self.message_counter += 1
-                commission_with_code_message = {
-                        "message_id": str(self.message_counter),
-                        "command": "commission_with_code",
-                        "args": {
-                            "code": "MT:Y.ABCDEFG123456789"
-                        }
+                    print("discover: Client is connected, so sending discover command to Matter server")
+                
+                
+                message = {
+                        "message_id": "discover",
+                        "command": "discover"
                       }
                 
-                json_commission_with_code_message = json.dumps(commission_with_code_message)
-    
-                self.ws.send(json_commission_with_code_message)
+                json_message = json.dumps(message)
+                self.ws.send(json_message)
+                
             
                 return True
+                
+        except Exception as ex:
+            print("Error in start_pairing: " + str(ex))
+        
+        return False
+
+
+
+    def start_matter_pairing(self,pairing_type,code,device):
+        if self.DEBUG:
+            print("\n\nin start_matter_pairing. Pairing type: " + str(pairing_type)", Code: " + str(code) + ", device: " + str(device))
+        self.pairing_failed = False
+        
+        try:
+            if self.client_connected:
+                if self.DEBUG:
+                    print("start_pairing: Client is connected, so sending commissioning code to Matter server.")
+            
+                message = None
+                if pairing_type == 'commission_with_code':
+                    message = {
+                            "message_id": "commission_with_code",
+                            "command": "commission_with_code",
+                            "args": {
+                                "code": code
+                            }
+                        }
+                
+                elif pairing_type == 'commission_on_network': #1234567
+                    message = {
+                            "message_id": "commission_on_network",
+                            "command": "commission_on_network",
+                            "args": {
+                                "setup_pin_code": code 
+                            }
+                        }
+                
+                if message != None:
+                    json_message = json.dumps(message)
+                    self.ws.send(json_message)
+            
+                    return True
                 
         except Exception as ex:
             print("Error in start_pairing: " + str(ex))

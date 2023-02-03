@@ -25,6 +25,18 @@ extension-matter-adapter-
     max-width:100%;
 }
 
+#extension-matter-adapter-view button{
+    font-size:1.8rem;
+    padding:1rem 2rem;
+}
+#extension-matter-adapter-view p{
+    line-height: 2.6rem;
+}
+
+.extension-matter-adapter-align-right{
+    text-align:right;
+}
+
 #extension-matter-adapter-content-container {
 	display:flex;
 	flex-direction: column;
@@ -93,6 +105,10 @@ extension-matter-adapter-
     padding:2rem;
     margin:4rem 0;
 }
+.extension-matter-adapter-error{
+    background-color:#500;
+}
+
 
 .extension-matter-adapter-hidden{ /* It's best to add this class to something you want to hide instead of doing .style.display = 'none' though javascript */
     display:none;
@@ -201,7 +217,35 @@ extension-matter-adapter-
 
 
 
+/*  DISCOVERING  */
 
+
+.extension-matter-adapter-busy-discovering .extension-matter-adapter-discover-button{
+    display:none;
+}
+
+/*
+.extension-matter-adapter-busy-pairing .extension-matter-adapter-pairing-button{
+    display:none;
+}
+*/
+
+
+
+/*  PAIRING  */
+
+
+
+.extension-matter-adapter-busy-pairing-hint{
+    display:none;
+}
+.extension-matter-adapter-busy-pairing .extension-matter-adapter-busy-pairing-hint{
+    display:block;
+}
+
+.extension-matter-adapter-busy-pairing .extension-matter-adapter-start-pairing-button{
+    display:none;
+}
 
 /*  loading spinner  */
 
@@ -211,11 +255,11 @@ extension-matter-adapter-
 }
 
 .extension-matter-adapter-spinner {
-  display: inline-block;
+  display: block;
   position: relative;
   width: 80px;
   height: 80px;
-  margin:0 auto;
+  margin:1rem auto;
 }
 .extension-matter-adapter-spinner div {
   position: absolute;

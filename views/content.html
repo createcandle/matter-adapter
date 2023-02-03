@@ -73,16 +73,56 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
         		<h2>Pair a new Matter device</h2>
                 <p>Adding a new Matter device to your home is slightly more involved, so it must be done here.</p>
                 
-                <div class="extension-matter-adapter-area">
-                    <h4>STEP 1</h4>
+                <!--
+			    
+                -->
+                
+                
+                
+                <div id="extension-matter-adapter-pairing-step1" class="extension-matter-adapter-area">
+                    <h4>STEP 1 - Scanning</h4>
                     <p>Make sure the device is turned off or not already in its pairing state.</p>
-                    <button id="extension-matter-adapter-start-pairing-button" class="text-button">Start pairing</button>
+                    <p>Then start the pairing process on the device. For example by pressing a button on the device until it resets or enters pairing mode. The manual for your device should explain how to do this.</p>
+                    
+                    
+                    <div id="extension-matter-adapter-discovered-devices-list" class="extension-matter-adapter-area">
+    				    <div class="extension-matter-adapter-spinner">
+    				        <div></div><div></div><div></div><div></div>
+    				    </div>
+                    </div>
+                    
+                    <div class="extension-matter-adapter-align-right">
+                        <button id="extension-matter-adapter-discover-button" class="text-button">Scan again</button>
+                    </div>
+                    
                 </div>
                 
+                
                 <div id="extension-matter-adapter-pairing-step2" class="extension-matter-adapter-area extension-matter-adapter-hidden">
-                    <h4>STEP 2</h4>
-                    <p>Turn on the device or press the pairing button on the device.</p>
+                    <h4>STEP 2 - Pairing "<span id="extension-matter-adapter-pairing-step2-device-title">...</span>"</h4>
+                    <p>Your device came with a unique pairing code. Please enter that code here:</p>
+                    <input id="extension-matter-adapter-manual-pairing-code" type="text" placeholder="Pairing code"/>
+                    <button id="extension-matter-adapter-start-pairing-button" class="text-button">Start pairing</button>
+                    
+                    <div id="extension-matter-adapter-busy-pairing-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+    				    <div class="extension-matter-adapter-spinner">
+    				        <div></div><div></div><div></div><div></div>
+    				    </div>
+                        <h4>Pairing...</h4>
+                    </div>
+                    <div id="extension-matter-adapter-pairing-failed-hint" class="extension-matter-adapter-area extension-matter-adapter-error extension-matter-adapter-hidden">
+                        <h4>Pairing failed</h4>
+                        <button id="extension-matter-adapter-pairing-failed-try-again-button" class="text-button">Try again</button>
+                    </div>
+                    
                 </div>
+                
+                
+                <div id="extension-matter-adapter-pairing-step3" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+                    <h4>STEP 3</h4>
+                    <p>Something.</p>
+                </div>
+                
                 
         
                 <!--<img src="/extensions/matter-adapter/images/lotus.jpg" />-->

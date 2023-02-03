@@ -59,29 +59,19 @@ echo "PIP STRING: $PIPPY"
 #pip3 install aiorun -t lib --no-binary :all: --prefix ""
 #pip3 install python-matter-server[server] -t lib  --prefix ""
 
-wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
+#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
 
 
-wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_repl-2023.1.0-py3-none-any.whl -O home_assistant_chip_repl-2023.1.0-py3-none-any.whl
-wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -O home_assistant_chip_clusters-2023.1.0-py3-none-any.whl
+#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_repl-2023.1.0-py3-none-any.whl -O home_assistant_chip_repl-2023.1.0-py3-none-any.whl
+#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -O home_assistant_chip_clusters-2023.1.0-py3-none-any.whl
 
 # doesn't seem to work
 # $PIPPY install -r requirements.txt -t lib --no-cache-dir --no-binary  :all: --prefix ""
 
 if [ "$PY11" = "yes" ]; then
-  python3.11 -m pip install home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -t lib  --prefix ""
-  python3.11 -m pip install home_assistant_chip_repl-2023.1.0-py3-none-any.whl -t lib  --prefix ""
-  python3.11 -m pip install home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -t lib  --prefix ""
-  
-  python3.11 -m pip install python-matter-server[server] -t lib --no-cache-dir --no-binary  :all: --prefix ""
-  python3.11 -m pip install aiorun -t lib --no-cache-dir --no-binary  :all: --prefix ""
+  python3.11 -m pip install -r requirements.txt -t lib  --prefix ""
 else
-  pip3 install home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -t lib  --prefix ""
-  pip3 install home_assistant_chip_repl-2023.1.0-py3-none-any.whl -t lib  --prefix ""
-  pip3 install home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -t lib  --prefix ""
-
-  pip3 install python-matter-server[server] -t lib --no-cache-dir --no-binary  :all: --prefix ""
-  pip3 install aiorun -t lib --no-cache-dir --no-binary  :all: --prefix ""
+  pip3 install -r requirements.txt -t lib  --prefix ""
 fi
 
 if [ -f ./lib/aiorun.py ]; then

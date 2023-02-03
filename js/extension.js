@@ -86,7 +86,6 @@
     				window.API.postJson(
     					`/extensions/${this.id}/api/ajax`,
     					{'action':'discover'}
-                        //{'action':'start_pairing', 'name':new_name  ,'value':new_value}
                     
     				).then((body) => {
                         console.log("discover response: ", body);
@@ -130,6 +129,7 @@
 					window.API.postJson(
 						`/extensions/${this.id}/api/ajax`,
 						{'action':'start_pairing',
+                        'pairing_type':'commission_with_code',
                         'code':code,
                         'device': this.device_to_pair}
 					).then((body) => { 

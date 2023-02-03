@@ -11,7 +11,7 @@ import time
 sys.path.append(path.join(path.dirname(path.abspath(__file__)), 'lib'))
 
 # Change this to reflect your addon's adapter class. It should be the same as the name in the:
-from pkg.matterAdapter import MatterAdapter  # noqa
+from pkg.matter_adapter import MatterAdapter  # noqa
 
 
 _DEBUG = False

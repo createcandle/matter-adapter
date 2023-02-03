@@ -220,7 +220,7 @@ extension-matter-adapter-
 /*  DISCOVERING  */
 
 
-.extension-matter-adapter-busy-discovering .extension-matter-adapter-discover-button{
+.extension-matter-adapter-busy-discovering #extension-matter-adapter-discover-button{
     display:none;
 }
 

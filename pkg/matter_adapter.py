@@ -62,7 +62,7 @@ from os.path import abspath, dirname
 from pathlib import Path
 from sys import path
 
-import aiohttp
+#import aiohttp
 from aiorun import run
 import coloredlogs
 
@@ -275,8 +275,12 @@ class MatterAdapter(Adapter):
 
         # run the server. This is blocking.
         run(self.run_matter(), shutdown_callback=self.handle_stop)
+        #self.server.start()
         
-        
+        # How to shut down nicely?
+        # https://pypi.org/project/aiorun/
+        # loop = asyncio.get_event_loop()
+        # loop.stop()
         
         
         
@@ -585,7 +589,7 @@ class MatterAdapter(Adapter):
 
     def start_matter_pairing(self,pairing_type,code,device):
         if self.DEBUG:
-            print("\n\nin start_matter_pairing. Pairing type: " + str(pairing_type)", Code: " + str(code) + ", device: " + str(device))
+            print("\n\nin start_matter_pairing. Pairing type: " + str(pairing_type) + ", Code: " + str(code) + ", device: " + str(device))
         self.pairing_failed = False
         
         try:
@@ -756,6 +760,9 @@ class MatterAdapter(Adapter):
             
         if self.server != None:
             self.server.stop()
+        
+        # loop = asyncio.get_event_loop()
+        # loop.stop()
         
             
         #try:

@@ -103,12 +103,13 @@
                 });
                 
                 
+                // commission_with_code
                 // Start pairing button press
                 document.getElementById('extension-matter-adapter-start-pairing-button').addEventListener('click', (event) => {
                 	console.log("Start pairing button clicked");
                     
                     
-                    const code = document.getElementById('extension-matter-adapter-manual-pairing-code').value;
+                    const code = document.getElementById('extension-matter-adapter-pairing-code').value;
                     
                     if(code.length < 5){
                         console.log("code was too short");
@@ -120,12 +121,12 @@
                     }
                     
                     //document.getElementById('extension-matter-adapter-start-pairing-button').classList.add('extension-matter-adapter-hidden');
-                    //document.getElementById('extension-matter-adapter-busy-pairing-hint').classList.remove('extension-matter-adapter-hidden');
+                    //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
                     
 					// Inform backend
                     this.busy_pairing = true;
                     
-                    console.log("Manual pairing code: ", code);
+                    console.log("Pairing code: ", code);
 					window.API.postJson(
 						`/extensions/${this.id}/api/ajax`,
 						{'action':'start_pairing',
@@ -133,14 +134,54 @@
                         'code':code,
                         'device': this.device_to_pair}
 					).then((body) => { 
-						console.log("pair device response: ", body);
+						console.log("pair device via commission_with_code response: ", body);
 					}).catch((e) => {
                         this.busy_pairing = false;
-						console.error("matter-adapter: error making pairing request: ", e);
-                        document.getElementById('extension-matter-adapter-start-pairing-button').classList.remove('extension-matter-adapter-hidden');
+						console.error("matter-adapter: error making commission_with_code pairing request: ", e);
+                        //document.getElementById('extension-matter-adapter-start-pairing-button').classList.remove('extension-matter-adapter-hidden');
 					});
                 });
                 
+                
+                // commission_on_network
+                // Start pairing via commission_on_network button press
+                document.getElementById('extension-matter-adapter-start-network-pairing-button').addEventListener('click', (event) => {
+                	console.log("Start network pairing button clicked");
+                    
+                    
+                    const code = document.getElementById('extension-matter-adapter-pairing-code').value;
+                    
+                    if(code.length < 5){
+                        console.log("code was too short");
+                        alert("That code is too short");
+                        return;
+                    }
+                    if(this.device_to_pair == null){
+                        return // shouldn't be possible, but just to be safe
+                    }
+                    
+                    //document.getElementById('extension-matter-adapter-start-pairing-button').classList.add('extension-matter-adapter-hidden');
+                    //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
+                    
+					// Inform backend
+                    this.busy_pairing = true;
+                    
+                    console.log("Pairing code: ", code);
+					window.API.postJson(
+						`/extensions/${this.id}/api/ajax`,
+						{'action':'start_pairing',
+                        'pairing_type':'commission_on_network',
+                        'code':code,
+                        'device': this.device_to_pair}
+					).then((body) => { 
+						console.log("pair device via commission_on_network response: ", body);
+					}).catch((e) => {
+                        this.busy_pairing = false;
+						console.error("matter-adapter: error making commission_on_network pairing request: ", e);
+                        //document.getElementById('extension-matter-adapter-start-network-pairing-button').classList.remove('extension-matter-adapter-hidden');
+					});
+                });
+
                 
                 // Pairing failed, try again button
     			document.getElementById('extension-matter-adapter-pairing-failed-try-again-button').addEventListener('click', (event) => {
@@ -374,7 +415,7 @@
             document.getElementById('extension-matter-adapter-pairing-step2').classList.add('hidden');
             document.getElementById('extension-matter-adapter-pairing-step3').classList.add('hidden');
             
-            document.getElementById('extension-matter-adapter-busy-pairing-hint').classList.add('extension-matter-adapter-hidden');
+            document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.add('extension-matter-adapter-hidden');
             
 			window.API.postJson(
 				`/extensions/${this.id}/api/ajax`,
@@ -450,8 +491,8 @@
                     
                     document.getElementById('extension-matter-adapter-pairing-step1').classList.add('extension-matter-adapter-hidden');
                     document.getElementById('extension-matter-adapter-pairing-step2').classList.remove('extension-matter-adapter-hidden');
-                    document.getElementById('extension-matter-adapter-busy-pairing-hint').classList.add('extension-matter-adapter-hidden');
-                    document.getElementById('extension-matter-adapter-start-pairing-button').classList.remove('extension-matter-adapter-hidden');
+                    document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.add('extension-matter-adapter-hidden');
+                    //document.getElementById('extension-matter-adapter-start-pairing-button').classList.remove('extension-matter-adapter-hidden');
                     
                     document.getElementById('extension-matter-adapter-pairing-step2-device-title').innerText = item.deviceName;
                     this.device_to_pair = item;

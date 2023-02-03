@@ -4,3 +4,6 @@ home-assistant-chip-core
 home-assistant-chip-repl
 home-assistant-chip-clusters
 python-matter-server[server]
+requests
+click
+click_option_group

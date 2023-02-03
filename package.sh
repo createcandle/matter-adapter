@@ -32,12 +32,15 @@ curl https://sh.rustup.rs -sSf | sh -s -- -y
 echo "creating package"
 mkdir -p lib package
 
+PY11="no"
+pip3.11 --version && PY11="yes"
+
 PIPPY="pip3"
 pip3.11 --version && PIPPY="python3.11 -m pip"
 echo "PIP STRING: $PIPPY"
 
 # Is upgrading pip needed?
-"$PIPPY" install --upgrade pip
+# "$PIPPY" install --upgrade pip
 
 # Pull down Python dependencies
 
@@ -65,8 +68,22 @@ python3.11 -m pip install home_assistant_chip_repl-2023.1.0-py3-none-any.whl -t 
 wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -O home_assistant_chip_clusters-2023.1.0-py3-none-any.whl
 python3.11 -m pip install home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -t lib  --prefix ""
 
+# doesn't seem to work
+# $PIPPY install -r requirements.txt -t lib --no-cache-dir --no-binary  :all: --prefix ""
 
-$PIPPY install -r requirements.txt -t lib --no-cache-dir --no-binary  :all: --prefix ""
+if [ "$PY11" = "yes" ]; then
+  python3.11 -m pip install aiorun -t lib --no-cache-dir --no-binary  :all: --prefix ""
+  python3.11 -m pip install python-matter-server[server] -t lib --no-cache-dir --no-binary  :all: --prefix ""
+else
+  pip3 install aiorun -t lib --no-cache-dir --no-binary  :all: --prefix ""
+  pip3 install python-matter-server[server] -t lib --no-cache-dir --no-binary  :all: --prefix ""
+fi
+
+if [ -f ./lib/aiorun.py ]; then
+  echo "OK aiorun installed succesfully"
+else
+  echo"aiorun FAILED TO INSTALL"
+fi
 
 # Put package together
 cp -r lib pkg LICENSE manifest.json *.py README.md  css images js views  package/

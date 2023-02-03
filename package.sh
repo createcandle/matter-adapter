@@ -72,11 +72,11 @@ python3.11 -m pip install home_assistant_chip_clusters-2023.1.0-py3-none-any.whl
 # $PIPPY install -r requirements.txt -t lib --no-cache-dir --no-binary  :all: --prefix ""
 
 if [ "$PY11" = "yes" ]; then
-  python3.11 -m pip install aiorun -t lib --no-cache-dir --no-binary  :all: --prefix ""
   python3.11 -m pip install python-matter-server[server] -t lib --no-cache-dir --no-binary  :all: --prefix ""
+  python3.11 -m pip install aiorun -t lib --no-cache-dir --no-binary  :all: --prefix ""
 else
-  pip3 install aiorun -t lib --no-cache-dir --no-binary  :all: --prefix ""
   pip3 install python-matter-server[server] -t lib --no-cache-dir --no-binary  :all: --prefix ""
+  pip3 install aiorun -t lib --no-cache-dir --no-binary  :all: --prefix ""
 fi
 
 if [ -f ./lib/aiorun.py ]; then

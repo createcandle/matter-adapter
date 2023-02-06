@@ -72,7 +72,7 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
                 
         		<h2>Pair a new Matter device</h2>
                 <p>Adding a new Matter device to your home is slightly more involved, so it must be done here.</p>
-                
+                <p>The new device must be within Bluetooth range of the Candle controller - the closer the better.</p>
                 <!--
 			    
                 -->
@@ -98,13 +98,41 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
                 </div>
                 
                 
-                <div id="extension-matter-adapter-pairing-step2" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+                <div id="extension-matter-adapter-pairing-step2" class="extension-matter-adapter-area">
                     <h4>STEP 2 - Pairing "<span id="extension-matter-adapter-pairing-step2-device-title">...</span>"</h4>
-                    <p>Your device came with a unique pairing code. Please enter that code here:</p>
+                    
+                    <p>If your Matter device uses WiFi, then it will need the WiFi name and password. First this will be transmitted to the new device via Bluetooth, and then it will use them to connect to your WiFi network.
+                    
+                    <div id="extension-matter-adapter-current-wifi-ssid-container" class="extension-matter-adapter-hidden">
+                        <p>Wifi credentials will be shared for: <span id="extension-matter-adapter-current-wifi-ssid">...</span><p>
+                        <button id="extension-matter-adapter-reveal-wifi-setup-button">Change</button>
+                            
+                    </div>
+                    <div id="extension-matter-adapter-provide-wifi-container">
+                        <input type="text" id="extension-matter-adapter-wifi-ssid" placeholder="WiFi name"/>
+                        <input type="text" id="extension-matter-adapter-wifi-password" placeholder="WiFi password"/>
+                    
+                        <input type="checkbox" id="extension-matter-adapter-wifi-remember-checkbox" name="extension-matter-adapter-wifi-remember-checkbox" data-val="true" and value="true"/><label for="extension-matter-adapter-wifi-remember-checkbox">Remember WiFi name and password</label>
+                    </div>
+                    
+                    <p>Your device came with a unique pairing code, in the form of a QR code. Please enter that code here:</p>
                     <input id="extension-matter-adapter-pairing-code" type="text" placeholder="Pairing code"/>
+                    <div id="extension-matter-adapter-qr-scan-button-container">
+                        <button id="extension-matter-adapter-qr-scan-button" class="text-button">Scan QR code</button>
+                    </div>
+                    <div id="extension-matter-adapter-qr-scan-hint" class="extension-matter-adapter-area">
+                        <p>You can find the code by using candlesmarthome.com/qr or by accessing the Candle Controller from your phone.</p>
+                    </div>
+                    
                     <div class="extension-matter-adapter-align-right">
                         <button id="extension-matter-adapter-start-pairing-button" class="text-button">Start normal pairing</button> <button id="extension-matter-adapter-start-network-pairing-button" class="text-button">Start network pairing</button>
                     </div>
+                    
+                    
+                    <div id="extension-matter-adapter-busy-updating-certificates" class="extension-matter-adapter-hidden">
+                        <p>Preparing by updating certificates...</p>
+                    </div>
+                    
                     <div id="extension-matter-adapter-busy-pairing-indicator" class="extension-matter-adapter-area extension-matter-adapter-hidden">
     				    <div class="extension-matter-adapter-spinner">
     				        <div></div><div></div><div></div><div></div>
@@ -118,7 +146,7 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
                     
                 </div>
                 
-                
+                <button id="extension-matter-adapter-stop-poll-button">STOP POLL</button>
                 <div id="extension-matter-adapter-pairing-step3" class="extension-matter-adapter-area extension-matter-adapter-hidden">
                     <h4>STEP 3</h4>
                     <p>Something.</p>

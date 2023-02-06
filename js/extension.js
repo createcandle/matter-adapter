@@ -15,12 +15,14 @@
             
             this.busy_discovering = false;
             this.busy_pairing = false;
+            this.busy_polling_counter = 0;
             this.device_to_pair = null;
             
             this.hotspot_addon_installed = false;
             this.use_hotspot = false;
             this.wifi_credentials_available = false;
             
+            window.matter_adapter_poll_interval = null;
             // We'll try and get this data from the addon backend
             //this.items = [];
             
@@ -58,7 +60,8 @@
 			console.log("matter-adapter show called");
             
             try{
-				clearInterval(this.poll_interval);
+				clearInterval(window.matter_adapter_poll_interval);
+                window.matter_adapter_poll_interval = null;
 			}
 			catch(e){
 				//console.log("no interval to clear? ", e);
@@ -106,35 +109,66 @@
                 // commission_with_code
                 // Start pairing button press
                 document.getElementById('extension-matter-adapter-start-pairing-button').addEventListener('click', (event) => {
-                	console.log("Start pairing button clicked");
+                	console.log("Start commission_with_code button clicked. this.busy_pairing: ", this.busy_pairing);
+                    
+                    const wifi_ssid = document.getElementById('extension-matter-adapter-wifi-ssid').value;
+                    const wifi_password = document.getElementById('extension-matter-adapter-wifi-password').value;
+                    const wifi_remember = document.getElementById('extension-matter-adapter-wifi-remember-checkbox').value;
+                    
+                    if(wifi_ssid.length < 2){
+                        console.log("Wifi name is too short");
+                        alert("That wifi name is too short");
+                        return;
+                    }
+                    if(wifi_password.length < 8){
+                        console.log("Wifi password is too short");
+                        alert("That wifi password is too short");
+                        return;
+                    }
                     
                     
                     const code = document.getElementById('extension-matter-adapter-pairing-code').value;
-                    
+                    console.log("Pairing code: ", code);
                     if(code.length < 5){
-                        console.log("code was too short");
-                        alert("That code is too short");
+                        console.log("pairing code was too short");
+                        alert("That pairing code is too short");
                         return;
                     }
+                    //this.device_to_pair = {"not":"needed"}
+                    /*
                     if(this.device_to_pair == null){
+                        console.log("device_to_pair was null");
                         return // shouldn't be possible, but just to be safe
                     }
+                    */
                     
                     //document.getElementById('extension-matter-adapter-start-pairing-button').classList.add('extension-matter-adapter-hidden');
                     //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
                     
-					// Inform backend
+					
                     this.busy_pairing = true;
-                    
-                    console.log("Pairing code: ", code);
-					window.API.postJson(
+                    document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-busy-pairing');
+					
+                    // Inform backend
+                    window.API.postJson(
 						`/extensions/${this.id}/api/ajax`,
 						{'action':'start_pairing',
+                        'wifi_ssid':wifi_ssid,
+                        'wifi_password':wifi_password,
+                        'wifi_remember':wifi_remember,
                         'pairing_type':'commission_with_code',
-                        'code':code,
-                        'device': this.device_to_pair}
+                        'code':code}
 					).then((body) => { 
 						console.log("pair device via commission_with_code response: ", body);
+                        
+                        // start polling for data
+                        if(window.matter_adapter_poll_interval == null){
+                            window.matter_adapter_poll_interval = setInterval(() =>{
+                                this.pairing_poll();
+                            },5000);
+                        }
+                        
+                        
 					}).catch((e) => {
                         this.busy_pairing = false;
 						console.error("matter-adapter: error making commission_with_code pairing request: ", e);
@@ -156,23 +190,20 @@
                         alert("That code is too short");
                         return;
                     }
-                    if(this.device_to_pair == null){
-                        return // shouldn't be possible, but just to be safe
-                    }
                     
                     //document.getElementById('extension-matter-adapter-start-pairing-button').classList.add('extension-matter-adapter-hidden');
                     //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
                     
 					// Inform backend
                     this.busy_pairing = true;
+                    document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-busy-pairing');
                     
                     console.log("Pairing code: ", code);
 					window.API.postJson(
 						`/extensions/${this.id}/api/ajax`,
 						{'action':'start_pairing',
                         'pairing_type':'commission_on_network',
-                        'code':code,
-                        'device': this.device_to_pair}
+                        'code':code}
 					).then((body) => { 
 						console.log("pair device via commission_on_network response: ", body);
 					}).catch((e) => {
@@ -182,11 +213,33 @@
 					});
                 });
 
+
+                // reveal wifi change button
+    			document.getElementById('extension-matter-adapter-reveal-wifi-setup-button').addEventListener('click', (event) => {
+                    document.getElementById('extension-matter-adapter-current-wifi-ssid-container').classList.add('extension-matter-adapter-hidden');
+                    document.getElementById('extension-matter-adapter-provide-wifi-container').classList.remove('extension-matter-adapter-hidden');
+    			});
                 
                 // Pairing failed, try again button
     			document.getElementById('extension-matter-adapter-pairing-failed-try-again-button').addEventListener('click', (event) => {
     				this.start_discovery();
     			});
+            
+                // DEV
+    			document.getElementById('extension-matter-adapter-stop-poll-button').addEventListener('click', (event) => {
+                    console.log("stopping poll?");
+                    try{
+        				clearInterval(window.matter_adapter_poll_interval);
+                        window.matter_adapter_poll_interval = null;
+                        console.log("cleared interval");
+        			}
+        			catch(e){
+        				console.log("no interval to clear? ", e);
+        			} 
+    			});
+                
+                
+                
             
                 // Easter egg when clicking on the title
     			document.getElementById('extension-matter-adapter-title').addEventListener('click', (event) => {
@@ -202,12 +255,9 @@
                     document.getElementById('extension-matter-adapter-view').style.zIndex = '3';
                     document.getElementById('extension-matter-adapter-content-container').classList.add('extension-matter-adapter-showing-second-page');
                     
-                    this.start_discovery();
+                    //this.start_discovery();
                     
-                    // start polling for data
-                    this.poll_interval = setInterval(() =>{
-                        this.pairing_poll();
-                    },5000);
+                    
                     
     			});
             
@@ -218,7 +268,8 @@
                     this.busy_pairing = false;
                     
                     try{
-        				clearInterval(this.poll_interval);
+        				clearInterval(window.matter_adapter_poll_interval);
+                        window.matter_adapter_poll_interval = null;
         			}
         			catch(e){
         				//console.log("no interval to clear? ", e);
@@ -253,7 +304,8 @@
 			console.log("matter-adapter hide called");
             
             try{
-				clearInterval(this.poll_interval);
+				clearInterval(window.matter_adapter_poll_interval);
+                window.matter_adapter_poll_interval = null;
 			}
 			catch(e){
 				//console.log("no interval to clear? ", e);
@@ -309,7 +361,7 @@
                                 document.getElementById('extension-matter-adapter-missing-wifi-credentials-hint').classList.remove('extension-matter-adapter-hidden');
                             }
                         }
-                    
+                        
                         if(typeof body.nodes != 'undefined'){
                             console.log("nodes: ", body.nodes);
                             const nodes_string = JSON.stringify(body.nodes, null, 4)
@@ -318,6 +370,15 @@
                                 alert("MATTER DEVICE PAIRED!");
                             }
                         }
+                        
+                        if(typeof body.wifi_credentials_available != 'undefined' && typeof body.wifi_ssid != 'undefined'){
+                            if(body.wifi_credentials_available && body.wifi_ssid != ""){
+                                document.getElementById('extension-matter-adapter-current-wifi-ssid').innerText = body.wifi_ssid;
+                                document.getElementById('extension-matter-adapter-current-wifi-ssid-container').classList.remove('extension-matter-adapter-hidden');
+                                document.getElementById('extension-matter-adapter-provide-wifi-container').classList.add('extension-matter-adapter-hidden');
+                            }
+                        }
+                        
                         
                         /*
                         // Generate the list of items
@@ -344,19 +405,29 @@
 
         // is called once every few seconds by poll_interval
         pairing_poll(){
+            console.log("in pairing_poll");
             
             if(this.busy_polling == true){
                 console.warn("still busy polling, not doing a new poll request");
-                return;
+                this.busy_polling_counter++;
+                if(this.busy_polling_counter > 5){
+                    this.busy_polling_counter = 0;
+                    console.log("letting a new polling attempt through")
+                }
+                else{
+                    return;
+                }
+                
             }
             this.busy_polling = true;
+            
             
 			window.API.postJson(
 				`/extensions/${this.id}/api/ajax`,
 				{'action':'poll'}
             
 			).then((body) => {
-                console.log("matter adapter: poll response: ", body);
+                //console.log("matter adapter: poll response: ", body);
                 this.busy_polling = false;
                 
                 if(typeof body.busy_discovering != 'undefined'){
@@ -378,6 +449,18 @@
                     }
                 }
                 
+                if(typeof body.certificates_updated != 'undefined'){
+                    if(body.certificates_updated){
+                        document.getElementById('extension-matter-adapter-busy-updating-certificates').classList.add('extension-matter-adapter-hidden');
+                    }
+                    else{
+                        document.getElementById('extension-matter-adapter-busy-updating-certificates').classList.remove('extension-matter-adapter-hidden');
+                        if(this.debug){
+                            console.log("matter adapter: busy updating certificates");
+                        }
+                    }
+                
+                }
                 
                 if(typeof body.discovered != 'undefined' && this.busy_discovering == false){
                     this.discovered = body.discovered;
@@ -438,7 +521,7 @@
                 }
             
 			}).catch((e) => {
-				console.log("matter-adapter: connnection error after disover button press: ", e);
+				console.log("matter-adapter: connnection error after discover button press: ", e);
                 //document.getElementById('extension-matter-adapter-start-pairing-button').classList.remove('extension-matter-adapter-hidden');
 			});
         }
@@ -481,6 +564,7 @@
                 title_el.innerText = item.deviceName;
                 div_el.appendChild(title_el);
                 
+                /*
                 let pair_button_el = document.createElement('button');
                 pair_button_el.classList.add('extension-matter-adapter-discovered-item-pair-button');
                 pair_button_el.classList.add('text-button');
@@ -500,7 +584,7 @@
                     event.target.closest(".extension-matter-adapter-discovered-item").classList.add('extension-matter-adapter-discovered-item-being-paired');
                     
 			  	});
-                
+                */
                 
                 div_el.appendChild(pair_button_el);
                 

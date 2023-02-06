@@ -26,6 +26,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 
 import json
 import time
+import subprocess
 #import datetime
 #import requests  # noqa
 #import threading
@@ -91,7 +92,9 @@ DEFAULT_STORAGE_PATH = '/home/pi/.webthings/data/matter-adapter/matter_server'#o
 
 print("Path.home(): " + str(Path.home()))
 
-
+logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(handlers=None, level="DEBUG")
+#coloredlogs.install(level="DEBUG")
 
 
 
@@ -108,7 +111,7 @@ class MatterAdapter(Adapter):
         print("Starting adapter init")
 
         self.ready = False # set this to True once the init process is complete.
-        self.addon_id = 'matter'
+        self.addon_id = 'matter-adapter'
         
         
         self.name = self.__class__.__name__ # TODO: is this needed?
@@ -134,22 +137,77 @@ class MatterAdapter(Adapter):
         self.discovered = []
         self.nodes = []
         
-        self.busy_discovering = False
+        self.certificates_updated = False
+        self.last_certificates_download_time = 0
         
+        self.busy_discovering = False
         self.pairing_failed = False
+        
+        
+        pwd = run_command('pwd')
+        print("\n\n\n\n\n\n\n\n\n\n\n\n\n" + str(pwd))
+        
+        
+        
         
         # Hotspot
         self.use_hotspot = True
         self.hotspot_ssid = ""
         self.hotspot_password = ""
+        
+        
+        # WiFi
         self.wifi_ssid = ""
         self.wifi_password = ""
+        self.wifi_set = False
+        
+        """
+        #self.candle_wifi_ssid = ""
+        #self.candle_wifi_password = ""
+        potential_candle_wifi_ssid = ""
+        potential_candle_wifi_ssid = run_command('sudo cat /etc/wpa_supplicant/wpa_supplicant.conf | grep ssid')
+        print("potential_candle_wifi_ssid: " + str(potential_candle_wifi_ssid))
+        
+        # get Candle's current WiFi SSID
+        count = 0
+        for i in potential_candle_wifi_ssid:
+            if i == '"':
+                count = count + 1
+        if count == 2:
+            potential_candle_wifi_ssid = potential_candle_wifi_ssid.split('"')[1::2]
+            if len(potential_candle_wifi_ssid) == 1:
+                print("potential_candle_wifi_ssid after split: " + str(potential_candle_wifi_ssid))
+                potential_candle_wifi_ssid = potential_candle_wifi_ssid[0]
+                potential_candle_wifi_ssid = potential_candle_wifi_ssid.rstrip()
+                if len(potential_candle_wifi_ssid) > 1:
+                    self.candle_wifi_ssid = potential_candle_wifi_ssid
+                
+        # get Candle's current WiFi password
+        potential_candle_wifi_password = run_command('sudo cat /etc/wpa_supplicant/wpa_supplicant.conf | grep psk')
+        print("potential_candle_wifi_password: " + str(potential_candle_wifi_password))
+        print("len(potential_candle_wifi_password): " + str(len(potential_candle_wifi_password)))
+        if len(potential_candle_wifi_password) > 9:
+            potential_candle_wifi_password = potential_candle_wifi_password.replace('psk=','')
+            print("potential_candle_wifi_password: " + str(potential_candle_wifi_password))
+            potential_candle_wifi_password = potential_candle_wifi_password.rstrip()
+            self.candle_wifi_password = potential_candle_wifi_password
+        
+        print("Candle's WiFi SSID: " + str(self.candle_wifi_ssid))
+        print("Candle's WiFi password: " + str(self.candle_wifi_password))
+        """
         
         # Create some path strings. These point to locations on the drive.
         self.addon_path = os.path.join(self.user_profile['addonsDir'], self.addon_id) # addonsDir points to the directory that holds all the addons (/home/pi/.webthings/addons).
         self.data_path = os.path.join(self.user_profile['dataDir'], self.addon_id)
         self.persistence_file_path = os.path.join(self.data_path, 'persistence.json') # dataDir points to the directory where the addons are allowed to store their data (/home/pi/.webthings/data)
+        #self.certs_dir_path = os.path.join(self.data_path, 'paa-root-certs')
+        pwd = run_command('pwd')
+        pwd = pwd.rstrip()
         
+        self.certs_dir_path = pwd + '/credentials/development/paa-root-certs'
+        print("self.certs_dir_path: " + str(self.certs_dir_path))
+        
+        self.certs_downloader_path = os.path.join(self.addon_path, 'download_certificates.py')
         self.hotspot_addon_path = os.path.join(self.user_profile['addonsDir'], 'hotspot')
         self.hotspot_persistence_path = os.path.join(self.user_profile['dataDir'], 'hotspot', 'persistence.json')
         
@@ -181,6 +239,32 @@ class MatterAdapter(Adapter):
             print("Error loading config: " + str(ex))
 
 
+        
+            
+                
+
+        # Now we check if all the values that should exist actually do
+        
+        if 'wifi_ssid' not in self.persistent_data:
+            self.persistent_data['wifi_ssid'] = ""
+        
+        if 'wifi_password' not in self.persistent_data:
+            self.persistent_data['wifi_password'] = ""
+
+        print("PERSISTENT DATA")
+        #print(json.dumps(self.persistent_data, None,4))
+        print(json.dumps(self.persistent_data))
+
+        if self.persistent_data['wifi_ssid'] != "" and self.persistent_data['wifi_password'] != "":
+            self.wifi_ssid = self.persistent_data['wifi_ssid']
+            self.wifi_password = self.persistent_data['wifi_password']
+            
+        if 'last_certificates_download_time' not in self.persistent_data:
+            self.persistent_data['last_certificates_download_time'] = 0
+            
+
+        # Allow the use_hotspot setting to override the wifi credentials
+        # TODO: check if the hotspot addon is actually running?
         self.hotspot_addon_installed = False
         if os.path.isdir(self.hotspot_addon_path):
             self.hotspot_addon_installed = True
@@ -192,14 +276,8 @@ class MatterAdapter(Adapter):
             if self.hotspot_ssid != "" and self.hotspot_password != "":
                 self.wifi_ssid = self.hotspot_ssid
                 self.wifi_password = self.hotspot_password
-            
-                
 
-        # Now we check if all the values that should exist actually do
 
-        #if 'state' not in self.persistent_data:
-        #    self.persistent_data['state'] = False
-        
 
         # Start the API handler. This will allow the user interface to connect
         try:
@@ -238,9 +316,18 @@ class MatterAdapter(Adapter):
         if not os.path.isdir(self.data_path):
             print("creating matter_server storage path: " + str(self.data_path))
             os.mkdir(self.data_path)
+            
+        if not os.path.isdir(self.certs_dir_path):
+            os.mkdir(self.certs_dir_path)
 
+        # /data
         if not os.path.isdir("/data"):
-            print("Error, could not find /data, which the server will be looking for")
+            print("Error! Could not find /data, which the server will be looking for")
+
+        
+        # Download the latest certificates
+        self.download_certs()
+        
 
         
         # Start client thread
@@ -405,12 +492,12 @@ class MatterAdapter(Adapter):
 
     def client_thread(self):
         if self.DEBUG:
-            print("in client_thread. zzz")
+            print("in client_thread. zzz to wait for matter server")
         
         try:
             time.sleep(3)
             if self.DEBUG:
-                print("zzz done")
+                print("client zzz done")
             #rel.set_sleep(0.1)
             #rel.set_turbo(0.0001)
         
@@ -458,30 +545,27 @@ class MatterAdapter(Adapter):
                                 "command": "start_listening"
                             })
                           )
+                          
+                    # Set the wifi credentials
+                    self.set_wifi_credentials()
                     
-                    # Pass WiFi credentials to Matter
-                    if self.wifi_ssid != "" and self.wifi_password != "":
-                        if self.DEBUG:
-                            print("Sharing wifi credentials with Matter server")
-                        
-                        wifi_message = {
-                                "message_id": "set_wifi_credentials",
-                                "command": "set_wifi_credentials",
-                                "args": {
-                                    "ssid": str(self.wifi_ssid),
-                                    "credentials": str(self.wifi_password)
-                                }
-                              }
-                        
-                        json_wifi_message = json.dumps(wifi_message)
-                
-                        self.ws.send(json_wifi_message)
-                    
+                    # Get diagnostic data
+                    if self.DEBUG:
+                        print("Sending start_listening command")
+                    self.ws.send(
+                            json.dumps({
+                                "message_id": "diagnostics",
+                                "command": "diagnostics"
+                            })
+                          )
                     
                     # Request Matter nodes list
+                    if self.DEBUG:
+                        print("Asking for nodes list")
                     self.get_nodes()
                     
                     
+                # Handle success messages
                 elif message['_type'].endswith("message.SuccessResultMessage"):
                     if self.DEBUG:
                         print("\n\nOK message.SuccessResultMessage\n\n")
@@ -499,9 +583,16 @@ class MatterAdapter(Adapter):
                             print("OK DISCOVER RESPONSE")
                         self.discovered = message['result']
                         self.busy_discovering = False
-                    
-                    
-                elif message['_type'].endwith("message.ErrorResultMessage"):
+                
+                    elif message['message_id'] == 'commission_with_code':
+                        if self.DEBUG:
+                            print("\n\nNew device paired succesfully\n\n")
+                        self.send_pairing_prompt("New device paired succesfully")
+                        self.get_nodes()
+                
+                
+                # Handle error messages
+                elif message['_type'].endswith("message.ErrorResultMessage"):
                     if self.DEBUG:
                         print("\nRECEIVED ERROR MESSAGE\n")
                         
@@ -587,16 +678,113 @@ class MatterAdapter(Adapter):
 
 
 
-    def start_matter_pairing(self,pairing_type,code,device):
+    # Download the latest certificates
+    def download_certs(self):
         if self.DEBUG:
-            print("\n\nin start_matter_pairing. Pairing type: " + str(pairing_type) + ", Code: " + str(code) + ", device: " + str(device))
+            print("in download_certs")
+        if time.time() - 3600 > self.persistent_data['last_certificates_download_time']:
+            if self.DEBUG:
+                print("downloading latest certificates")
+            self.certificates_updated = False
+            certificates_download_command = "python3 " + str(self.certs_downloader_path) + " --use-main-net-http --paa-trust-store-path " + str(self.certs_dir_path)
+            if self.DEBUG:
+                print("certificates download command: " + str(certificates_download_command))
+            download_certs_output = run_command(certificates_download_command,120)
+            print("download_certs_output: " + str(download_certs_output))
+            
+            if len(download_certs_output) < 5:
+                self.certificates_updated = True
+                #self.last_certificates_download_time = time.time()
+                self.persistent_data['last_certificates_download_time'] = int(time.time())
+                self.should_save_persistent = True
+                return True
+            else:
+                return False
+        else:
+            self.certificates_updated = True
+            return True
+
+
+
+    # Pass WiFi credentials to Matter
+    def set_wifi_credentials(self):
+        if self.DEBUG:
+            print("in set_wifi_credentials. self.wifi_ssid: " + str(self.wifi_ssid))
+            print("in set_wifi_credentials. self.wifi_password: " + str(self.wifi_password))
+        try:
+            if self.client_connected == False:
+                if self.DEBUG:
+                    print("Cannot set wifi credentials, client is not connected to Matter server")
+                
+            elif self.wifi_ssid != "" and self.wifi_password != "":
+                    #if self.wifi_ssid != "" and self.wifi_password != "":
+                    if self.DEBUG:
+                        print("Sharing wifi credentials with Matter server")
+                
+                    """
+                    if self.candle_wifi_ssid != "" and self.candle_wifi_password != "":
+                        if self.DEBUG:
+                            print("SHARING CANDLE'S WIFI CREDENTIALS")
+                        wifi_message = {
+                                "message_id": "set_wifi_credentials",
+                                "command": "set_wifi_credentials",
+                                "args": {
+                                    "ssid": str(self.candle_wifi_ssid),
+                                    "credentials": str(self.candle_wifi_password)
+                                }
+                              }
+                    else:
+                
+                    if self.DEBUG:
+                        print("SHARING WIFI CREDENTIALS")
+                    """
+                    wifi_message = {
+                            "message_id": "set_wifi_credentials",
+                            "command": "set_wifi_credentials",
+                            "args": {
+                                "ssid": str(self.wifi_ssid),
+                                "credentials": str(self.wifi_password)
+                            }
+                          }
+                
+                    # send wifi credentials
+                    if self.DEBUG:
+                        print("\n.\n) ) )\n.\nsending wifi credentials: " + str(wifi_message))
+                    json_wifi_message = json.dumps(wifi_message)
+        
+                    self.ws.send(json_wifi_message)
+                    return True
+                
+            else:
+                if self.DEBUG:
+                    print("Cannot set wifi credentials, as there are no credentials to set yet")
+        except Exception as ex:
+            if self.DEBUG:
+                print("Error in set wifi credentials: " + str(ex))
+        
+        return False
+
+
+    def start_matter_pairing(self,pairing_type,code):
+        if self.DEBUG:
+            print("\n\n\n\nin start_matter_pairing. Pairing type: " + str(pairing_type) + ", Code: " + str(code))
         self.pairing_failed = False
+        
+        # Download the latest certificates if they haven't been updated in a while
+        self.download_certs()
+        
+        
         
         try:
             if self.client_connected:
                 if self.DEBUG:
                     print("start_pairing: Client is connected, so sending commissioning code to Matter server.")
-            
+        
+                # Set the wifi credentials
+                if self.set_wifi_credentials():
+                    time.sleep(5)
+        
+                # create pairing message
                 message = None
                 if pairing_type == 'commission_with_code':
                     message = {
@@ -606,7 +794,7 @@ class MatterAdapter(Adapter):
                                 "code": code
                             }
                         }
-                
+            
                 elif pairing_type == 'commission_on_network': #1234567
                     message = {
                             "message_id": "commission_on_network",
@@ -616,12 +804,13 @@ class MatterAdapter(Adapter):
                             }
                         }
                 
+                # Send pairing message
                 if message != None:
                     json_message = json.dumps(message)
                     self.ws.send(json_message)
-            
+        
                     return True
-                
+            
         except Exception as ex:
             print("Error in start_pairing: " + str(ex))
         
@@ -682,7 +871,7 @@ class MatterAdapter(Adapter):
                 
                 
         """
-                
+        
 
     async def handle_stop(self, loop: asyncio.AbstractEventLoop):
         print("\nin handle_stop for server")
@@ -849,7 +1038,7 @@ class MatterAdapter(Adapter):
 
 
 class MatterDevice(Device):
-    """Internet Radio device type."""
+    """Matter device type."""
 
     def __init__(self, adapter):
         """
@@ -891,8 +1080,6 @@ class MatterDevice(Device):
                             },
                             self.adapter.persistent_data['state']) # we give the new property the value that was remembered in the persistent data store
                             
-
-
         except Exception as ex:
             if self.DEBUG:
                 print("error adding properties to thing: " + str(ex))
@@ -1003,3 +1190,16 @@ class MatterProperty(Property):
         return False
 
 
+def run_command(cmd, timeout_seconds=30):
+    try:
+        p = subprocess.run(cmd, timeout=timeout_seconds, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
+
+        if p.returncode == 0:
+            return str(p.stdout)
+        else:
+            if p.stderr:
+                return str(p.stderr)
+
+    except Exception as e:
+        print("Error running command: "  + str(e))
+        return None

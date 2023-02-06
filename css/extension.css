@@ -247,6 +247,35 @@ extension-matter-adapter-
     display:none;
 }
 
+#extension-matter-adapter-second-page input[type='text']{
+    width:100%;
+}
+
+
+body.kiosk #extension-matter-adapter-qr-scan-button-container{
+    display:none;
+}
+#extension-matter-adapter-qr-scan-hint{
+    display:none;
+}
+body.kiosk #extension-matter-adapter-qr-scan-hint{
+    display:block;
+}
+
+
+/*  BUSY PAIRING  */
+
+
+#extension-matter-adapter-pairing-busy-pairing-container{
+    display:none;
+}
+
+#extension-matter-adapter-second-page.busy-pairing #extension-matter-adapter-pairing-busy-pairing-container{
+    display:block;
+}
+
+
+
 /*  loading spinner  */
 
 #extension-matter-adapter-loading{

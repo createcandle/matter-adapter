@@ -31,6 +31,14 @@
     },
     "schema": {
       "properties": {
+        "WiFi name": {
+            "description": "What is the name of the WiFi network the Matter devices should connect to (if they use WiFi).",
+            "type": "string"
+        },
+        "WiFi password": {
+            "description": "What is the password of the WiFi network?",
+            "type": "string"
+        },
 		"Use Hotspot addon as WiFi network for devices":{
             "type": "boolean",
             "description": "It is recommended to use the Hotspot addon to generate a separate guest WiFi network for smart devices that connect using Wi-Fi. Doing so will give you more control over the communication habits of your Matter devices."

@@ -112,6 +112,7 @@ class MatterAPIHandler(APIHandler):
                                       'debug': self.adapter.DEBUG,
                                       'use_hotspot': self.adapter.use_hotspot,
                                       'hotspot_addon_installed': self.adapter.hotspot_addon_installed,
+                                      'wifi_ssid': self.adapter.wifi_ssid,
                                       'wifi_credentials_available': wifi_credentials_available,
                                       'client_connected': self.adapter.client_connected,
                                       'nodes': self.adapter.nodes
@@ -129,6 +130,7 @@ class MatterAPIHandler(APIHandler):
                           content_type='application/json',
                           content=json.dumps({
                                       'debug': self.adapter.DEBUG,
+                                      'certificates_updated': self.adapter.certificates_updated,
                                       'client_connected': self.adapter.client_connected,
                                       'discovered': self.adapter.discovered,
                                       'busy_discovering':self.adapter.busy_discovering,
@@ -164,17 +166,38 @@ class MatterAPIHandler(APIHandler):
                     # START PAIRING
                     elif action == 'start_pairing':
                         if self.DEBUG:
-                            print("\n\nAPI: in start_pairing")
+                            print("\n\nAPI: in start_pairing. request.body: " + str(request.body))
                         state = False
                         
-                        code = "MT:Y.ABCDEFG123456789"
+                        code = ""
                         
                         try:
-                            if 'pairing_type' in request.body and 'code' in request.body and 'device' in request.body:
+                            if 'pairing_type' in request.body and 'code' in request.body and 'wifi_ssid' in request.body and 'wifi_password' in request.body and 'wifi_remember' in request.body:
+                                if self.DEBUG:
+                                    print("OK all required parameters were provided")
                                 code = str(request.body['code'])
+                                pairing_type = str(request.body['pairing_type'])
+                                self.adapter.wifi_ssid = str(request.body['wifi_ssid']).rstrip()
+                                self.adapter.wifi_password = str(request.body['wifi_password']).rstrip()
+                                if self.DEBUG:
+                                    print("self.adapter.wifi_ssid: " + str(self.adapter.wifi_ssid))
+                                    print("self.adapter.wifi_password: " + str(self.adapter.wifi_password))
+                                if request.body['wifi_remember'] == True:
+                                    if self.DEBUG:
+                                        print("Remembering wifi credentials")
+                                    self.adapter.persistent_data['wifi_ssid'] = str(request.body['wifi_ssid'])
+                                    self.adapter.persistent_data['wifi_password'] = str(request.body['wifi_password'])
+                                    self.adapter.should_save_persistent = True
+                                
+                                
+                                
+                                
                                 if len(code) > 5:
-                                    device = request.body['device']
-                                    state = self.adapter.start_matter_pairing(pairing_type, code, device) # device data isn't really needed, CHIP brute-force scans all devices on the network.
+                                    #device = request.body['device']
+                                    state = self.adapter.start_matter_pairing(pairing_type, code) # device data isn't really needed, CHIP brute-force scans all devices on the network.
+                            else:
+                                print("\n\n\nERROR, NOT ALL DATA FOR PAIRING WAS PROVIDED")
+                        
                         except Exception as ex:
                             if self.DEBUG:
                                 print("Error in start_pairing request: " + str(ex))

@@ -318,7 +318,7 @@ class MatterAdapter(Adapter):
             os.mkdir(self.data_path)
             
         if not os.path.isdir(self.certs_dir_path):
-            os.mkdir(self.certs_dir_path)
+            os.system('mkdir -p ' + self.certs_dir_path)
 
         # /data
         if not os.path.isdir("/data"):

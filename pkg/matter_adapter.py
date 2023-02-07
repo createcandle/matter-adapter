@@ -19,6 +19,7 @@ Matter addon for Candle Controller.
 """
 
 
+
 import os
 import sys
 # This helps the addon find python libraries it comes with, which are stored in the "lib" folder. The "package.sh" file will download Python libraries that are mentioned in requirements.txt and place them there.
@@ -35,6 +36,7 @@ import subprocess
 # This loads the parts of the addon.
 from gateway_addon import Database, Adapter, Device, Property
 # Database - needed to read from the settings database. If your addon doesn't have any settings, then you don't need this.
+from .matter_device import MatterDevice
 
 try:
     from .matter_adapter_api_handler import *
@@ -55,7 +57,6 @@ if 'WEBTHINGS_HOME' in os.environ:
     _CONFIG_PATHS.insert(0, os.path.join(os.environ['WEBTHINGS_HOME'], 'config'))
 
 
-
 import asyncio
 import logging
 import argparse
@@ -71,7 +72,9 @@ path.insert(1, dirname(dirname(abspath(__file__))))
 #from matter_server.client.client import MatterClient  # noqa: E402
 from matter_server.server.server import MatterServer  # noqa: E402
 
-
+# DEV
+from chip.clusters import Objects as clusters
+from chip.clusters import ClusterCommand
 
 # client
 import threading
@@ -79,6 +82,8 @@ import websocket
 import _thread
 
 #import rel
+
+import traceback
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -95,7 +100,6 @@ print("Path.home(): " + str(Path.home()))
 logging.basicConfig(level=logging.DEBUG)
 #logging.basicConfig(handlers=None, level="DEBUG")
 #coloredlogs.install(level="DEBUG")
-
 
 
 class MatterAdapter(Adapter):
@@ -120,7 +124,7 @@ class MatterAdapter(Adapter):
         # set up some variables
         self.DEBUG = True
 
-        self.should_save_persistent = False
+        self.should_save = False
         
         # There is a very useful variable called "user_profile" that has useful values from the controller.
         #print("self.user_profile: " + str(self.user_profile))
@@ -251,6 +255,9 @@ class MatterAdapter(Adapter):
         if 'wifi_password' not in self.persistent_data:
             self.persistent_data['wifi_password'] = ""
 
+        if 'nodez' not in self.persistent_data:
+            self.persistent_data['nodez'] = {}
+
         print("PERSISTENT DATA")
         #print(json.dumps(self.persistent_data, None,4))
         print(json.dumps(self.persistent_data))
@@ -328,8 +335,6 @@ class MatterAdapter(Adapter):
         # Download the latest certificates
         self.download_certs()
         
-
-        
         # Start client thread
         if self.DEBUG:
             print("Init: starting the client thread")
@@ -340,7 +345,7 @@ class MatterAdapter(Adapter):
         except Exception as ex:
             if self.DEBUG:
                 print("Error starting the client thread: " + str(ex))
-        
+                print(traceback.format_exc())
         
         # Start clock thread
         if self.DEBUG:
@@ -353,7 +358,7 @@ class MatterAdapter(Adapter):
             if self.DEBUG:
                 print("Error starting the clock thread: " + str(ex))
         
-
+        
 
         # Init matter server
         self.server = MatterServer(
@@ -362,6 +367,8 @@ class MatterAdapter(Adapter):
 
         # run the server. This is blocking.
         run(self.run_matter(), shutdown_callback=self.handle_stop)
+        
+        
         #self.server.start()
         
         # How to shut down nicely?
@@ -497,13 +504,13 @@ class MatterAdapter(Adapter):
         try:
             time.sleep(3)
             if self.DEBUG:
-                print("client zzz done")
+                print("client thread: zzz done, starting client")
             #rel.set_sleep(0.1)
             #rel.set_turbo(0.0001)
         
             #url = f"http://127.0.0.1:{self.port}/ws"
             url = "ws://127.0.0.1:" + str(self.port) + "/ws"
-            websocket.enableTrace(True)
+            websocket.enableTrace(False)
             self.ws = websocket.WebSocketApp(url, #"wss://127.0.0.1",
                                       on_open=self.on_open,
                                       on_message=self.on_message,
@@ -522,13 +529,15 @@ class MatterAdapter(Adapter):
             print("General error in client thread: " + str(ex))
         
         
-    def on_message(self, ws, message):
+    def on_message(self, ws, message="{}"):
         print("\n.\nclient: on_message: " + str(message) + "\n\n")
         try:
             
+            # matter_server.common.models.message.SuccessResultMessage
+            
             message = json.loads(message)
-            if self.DEBUG:
-                print("parsed message: " + str(message))
+            #if self.DEBUG:
+            #    print("parsed message: " + str(message))
             if '_type' in message:
                 if message['_type'] == "matter_server.common.models.server_information.ServerInfo":
                     if self.DEBUG:
@@ -565,6 +574,7 @@ class MatterAdapter(Adapter):
                     self.get_nodes()
                     
                     
+                
                 # Handle success messages
                 elif message['_type'].endswith("message.SuccessResultMessage"):
                     if self.DEBUG:
@@ -589,6 +599,33 @@ class MatterAdapter(Adapter):
                             print("\n\nNew device paired succesfully\n\n")
                         self.send_pairing_prompt("New device paired succesfully")
                         self.get_nodes()
+                    
+                    elif message['message_id'] == 'node_added':
+                        if self.DEBUG:
+                            print("\n\nNew device paired succesfully\n\n")
+                    
+                    elif message['message_id'] == 'get_nodes':
+                        if self.DEBUG:
+                            print("\n\nGET NODES succesfull\n\n")
+                        self.nodes = message['result']
+                        self.parse_nodes()
+                    
+                
+                
+                # Handle event messages
+                elif message['_type'].endswith("message.EventMessage"):
+                
+                    if 'event' in message.keys():
+                        if message['event'] == 'node_added':
+                            if self.DEBUG:
+                                print("\nRECEIVED NODE ADDED MESSAGE\n")
+                
+                        
+                        if message['event'] == 'attribute_updated':
+                            if self.DEBUG:
+                                print("\nINCOMING PROPERTY CHANGE\n")
+                            self.route_property_change(message['data'])
+                
                 
                 
                 # Handle error messages
@@ -605,7 +642,7 @@ class MatterAdapter(Adapter):
             else:
                 print("Warning, there was no _type in the message")
         
-                #self.should_save_persistent = True
+                #self.should_save = True
         
         except Exception as ex:
             if self.DEBUG:
@@ -615,7 +652,7 @@ class MatterAdapter(Adapter):
 
     def on_error(self, ws, error):
         if self.DEBUG:
-            print("\n.\nclient: on_error: " + str(message))
+            print("\n.\nclient: on_error: " + str(error))
 
     def on_close(self, ws, close_status_code, close_msg):
         if self.DEBUG:
@@ -682,7 +719,7 @@ class MatterAdapter(Adapter):
     def download_certs(self):
         if self.DEBUG:
             print("in download_certs")
-        if time.time() - 3600 > self.persistent_data['last_certificates_download_time']:
+        if time.time() - 21600 > self.persistent_data['last_certificates_download_time']:
             if self.DEBUG:
                 print("downloading latest certificates")
             self.certificates_updated = False
@@ -696,7 +733,7 @@ class MatterAdapter(Adapter):
                 self.certificates_updated = True
                 #self.last_certificates_download_time = time.time()
                 self.persistent_data['last_certificates_download_time'] = int(time.time())
-                self.should_save_persistent = True
+                self.should_save = True
                 return True
             else:
                 return False
@@ -825,10 +862,10 @@ class MatterAdapter(Adapter):
         while self.running:
             time.sleep(1)
             
-            if self.should_save_persistent:
+            if self.should_save:
                 if self.DEBUG:
                     print("Should save persistent was True. Saving data to persistent file.")
-                self.should_save_persistent = False
+                self.should_save = False
                 self.save_persistent_data()
 
     
@@ -844,33 +881,10 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             print("\nin run_matter")
         
-        # start Matter Server
+        # Start Matter Server
         await self.server.start()
         
-        """
-        # run the client
-        url = f"http://127.0.0.1:{self.port}/ws"
-        async with aiohttp.ClientSession() as session:
-            print("client session started")
-            async with MatterClient(url, session) as client:
-                print("client started")
-                self.client = client
-                
-                await self.client.connect() # could give an error saying it's already connected
-            
-                # start listening
-                await self.client.start_listening()
-                
-                self.unsubscribe = await self.client.subscribe(self.client_unsubscribe)
-                
-                set_wifi_result_code = await self.client.set_wifi_credentials('ssid_name','wifi_password')
-                print("\n\nset_wifi_result_code: " + str(set_wifi_result_code))
-                
-                self.matter_nodes = await self.client.get_nodes()
-                print("\n\nmatter nodes: " + str(self.matter_nodes))
-                
-                
-        """
+        
         
 
     async def handle_stop(self, loop: asyncio.AbstractEventLoop):
@@ -880,10 +894,132 @@ class MatterAdapter(Adapter):
 
 
 
+    def route_property_change(self,data):
+        if self.DEBUG:
+            print("in route_property_change. Data: " + str(data))
+        try:
+            device_id = 'matter-' + str(data['node_id'])
+            target_device = self.get_device(device_id)
+            
+            if target_device == None:
+                if self.DEBUG:
+                    print("route_property_change: missing device")
+            else:
+                property_id = 'property-' + str(data['attribute_id'])
+                target_property = target_device.find_property(property_id)
+        
+                if target_property == None:
+                    if self.DEBUG:
+                        print("route_property_change: missing property")
+                else:
+                    value = data['value']
+                    self.devices[device_id].properties[property_id].update( value )
+            
+                    
+        except Exception as ex:
+            print("Error in route_property_change: " + str(ex))
 
+        """
+        client: on_message: {
+          "event": "attribute_updated",
+          "data": {
+            "node_id": 52,
+            "endpoint": 1,
+            "cluster_id": 6,
+            "cluster_type": "chip.clusters.Objects.OnOff",
+            "cluster_name": "OnOff",
+            "attribute_id": 0,
+            "attribute_type": "chip.clusters.Objects.OnOff.Attributes.OnOff",
+            "attribute_name": "OnOff",
+            "value": true
+          },
+          "_type": "matter_server.common.models.message.EventMessage"
+        }
+            
+        """
+        
+    
 
-
-
+    # Create new devices from Matter nodes
+    def parse_nodes(self):
+        if self.DEBUG:
+            print("in parse_nodes")
+        for node in self.nodes:
+            try:
+                #if self.DEBUG:
+                #    print("parse nodes: number: " + str(node_number))
+                #node = self.nodes[node_number]
+                node_id = node['node_id']
+                device_id = 'matter-' + str(node_id)
+                if self.DEBUG:
+                    print("device_id: " + str(device_id))
+            
+                target_device = self.get_device(device_id)
+                if target_device == None:
+                    if self.DEBUG:
+                        print("This device does not exist yet. It must be created.")
+            
+                    new_device = MatterDevice(self, device_id, node)
+                    self.handle_device_added(new_device)
+                
+                else:
+                    if self.DEBUG:
+                        print("target_device has already been created")
+            except Exception as ex:
+                if self.DEBUG:
+                    print("error in parse_nodes: " + str(ex))
+            
+        """
+        client: on_message: {
+          "message_id": "get_nodes",
+          "result": [
+            {
+              "node_id": 52,
+              "date_commissioned": "2023-02-06T16:14:17.021028",
+              "last_interview": "2023-02-06T16:14:17.021037",
+              "interview_version": 1,
+              "attributes": {
+                "0/29/0": {
+                  "node_id": 52,
+                  "endpoint": 0,
+                  "cluster_id": 29,
+                  "cluster_type": "chip.clusters.Objects.Descriptor",
+                  "cluster_name": "Descriptor",
+                  "attribute_id": 0,
+                  "attribute_type": "chip.clusters.Objects.Descriptor.Attributes.DeviceTypeList",
+                  "attribute_name": "DeviceTypeList",
+                  "value": [
+                    {
+                      "type": 22,
+                      "revision": 1
+                    }
+                  ]
+                },
+                "0/29/1": {
+                  "node_id": 52,
+                  "endpoint": 0,
+                  "cluster_id": 29,
+                  "cluster_type": "chip.clusters.Objects.Descriptor",
+                  "cluster_name": "Descriptor",
+                  "attribute_id": 1,
+                  "attribute_type": "chip.clusters.Objects.Descriptor.Attributes.ServerList",
+                  "attribute_name": "ServerList",
+                  "value": [
+                    29,
+                    31,
+                    40,
+                    42,
+                    48,
+                    49,
+                    51,
+                    60,
+                    62,
+                    63
+                  ]
+                },
+        
+        """
+                    
 
 
 
@@ -939,7 +1075,7 @@ class MatterAdapter(Adapter):
         
 
     def unload(self):
-        """ Happens when the user addon / system is shut down."""
+        """ Shuts down the addon """
         if self.DEBUG:
             print("Stopping matter addon")
         
@@ -968,6 +1104,7 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             print("goodbye")
         return
+
 
 
     def remove_thing(self, device_id):
@@ -1004,7 +1141,6 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     print("Persistence file existed. Will try to save to it.")
 
-
             out_file = open(str(self.persistence_file_path), "w") 
             json.dump(self.persistent_data, out_file, indent = 4) 
             out_file.close()
@@ -1017,162 +1153,6 @@ class MatterAdapter(Adapter):
                 print("Error: could not store data in persistent store: " + str(ex) )
         
         return False
-
-
-
-
-
-
-
-#
-# DEVICE
-#
-
-# This addon is very basic, in that it only creates a single thing.
-# The device can be seen as a "child" of the adapter
-
-# Adapter
-# - Device  <- you are here
-# - - Property  
-# - Api handler
-
-
-class MatterDevice(Device):
-    """Matter device type."""
-
-    def __init__(self, adapter):
-        """
-        Initialize the object.
-        adapter -- the Adapter managing this device
-        """
-
-        Device.__init__(self, adapter, 'matter')
-
-        self._id = 'matter-thing' # TODO: probably only need the first of these
-        self.id = 'matter-thing'
-        self.adapter = adapter
-        self.DEBUG = adapter.DEBUG
-
-        self.name = 'thing1' # TODO: is this still used? hasn't this been replaced by title?
-        self.title = 'Matter addon thing'
-        self.description = 'Write a description here'
-        
-        # We give this device a "capability". This will cause it to have an icon that indicates what it can do. 
-        # Capabilities are always a combination of giving a this a capability type, and giving at least one of its properties a capability type.
-        # For example, here the device is a "multi level switch", which means it should have a boolean toggle property as well as a numeric value property
-        # There are a lot of capabilities, read about them here: https://webthings.io/schemas/
-        
-        #self._type = ['MultiLevelSwitch'] # a combination of a toggle switch and a numeric value
-
-        try:
-            
-            # Let's add four properties:
-            
-            # This create a toggle switch property
-            self.properties["state"] = MatterProperty(
-                            self,
-                            "state",
-                            {
-                                '@type': 'OnOffProperty', # by giving the property this "capability", it will create a special icon indicating what it can do. Note that it's a string (while on the device it's an array).
-                                'title': "State example",
-                                'readOnly': False,
-                                'type': 'boolean'
-                            },
-                            self.adapter.persistent_data['state']) # we give the new property the value that was remembered in the persistent data store
-                            
-        except Exception as ex:
-            if self.DEBUG:
-                print("error adding properties to thing: " + str(ex))
-
-        if self.DEBUG:
-            print("thing has been created.")
-
-
-#
-# PROPERTY
-#
-# The property can be seen as a "child" of a device
-
-# Adapter
-# - Device
-# - - Property  <- you are here
-# - Api handler
-
-class MatterProperty(Property):
-
-    def __init__(self, device, name, description, value):
-        # This creates the initial property
-        
-        # properties have:
-        # - a unique id
-        # - a human-readable title
-        # value. The current value of this property
-        
-        Property.__init__(self, device, name, description)
-        
-        self.device = device # a way to easily access the parent device, of which this property is a child.
-        
-        # you could go up a few levels to get values from the adapter:
-        # print("debugging? " + str( self.device.adapter.DEBUG ))
-        
-        # TODO: set the ID properly?
-        self.id = name
-        self.name = name # TODO: is name still used?
-        self.title = name # TODO: the title isn't really being set?
-        self.description = description # a dictionary that holds the details about the property type
-        self.value = value # the value of the property
-        
-        # Notifies the controller that this property has a (initial) value
-        self.set_cached_value(value)
-        self.device.notify_property_changed(self)
-        
-        if self.device.DEBUG:
-            print("property: initiated: " + str(self.title) + ", with value: " + str(value))
-
-
-    def set_value(self, value):
-        # This gets called by the controller whenever the user changes the value inside the interface. For example if they press a button, or use a slider.
-        print("property: set_value called for " + str(self.title))
-        print("property: set value to: " + str(value))
-        
-        try:
-            
-            # Depending on which property this is, you could have it do something. That method could be anywhere, but in general it's clean to keep the methods at a higher level (the adapter)
-            # This means that in this example the route the data takes is as follows: 
-            # 1. User changes the property in the interface
-            # 2. Controller calls set_value on property
-            # 3. In this example the property routes the intended value to a method on the adapter (e.g. set_state). See below.
-            # 4. The method on the adapter then does whatever it needs to do, and finally tells the property's update method so that the new value is updated, and the controller is sent a return message that the value has indeed been changed.
-            
-            #  If you wanted to you could simplify this by calling update directly. E.g.:
-            # self.update(value)
-            
-            if self.id == 'state':
-                self.device.adapter.set_state(bool(value))
-        
-            elif self.id == 'slider':
-                self.device.adapter.set_slider(int(value))
-        
-            elif self.id == 'dropdown':
-                self.device.adapter.set_dropdown(str(value))
-        
-            # The controller is waiting 60 seconds for a response from the addon that the new value is indeed set. If "notify_property_changed" isn't used before then, the controller will revert the value in the interface back to what it was.
-            
-        
-        except Exception as ex:
-            print("property: set_value error: " + str(ex))
-
-
-    def update(self, value):
-        # This is a quick way to set the value of this property. It checks that the value is indeed new, and then notifies the controller that the value was changed.
-        
-        print("property: update. value: " + str(value))
-         
-        if value != self.value:
-            self.value = value
-            self.set_cached_value(value)
-            self.device.notify_property_changed(self)
-
 
 
     

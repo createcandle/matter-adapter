@@ -27,6 +27,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 
 import json
 import time
+#import requests
 import subprocess
 #import datetime
 #import requests  # noqa
@@ -57,7 +58,7 @@ if 'WEBTHINGS_HOME' in os.environ:
     _CONFIG_PATHS.insert(0, os.path.join(os.environ['WEBTHINGS_HOME'], 'config'))
 
 
-import asyncio
+
 import logging
 import argparse
 from os.path import abspath, dirname
@@ -65,6 +66,7 @@ from pathlib import Path
 from sys import path
 
 #import aiohttp
+import asyncio
 from aiorun import run
 import coloredlogs
 
@@ -123,7 +125,8 @@ class MatterAdapter(Adapter):
 
         # set up some variables
         self.DEBUG = True
-
+        self.DEBUG2 = True
+        
         self.should_save = False
         
         # There is a very useful variable called "user_profile" that has useful values from the controller.
@@ -146,6 +149,8 @@ class MatterAdapter(Adapter):
         
         self.busy_discovering = False
         self.pairing_failed = False
+        
+        self.brightness_transition_time = 0
         
         
         pwd = run_command('pwd')
@@ -365,7 +370,7 @@ class MatterAdapter(Adapter):
             self.data_path, DEFAULT_VENDOR_ID, DEFAULT_FABRIC_ID, int(self.port)
         )
 
-        # run the server. This is blocking.
+        # Run the server. This is blocking.
         run(self.run_matter(), shutdown_callback=self.handle_stop)
         
         
@@ -444,6 +449,11 @@ class MatterAdapter(Adapter):
                 self.use_hotspot = bool(config["Use Hotspot addon as WiFi network for devices"])
                 if self.DEBUG:
                     print("Use hotspot preference was in settings: " + str(self.use_hotspot))
+                    
+            if 'Brightness transition duration' in config:
+                self.brightness_transition_time = int(config["Brightness transition duration"])
+                if self.DEBUG:
+                    print("Brightness transition preference was in settings: " + str(self.brightness_transition_time))
                     
         except Exception as ex:
             print("Error in add_from_config: " + str(ex))
@@ -529,6 +539,7 @@ class MatterAdapter(Adapter):
             print("General error in client thread: " + str(ex))
         
         
+        
     def on_message(self, ws, message="{}"):
         print("\n.\nclient: on_message: " + str(message) + "\n\n")
         try:
@@ -543,7 +554,6 @@ class MatterAdapter(Adapter):
                     if self.DEBUG:
                         print("\n\nRECEIVED MATTER SERVER INFO\n\n")
                     self.client_connected = True
-                    
                     
                     # Start listening
                     if self.DEBUG:
@@ -572,7 +582,6 @@ class MatterAdapter(Adapter):
                     if self.DEBUG:
                         print("Asking for nodes list")
                     self.get_nodes()
-                    
                     
                 
                 # Handle success messages
@@ -609,8 +618,13 @@ class MatterAdapter(Adapter):
                             print("\n\nGET NODES succesfull\n\n")
                         self.nodes = message['result']
                         self.parse_nodes()
+                    elif message['message_id'].startswith('get_node_'):
+                        if self.DEBUG:
+                            print("\n\nGET NODE succesfull\n\n")
+                        device_info = message['result']
+                        if self.DEBUG:
+                            print("DEVICE INFO: " + str(json.dumps(device_info)))
                     
-                
                 
                 # Handle event messages
                 elif message['_type'].endswith("message.EventMessage"):
@@ -623,15 +637,21 @@ class MatterAdapter(Adapter):
                         
                         if message['event'] == 'attribute_updated':
                             if self.DEBUG:
-                                print("\nINCOMING PROPERTY CHANGE\n")
+                                print("\nADAPTER: INCOMING PROPERTY CHANGE\n")
                             self.route_property_change(message['data'])
-                
                 
                 
                 # Handle error messages
                 elif message['_type'].endswith("message.ErrorResultMessage"):
                     if self.DEBUG:
                         print("\nRECEIVED ERROR MESSAGE\n")
+                        
+                    """
+                        INVALID_COMMAND = 1
+                        NOT_FOUND = 2
+                        STACK_ERROR = 3
+                        UNKNOWN_ERROR = 99
+                    """
                         
                     if message['message_id'] == 'commission_with_code':
                         if self.DEBUG:
@@ -640,7 +660,8 @@ class MatterAdapter(Adapter):
                         
                     
             else:
-                print("Warning, there was no _type in the message")
+                if self.DEBUG:
+                    print("Warning, there was no _type in the message")
         
                 #self.should_save = True
         
@@ -669,7 +690,7 @@ class MatterAdapter(Adapter):
             if self.client_connected:
                 
                 if self.DEBUG:
-                    print("start_pairing: Client is connected, so asking for latest node list")
+                    print("get_nodes: Client is connected, so asking for latest node list")
                 
                 message = {
                         "message_id": "get_nodes",
@@ -677,16 +698,75 @@ class MatterAdapter(Adapter):
                       }
                 json_message = json.dumps(message)
                 self.ws.send(json_message)
+                
+                return True
+                
+        except Exception as ex:
+            print("Error in get_nodes: " + str(ex))
+        
+        return False
+
+
+    def get_node(self, node_id):
+        try:
+            if self.client_connected:
+                
+                if self.DEBUG:
+                    print("get-node: Client is connected, so asking for info on single node")
+                
+                message = {
+                        "message_id": "get_node",
+                        "command": "get_node",
+                        "args": {
+                            "node_id": node_id
+                        }
+                        
+                      }
+                json_message = json.dumps(message)
+                self.ws.send(json_message)
             
                 return True
                 
         except Exception as ex:
-            print("Error in start_pairing: " + str(ex))
+            print("Error in get_node: " + str(ex))
         
         return False
 
 
 
+    # open_commissioning_window
+    def share_node(self, node_id):
+        
+        """
+        async def open_commissioning_window(
+                self,
+                node_id: int,
+                timeout: int = 300,
+                iteration: int = 1000,
+                option: int = 0,
+                discriminator: Optional[int] = None,
+            ) -> int:
+        
+                #Open a commissioning window to commission a device present on this controller to another.
+                #Returns code to use as discriminator.
+                
+                return cast(
+                    int,
+                    await self.send_command(
+                        APICommand.OPEN_COMMISSIONING_WINDOW,
+                        node_id=node_id,
+                        timeout=timeout,
+                        iteration=iteration,
+                        option=option,
+                        discriminator=discriminator,
+                    ),
+                )
+        
+        """
+        
+
+
+    # Not currently used
     def discover(self):
         try:
             if self.client_connected:
@@ -953,6 +1033,12 @@ class MatterAdapter(Adapter):
                 device_id = 'matter-' + str(node_id)
                 if self.DEBUG:
                     print("device_id: " + str(device_id))
+            
+                # already handled by device
+                #if not device_id in self.persistent_data['nodez']:
+                #    self.persistent_data['nodez'][device_id] = {'device_id':device_id,'node_id':node_id,'attributes':{}}
+                #    self.adapter.should_save = True
+                    
             
                 target_device = self.get_device(device_id)
                 if target_device == None:

@@ -33,14 +33,11 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
                     
                     <div class="extension-matter-adapter-area">
                         <h2>This addon is in very early development</h2>
-		                <p>Currently it creates a Matter server and listens for incoming messages. But it doesn't turn those into devices yet.</p>
+		                <p>It is currently possible to pair switch devices and get their state.</p>
                     </div>
 			
                     <div id="extension-matter-adapter-install-hotspot-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
                         <p>To protect your privacy it's recommended to also install the Hotspot addon. It can create a WiFi guest network for your devices, and gives you control over which servers devices on that network may connect to. If you install it, this addon will automatically tell new WiFi-based Matter devices to connect to that network.</p>
-                    </div>
-                    <div id="extension-matter-adapter-missing-wifi-credentials-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
-                        <p>This addon needs to know which Wi-Fi network new Matter devices should be told to connect to. It also needs to tell new Matter devives which WiFi password to use. If you are not using the Hotspot addon, then you will need to provide the WiFi name and password in this addon's settings.</p>
                     </div>
                     
     			    <div id="extension-matter-adapter-loading">
@@ -66,94 +63,212 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
             
             
             
-            <div id="extension-matter-adapter-second-page" class="extension-matter-adapter-busy-discovering">
+            <div id="extension-matter-adapter-second-page" class="extension-matter-adapter-pairing-questioning">
                 
                 <div class="extension-matter-adapter-centered-page">
                 
         		<h2>Pair a new Matter device</h2>
-                <p>Adding a new Matter device to your home is slightly more involved, so it must be done here.</p>
-                <p>The new device must be within Bluetooth range of the Candle controller - the closer the better.</p>
-                <!--
-			    
-                -->
-                
-                
-                
-                <div id="extension-matter-adapter-pairing-step1" class="extension-matter-adapter-area">
-                    <h4>STEP 1 - Scanning</h4>
-                    <p>Make sure the device is turned off or not already in its pairing state.</p>
-                    <p>Then start the pairing process on the device. For example by pressing a button on the device until it resets or enters pairing mode. The manual for your device should explain how to do this.</p>
-                    
-                    
-                    <div id="extension-matter-adapter-discovered-devices-list" class="extension-matter-adapter-area">
-    				    <div class="extension-matter-adapter-spinner">
-    				        <div></div><div></div><div></div><div></div>
-    				    </div>
+                 
+                <div id="extension-matter-adapter-pairing-network-question-container" class="extension-matter-adapter-area">
+                    <p style="text-align:center">Is the Matter device already connected to your network?</p>
+                    <div style="display:flex;justify-content:space-around; padding:2rem 0">
+                        <button id="extension-matter-adapter-pairing-network-question-normal-button" class="text-button">No</button>
+                        <button id="extension-matter-adapter-pairing-network-question-network-button" class="text-button">Yes</button>
                     </div>
-                    
-                    <div class="extension-matter-adapter-align-right">
-                        <button id="extension-matter-adapter-discover-button" class="text-button">Scan again</button>
-                    </div>
-                    
                 </div>
+               	
+				<div id="extension-matter-adapter-pairing-steps">
+                    
+                    <!--
+					<div id="extension-matter-adapter-pairing-step1" class="extension-matter-adapter-area">
+						<h4>Preparation</h4>
+						<p>To pair a new Matter device:</p>
+						<ul>
+							<li>The device must be within Bluetooth range of the Candle Controller</li>
+							<li>If it's a battery powered device, make sure it has enough charge remaining</li>
+							<li>For an existing device: do a factory reset of the device. The manual for your device should explain how to do this.</li>
+						</ul>
+						<p></p>
+					</div>
+                    -->
+                    
+					<div id="extension-matter-adapter-pairing-step-wifi" class="extension-matter-adapter-area">
+						<h4>Provide WiFi credentials</h4>
+						<p>If it's a WiFi based device you will also need to provide the WiFi name and password.</p>
+						<div id="extension-matter-adapter-current-wifi-ssid-container" class="extension-matter-adapter-hidden">
+							<p>Wifi credentials will be shared for: <span id="extension-matter-adapter-current-wifi-ssid">...</span><p>
+							<button id="extension-matter-adapter-reveal-wifi-setup-button">Change</button>
+						</div>
+						<div id="extension-matter-adapter-provide-wifi-container">
+							<input type="text" id="extension-matter-adapter-wifi-ssid" placeholder="WiFi name"/>
+							<input type="text" id="extension-matter-adapter-wifi-password" placeholder="WiFi password"/>
+
+							<input type="checkbox" id="extension-matter-adapter-wifi-remember-checkbox" name="extension-matter-adapter-wifi-remember-checkbox" data-val="true" and value="true"/><label for="extension-matter-adapter-wifi-remember-checkbox">Remember WiFi name and password</label>
+						</div>
+
+						<!--
+						<p>Make sure the device is turned off or not already in its pairing state.</p>
+						<p>Then start the pairing process on the device. For example by pressing a button on the device until it resets or enters pairing mode. The manual for your device should explain how to do this.</p>
+
+
+						<div id="extension-matter-adapter-discovered-devices-list" class="extension-matter-adapter-area">
+							<div class="extension-matter-adapter-spinner">
+								<div></div><div></div><div></div><div></div>
+							</div>
+						</div>
+
+						<div class="extension-matter-adapter-align-right">
+							<button id="extension-matter-adapter-discover-button" class="text-button">Scan again</button>
+						</div>
+						-->
+					</div>
+
+
+
+					<div id="extension-matter-adapter-pairing-step-qr" class="extension-matter-adapter-area">
+						<h4>Getting the pairing code</h4>
+
+						<p>Your device should have a QR code on it which we need to scan.</p>
+
+
+						<div id="extension-matter-adapter-pairing-qr-area">
+							<p>Scan this QR code with your phone to get started:</p>
+							<div id="extension-matter-adapter-qr-code"></div>
+							<div style="background-color:white; padding:0 2rem 2rem 2rem; text-align:center">
+								<a id="extension-matter-adapter-qr-scan-link" href="https://www.candlesmarthome.com/qr"><span id="extension-matter-adapter-short-qr-scan-url">candlesmarthome.com/qr</span></a>
+							</div>
+
+							<div class="extension-matter-adapter-align-right">
+								<button id="extension-matter-adapter-show-more-pairing-options-button" class="text-button">Show other options</button>
+							</div>
+
+							<div id="extension-matter-adapter-other-pairing-options-container" class="extension-matter-adapter-hidden">
+
+								<!--<p>Open this link on a phone or a computer with a webcam: </p>-->
+
+								<p>If you already know the pairing code, then you can enter it here. It should start with <span style="font-weight:bold">MT:</span></p>
+								<input id="extension-matter-adapter-pairing-code-input" type="text" placeholder="MT:ETCETERA.ETCETERA"/>
+								<div class="extension-matter-adapter-align-right">
+									<button id="extension-matter-adapter-save-manual-input-pairing-code-button" class="text-button">Save</button>
+								</div>
+							</div>
+						</div>
+
+
+						<!--
+						<div id="extension-matter-adapter-qr-scan-button-container">
+							<p>Scan this QR code with your phone to open the Matter Code scanner</p>
+							<div id="extension-matter-adapter-qr-code"></div>
+
+							<p class="extension-matter-adapter-hidden-on-kiosk" style="text-align:center">- or use this link -</p>
+							<a id="extension-matter-adapter-qr-scan-button" href="https://www.candlesmarthome.com/qr" class="extension-matter-adapter-hidden-on-kiosk"><button class="text-button">Open QR code scanner</button></a>
+
+						</div>
+						<div id="extension-matter-adapter-qr-scan-hint" class="extension-matter-adapter-area">
+							<p>You can find the code by using candlesmarthome.com/qr or by accessing the Candle Controller from your phone.</p>
+						</div>
+						-->
+
+
+					</div>
+
+
+
+					<div id="extension-matter-adapter-pairing-start-area" class="extension-matter-adapter-area">
+						<h4>Ready to pair</h4>
+
+                        <p>Using pairing code: <span id="extension-matter-adapter-pairing-start-area-pairing-code">Error!</span></p>
+						<div id="extension-matter-adapter-busy-updating-certificates" class="extension-matter-adapter-hidden">
+							<div class="extension-matter-adapter-spinner">
+								<div></div><div></div><div></div><div></div>
+							</div>
+							<p style"text-align:center">Updating certificates...</p>
+						</div>
+                        
+                        <p id="extension-matter-adapter-pairing-bluetooth-hint">
+    						<ul>
+    							<li>The device must be within Bluetooth range of the Candle Controller</li>
+    							<li>It's recommended to factory reset the device</li>
+    						</ul>
+                        </p>
+                        
+						<div class="extension-matter-adapter-align-right">
+							<button id="extension-matter-adapter-start-normal-pairing-button" class="text-button extension-matter-adapter-start-pairing-button">Start normal pairing</button>
+							<button id="extension-matter-adapter-start-network-pairing-button" class="text-button extension-matter-adapter-start-pairing-button">Start network pairing</button>
+						</div>
+
+						<div id="extension-matter-adapter-busy-pairing-indicator" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+							<div class="extension-matter-adapter-spinner">
+								<div></div><div></div><div></div><div></div>
+							</div>
+							<h4>Pairing...</h4>
+						</div>
+						<div id="extension-matter-adapter-pairing-failed-hint" class="extension-matter-adapter-area extension-matter-adapter-error extension-matter-adapter-hidden">
+							<h4>Pairing failed</h4>
+							<button id="extension-matter-adapter-pairing-failed-try-again-button" class="text-button">Try again</button>
+						</div>
+					</div>
+					<!--
+					<div id="extension-matter-adapter-pairing-step2" class="extension-matter-adapter-area">
+						<h4>STEP 2 - Pairing "<span id="extension-matter-adapter-pairing-step2-device-title">...</span>"</h4>
+
+						<p>If your Matter device uses WiFi, then it will need the WiFi name and password. First this will be transmitted to the new device via Bluetooth, and then it will use them to connect to your WiFi network.
+
+						<div id="extension-matter-adapter-current-wifi-ssid-container" class="extension-matter-adapter-hidden">
+							<p>Wifi credentials will be shared for: <span id="extension-matter-adapter-current-wifi-ssid">...</span><p>
+							<button id="extension-matter-adapter-reveal-wifi-setup-button">Change</button>
+
+						</div>
+						<div id="extension-matter-adapter-provide-wifi-container">
+							<input type="text" id="extension-matter-adapter-wifi-ssid" placeholder="WiFi name"/>
+							<input type="text" id="extension-matter-adapter-wifi-password" placeholder="WiFi password"/>
+
+							<input type="checkbox" id="extension-matter-adapter-wifi-remember-checkbox" name="extension-matter-adapter-wifi-remember-checkbox" data-val="true" and value="true"/><label for="extension-matter-adapter-wifi-remember-checkbox">Remember WiFi name and password</label>
+						</div>
+
+						<p>Your device came with a unique pairing code, in the form of a QR code.</p>
+						<input id="extension-matter-adapter-pairing-code" type="text" placeholder="Pairing code"/>
+
+						<div id="extension-matter-adapter-qr-code"></div>
+
+						<div id="extension-matter-adapter-qr-scan-button-container">
+							<button id="extension-matter-adapter-qr-scan-button" class="text-button">Scan QR code</button>
+						</div>
+						<div id="extension-matter-adapter-qr-scan-hint" class="extension-matter-adapter-area">
+							<p>You can find the code by visiting <span id="extension-matter-adapter-short-qr-scan-url">candlesmarthome.com/qr</span> or by accessing the Candle Controller from your phone.</p>
+						</div>
+
+						<div class="extension-matter-adapter-align-right">
+							<button id="extension-matter-adapter-start-pairing-button" class="text-button">Start normal pairing</button> <button id="extension-matter-adapter-start-network-pairing-button" class="text-button">Start network pairing</button>
+						</div>
+
+
+						<div id="extension-matter-adapter-busy-updating-certificates" class="extension-matter-adapter-hidden">
+							<p>Preparing by updating certificates...</p>
+						</div>
+
+						<div id="extension-matter-adapter-busy-pairing-indicator" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+							<div class="extension-matter-adapter-spinner">
+								<div></div><div></div><div></div><div></div>
+							</div>
+							<h4>Pairing...</h4>
+						</div>
+						<div id="extension-matter-adapter-pairing-failed-hint" class="extension-matter-adapter-area extension-matter-adapter-error extension-matter-adapter-hidden">
+							<h4>Pairing failed</h4>
+							<button id="extension-matter-adapter-pairing-failed-try-again-button" class="text-button">Try again</button>
+						</div>
+
+					</div>
+					-->
+
+
+					<button id="extension-matter-adapter-stop-poll-button">STOP POLL</button>
+                    
+				</div>
+					
                 
                 
-                <div id="extension-matter-adapter-pairing-step2" class="extension-matter-adapter-area">
-                    <h4>STEP 2 - Pairing "<span id="extension-matter-adapter-pairing-step2-device-title">...</span>"</h4>
-                    
-                    <p>If your Matter device uses WiFi, then it will need the WiFi name and password. First this will be transmitted to the new device via Bluetooth, and then it will use them to connect to your WiFi network.
-                    
-                    <div id="extension-matter-adapter-current-wifi-ssid-container" class="extension-matter-adapter-hidden">
-                        <p>Wifi credentials will be shared for: <span id="extension-matter-adapter-current-wifi-ssid">...</span><p>
-                        <button id="extension-matter-adapter-reveal-wifi-setup-button">Change</button>
-                            
-                    </div>
-                    <div id="extension-matter-adapter-provide-wifi-container">
-                        <input type="text" id="extension-matter-adapter-wifi-ssid" placeholder="WiFi name"/>
-                        <input type="text" id="extension-matter-adapter-wifi-password" placeholder="WiFi password"/>
-                    
-                        <input type="checkbox" id="extension-matter-adapter-wifi-remember-checkbox" name="extension-matter-adapter-wifi-remember-checkbox" data-val="true" and value="true"/><label for="extension-matter-adapter-wifi-remember-checkbox">Remember WiFi name and password</label>
-                    </div>
-                    
-                    <p>Your device came with a unique pairing code, in the form of a QR code. Please enter that code here:</p>
-                    <input id="extension-matter-adapter-pairing-code" type="text" placeholder="Pairing code"/>
-                    <div id="extension-matter-adapter-qr-scan-button-container">
-                        <button id="extension-matter-adapter-qr-scan-button" class="text-button">Scan QR code</button>
-                    </div>
-                    <div id="extension-matter-adapter-qr-scan-hint" class="extension-matter-adapter-area">
-                        <p>You can find the code by using candlesmarthome.com/qr or by accessing the Candle Controller from your phone.</p>
-                    </div>
-                    
-                    <div class="extension-matter-adapter-align-right">
-                        <button id="extension-matter-adapter-start-pairing-button" class="text-button">Start normal pairing</button> <button id="extension-matter-adapter-start-network-pairing-button" class="text-button">Start network pairing</button>
-                    </div>
-                    
-                    
-                    <div id="extension-matter-adapter-busy-updating-certificates" class="extension-matter-adapter-hidden">
-                        <p>Preparing by updating certificates...</p>
-                    </div>
-                    
-                    <div id="extension-matter-adapter-busy-pairing-indicator" class="extension-matter-adapter-area extension-matter-adapter-hidden">
-    				    <div class="extension-matter-adapter-spinner">
-    				        <div></div><div></div><div></div><div></div>
-    				    </div>
-                        <h4>Pairing...</h4>
-                    </div>
-                    <div id="extension-matter-adapter-pairing-failed-hint" class="extension-matter-adapter-area extension-matter-adapter-error extension-matter-adapter-hidden">
-                        <h4>Pairing failed</h4>
-                        <button id="extension-matter-adapter-pairing-failed-try-again-button" class="text-button">Try again</button>
-                    </div>
-                    
-                </div>
                 
-                <button id="extension-matter-adapter-stop-poll-button">STOP POLL</button>
-                <div id="extension-matter-adapter-pairing-step3" class="extension-matter-adapter-area extension-matter-adapter-hidden">
-                    <h4>STEP 3</h4>
-                    <p>Something.</p>
-                </div>
-                
-                
-        
                 <!--<img src="/extensions/matter-adapter/images/lotus.jpg" />-->
         
                 <!-- 
@@ -166,7 +281,6 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
         
             </div>
             
-		
         </div>
         
         

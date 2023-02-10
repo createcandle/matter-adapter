@@ -11,7 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 
 import json
 import time
-
+import requests
 from gateway_addon import APIHandler, APIResponse
 
 
@@ -115,7 +115,8 @@ class MatterAPIHandler(APIHandler):
                                       'wifi_ssid': self.adapter.wifi_ssid,
                                       'wifi_credentials_available': wifi_credentials_available,
                                       'client_connected': self.adapter.client_connected,
-                                      'nodes': self.adapter.nodes
+                                      'nodes': self.adapter.nodes,
+                                      'nodez': self.adapter.persistent_data['nodez']
                                       }),
                         )
                         
@@ -124,6 +125,36 @@ class MatterAPIHandler(APIHandler):
                     if action == 'poll':
                         if self.DEBUG:
                             print("API: in poll")
+                        
+                        code = ""
+                        qr_json = ""
+                        
+                        try:
+                            uuid = str(request.body['uuid'])
+                            parameters = {
+                                        "action": "load",
+                                        "uuid": uuid 
+                                    }
+                       
+                            if self.adapter.DEBUG2:
+                                print("poll: doing request to candle webserver. parameters: " + str(parameters))
+                            q = requests.post( "https://www.candlesmarthome.com/qr/ajax.php", data = parameters )
+                            if self.adapter.DEBUG2:
+                                print("q.content = " + str(q.content))
+                                print("q.json = " + str(q.json))
+                            if len(str(q.content)) > 4:
+                                qr_json = q.json()
+                                if 'code' in qr_json:
+                                    code = qr_json['code']
+                                else:
+                                    print('no code in post json')
+                            else: 
+                                print('not long enough')
+                        
+                        except Exception as ex:
+                            if self.DEBUG:
+                                print("Error doing post request for pairing code from QR scanner: " + str(ex))
+                            code = "error"
                         
                         return APIResponse(
                           status=200,
@@ -134,6 +165,7 @@ class MatterAPIHandler(APIHandler):
                                       'client_connected': self.adapter.client_connected,
                                       'discovered': self.adapter.discovered,
                                       'busy_discovering':self.adapter.busy_discovering,
+                                      'pairing_code': code,
                                       'pairing_failed':self.adapter.pairing_failed,
                                       'nodes': self.adapter.nodes
                                       }),

@@ -1,25 +1,42 @@
 
 import json
+#import asyncio
+#from aiorun import run
 from gateway_addon import Property
-from chip.clusters import Objects as clusters
+from chip.clusters import Objects as clusters # also loaded as dependency from matter_server, see below
 from chip.clusters import ClusterCommand
-from dataclasses import dataclass, asdict, field, InitVar
+
+#from dataclasses import dataclass, asdict, field, InitVar
+#from dataclasses import MISSING, asdict, fields, is_dataclass
+
+try:
+    from matter_server.common.helpers.util import dataclass_from_dict,dataclass_to_dict
+    from matter_server.common.models.api_command import APICommand
+    from matter_server.common.models.message import CommandMessage
+    #from matter_server.common.json_utils import CHIPJSONDecoder, CHIPJSONEncoder
+    #from matter_server.vendor.chip.clusters import Objects as clusters
+except Exception as ex:
+    print("Error loading matter_server parts: " + str(ex))
 
 
+from .matter_util import *
+
+    
 #
 # PROPERTY
 #
 
 class MatterProperty(Property):
 
-    def __init__(self, device, name, description, value, attribute): # description here means the dictionary that described the property, not a text description.
+    def __init__(self, device, name, description, value, attribute,settings=None): # description here means the dictionary that described the property, not a text description.
         # This creates the initial property
         property_id = 'property-' + str(attribute['attribute_id'])
         print("Property: property_id: " + str(property_id))
         Property.__init__(self, device, property_id, description)
         
-        self.device = device
         self.DEBUG = device.DEBUG
+        
+        self.device = device
         
         self.id = property_id
         self._id = property_id
@@ -30,9 +47,18 @@ class MatterProperty(Property):
         
         self.attribute = attribute
         
+        
+        if settings != None:
+            for key, value in setings.items():
+                print("creating self." + str(key) + ", with value: " + str(value))
+                self[key] = value
+        
         # Notifies the controller that this property has a (initial) value
         self.set_cached_value(value)
         self.device.notify_property_changed(self)
+        
+        
+        
         
         if self.device.DEBUG:
             print("property: initiated: " + str(self.title) + ", with value: " + str(value))
@@ -44,54 +70,96 @@ class MatterProperty(Property):
         print("property: set value to: " + str(value))
         print("self.attribute: " + str(self.attribute))
         try:
+            
+            # Data Mute is a little different
             if self.id == 'matter-data_mute':
                 self.device.data_mute = bool(value)
                 
+            # Turn property changes into Matter commands
             else:
-                #print("property attribute: " + str(self.attribute))
-                #print("DIR: " + str(dir(clusters.OnOff.Commands)))
-		        
-                mock_cluster_command = ClusterCommand()
-                message = {
-                        "message_id": "device_command",
-                        "command": "device_command",
-                        "args": {
-                            "endpoint": int(self.attribute['endpoint']),
-                            "node_id": int(self.attribute['node_id']),
-                            "payload": mock_cluster_command #{'value':'Toggle'} #asdict(clusters.OnOff.Commands.Off())
-                        }
-                      }
-                  
-                """
-                message = {
-                    'node_id':self.device.node_id,
-                    endpoint=self._device_type_instance.endpoint,
-                    command=clusters.OnOff.Commands.On()
-                }
-            
-                if self.id == 'state':
-                    self.device.adapter.set_state(bool(value))
-                    message['endpoint] = 
-        
-                elif self.id == 'slider':
-                    self.device.adapter.set_slider(int(value))
-        
-                elif self.id == 'dropdown':
-                    self.device.adapter.set_dropdown(str(value))
-                """
-            
-            
-        
-                # send device command
-                if self.DEBUG:
-                    dump = json.dumps(message, sort_keys=True, indent=4, separators=(',', ': '))
-                    print("\n.\n) ) )\n.\nsending change value message to the Matter network: " + str(dump))
-                json_message = json.dumps(message)
+                message = None
+                command = None
+                
+                if self.description['readOnly'] == True:
+                    print("Error / impossible: readOnly property cannot be changed")
+                    return
+                
+                
+                #if self.title.lower() == 'state' or self.short_type = 'OnOff.Attributes.OnOff':
+                # OnOff switch
+                if self.short_type == 'OnOff.Attributes.OnOff':
+                    print("attempting to create cluster command for OnOff")
+                    if value == True:
+                        command = clusters.OnOff.Commands.On()
+                    else:
+                        command = clusters.OnOff.Commands.Off()
+                
+                # Brightness
+                elif self.short_type == 'LevelControl.Attributes.CurrentLevel':
+                    print("attempting to create cluster command for CurrentLevel")
+                    if value == True:
+                        command = clusters.LevelControl.Commands.MoveToLevelWithOnOff(
+                                        level=int(value),
+                                        transitionTime=self.device.adapter.brightness_transition_time,
+                                        )
+                
+                # Color temperature
+                elif self.short_type == 'ColorControl.Attributes.ColorTemperatureMireds':
+                    print("attempting to create cluster command for ColorTemperatureMireds")
+                    #if value == True:
+                        
+                    clusters.ColorControl.Commands.MoveToColorTemperature(
+                                    colorTemperature=value,
+                                    # It's required in TLV. We don't implement transition time yet.
+                                    transitionTime=self.device.adapter.brightness_transition_time,
+                                )
+                
+                # color
+                elif self.short_type == 'ColorControl.Attributes.CurrentX':
+                    print("attempting to create cluster command for CurrentX and CurrentY")
+                    if not value.startswith('#'): # could be a string like "green" or "blue"
+                        value = colorNameToHex(value)
+                    else:
+                        xy_tuple = hex_to_xy(value) # translate hex to x + y (and brightness? Which is discarded?)
+                        
+                    command = clusters.ColorControl.Commands.MoveToColor(
+                                    colorX=int(xy_tuple.x),
+                                    colorY=int(xy_tuple.y),
+                                    # It's required in TLV. We don't implement transition time yet.
+                                    transitionTime=self.device.adapter.brightness_transition_time,
+                                )
+                
+                
+                # If a matching command was found, then it can be sent to the Matter server
+                if command == None:
+                    print("ERROR, COMMAND WAS STILL NONE")
+                else:
+                    print("\n\nSTART\n\n")
+                    #command = clusters.OnOff.Commands.Toggle() # test
+                    payload = dataclass_to_dict(command)
+                    print("\n\n_____\npayload as dict: " + str(payload))
+                    message = {
+                            "message_id": "device_command",
+                            "command": "device_command",
+                            "args": {
+                                "endpoint": int(self.attribute['endpoint']),
+                                "node_id": int(self.attribute['node_id']),
+                                "payload": payload
+                            }
+                          }
+                
+                    
+                    if message != None:
+                    
+                        # send device command
+                        if self.DEBUG:
+                            dump = json.dumps(message, sort_keys=True, indent=4, separators=(',', ': '))
+                            print("\n.\n) ) )\n.\nsending change value message to the Matter network: " + str(dump))
+                        json_message = json.dumps(message)
 
-                self.device.adapter.ws.send(json_message)
-            
-            
-        
+                        self.device.adapter.ws.send(json_message)
+                    
+                
                 """
                 client: on_message: {
                   "event": "attribute_updated",
@@ -115,9 +183,17 @@ class MatterProperty(Property):
         except Exception as ex:
             print("property: set_value error: " + str(ex))
 
+    #def send_to_matter(self,command):
+    #    run(self.run_matter(), shutdown_callback=self.handle_stop)
+
 
     def update(self, value):
         # This is a quick way to set the value of this property. It checks that the value is indeed new, and then notifies the controller that the value was changed.
+        
+        if self.device.data_mute:
+            if self.DEBUG:
+                print("update of value blocked by Data mute for: " + str(self.title))
+            return
         
         print("property: update. value: " + str(value))
          
@@ -126,45 +202,4 @@ class MatterProperty(Property):
             self.set_cached_value(value)
             self.device.notify_property_changed(self)
 
-
-
-
-"""
-def dataclass_to_dict(obj_in: object, skip_none: bool = False) -> dict:
-    if skip_none:
-        dict_obj = asdict(
-            obj_in, dict_factory=lambda x: {k: v for (k, v) in x if v is not None}
-        )
-    else:
-        dict_obj = asdict(obj_in)
-
-    def _convert_value(value: Any) -> Any:
-        if isinstance(value, list):
-            return [_convert_value(x) for x in value]
-        if isinstance(value, Nullable) or value == NullValue:
-            return None
-        if isinstance(value, dict):
-            return _clean_dict(value)
-        if isinstance(value, Enum):
-            return value.value
-        if isinstance(value, bytes):
-            return b64encode(value).decode()
-        if isinstance(value, float32):
-            return float(value)
-        if type(value) == type:
-            return f"{value.__module__}.{value.__qualname__}"
-        if isinstance(value, Exception):
-            return None
-        return value
-
-    def _clean_dict(_dict_obj: dict) -> dict:
-        _final = {}
-        for key, value in _dict_obj.items():
-            if isinstance(key, int):
-                key = str(key)
-            _final[key] = _convert_value(value)
-        return _final
-
-    dict_obj["_type"] = f"{obj_in.__module__}.{obj_in.__class__.__qualname__}"
-    return _clean_dict(dict_obj)
-"""
+ 

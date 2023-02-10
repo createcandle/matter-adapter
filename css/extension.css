@@ -35,6 +35,7 @@ extension-matter-adapter-
 
 .extension-matter-adapter-align-right{
     text-align:right;
+    margin-top:1rem;
 }
 
 #extension-matter-adapter-content-container {
@@ -232,8 +233,41 @@ extension-matter-adapter-
 
 
 
+
+
+
 /*  PAIRING  */
 
+#extension-matter-adapter-pairing-network-question-container{
+	display:none
+}
+.extension-matter-adapter-pairing-questioning #extension-matter-adapter-pairing-network-question-container{
+	display:block;
+}
+.extension-matter-adapter-pairing-questioning #extension-matter-adapter-pairing-steps{
+	display:none;
+}
+
+.extension-matter-adapter-pairing-network #extension-matter-adapter-pairing-bluetooth-hint,
+.extension-matter-adapter-pairing-network #extension-matter-adapter-pairing-step-wifi{
+	display:none;
+}
+
+
+#extension-matter-adapter-wifi-remember-checkbox{
+    margin-top:1rem;
+}
+
+
+.extension-matter-adapter-start-pairing-button{
+    display:none;
+}
+.extension-matter-adapter-pairing-normal #extension-matter-adapter-start-normal-pairing-button{
+    display:inline-block;
+}
+.extension-matter-adapter-pairing-network #extension-matter-adapter-start-network-pairing-button{
+    display:inline-block;
+}
 
 
 .extension-matter-adapter-busy-pairing-hint{
@@ -249,22 +283,52 @@ extension-matter-adapter-
 
 #extension-matter-adapter-second-page input[type='text']{
     width:100%;
+    box-sizing:border-box;
+    padding:2rem;
 }
 
+#extension-matter-adapter-second-page ul li{
+    line-height: 2.6rem;
+    margin-bottom:1rem;
+}
 
+/*
 body.kiosk #extension-matter-adapter-qr-scan-button-container{
     display:none;
 }
-#extension-matter-adapter-qr-scan-hint{
-    display:none;
+*/
+
+
+
+/*  QR CODE  */
+#extension-matter-adapter-qr-code{
+    background-color:white;
+    border:4rem solid white;
+    text-align:center;
+    margin: 2rem auto 0 auto;
 }
-body.kiosk #extension-matter-adapter-qr-scan-hint{
-    display:block;
+
+#extension-matter-adapter-qr-code img{
+    margin: 0 auto;
+}
+
+#extension-matter-adapter-qr-scan-link{
+    color:#666;
+}
+
+#extension-matter-adapter-short-qr-scan-url{
+    font-weight:bold;
 }
 
 
-/*  BUSY PAIRING  */
 
+
+
+
+/*  START PAIRING  */
+#extension-matter-adapter-pairing-start-area-pairing-code{
+    font-weight:bold;
+}
 
 #extension-matter-adapter-pairing-busy-pairing-container{
     display:none;
@@ -274,6 +338,13 @@ body.kiosk #extension-matter-adapter-qr-scan-hint{
     display:block;
 }
 
+
+#extension-matter-adapter-stop-poll-button{
+    display:none;
+}
+.developer #extension-matter-adapter-stop-poll-button{
+    display:inline-block;
+}
 
 
 /*  loading spinner  */

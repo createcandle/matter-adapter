@@ -7,7 +7,8 @@
         "css/extension.css"
       ],
       "js": [
-        "js/extension.js"
+        "js/extension.js",
+		"js/qrcode.js"
       ]
     }
   ],  
@@ -26,22 +27,22 @@
   "name": "Matter adapter",
   "options": {
     "default": {
-      "Debugging": false,
-	  "Use Hotspot addon as WiFi network for devices": true
+	  "Brightness transition duration":0,
+	  "Use Hotspot addon as WiFi network for devices": false,
+      "Debugging": false
+	  
     },
     "schema": {
       "properties": {
-        "WiFi name": {
-            "description": "What is the name of the WiFi network the Matter devices should connect to (if they use WiFi).",
-            "type": "string"
-        },
-        "WiFi password": {
-            "description": "What is the password of the WiFi network?",
-            "type": "string"
+        "Brightness transition duration": {
+            "description": "If you would like your lights brightness transitions to not be instantaneous you can set a specific speed in seconds here. The default is 0.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
         },
 		"Use Hotspot addon as WiFi network for devices":{
             "type": "boolean",
-            "description": "It is recommended to use the Hotspot addon to generate a separate guest WiFi network for smart devices that connect using Wi-Fi. Doing so will give you more control over the communication habits of your Matter devices."
+            "description": "Advanced. In development. It is recommended to use the Hotspot addon to generate a separate guest WiFi network for smart devices that connect using Wi-Fi. Doing so will give you more control over the communication habits of your Matter devices."
 		},
         "Debugging": {
           "type": "boolean",
@@ -53,7 +54,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.0.11",
+  "version": "0.1.0",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

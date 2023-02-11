@@ -31,10 +31,12 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
                 
                 <div class="extension-matter-adapter-centered-page"> <!-- This centered page div sets a maximum with for the content and centers it. -->
                     
+                    <!--
                     <div class="extension-matter-adapter-area">
                         <h2>This addon is in very early development</h2>
 		                <p>It is currently possible to pair switch devices and get their state.</p>
                     </div>
+                    -->
 			
                     <div id="extension-matter-adapter-install-hotspot-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
                         <p>To protect your privacy it's recommended to also install the Hotspot addon. It can create a WiFi guest network for your devices, and gives you control over which servers devices on that network may connect to. If you install it, this addon will automatically tell new WiFi-based Matter devices to connect to that network.</p>
@@ -46,13 +48,10 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
     				    </div>
     			    </div>
                     
-                    
-                    <div id="extension-matter-adapter-paired-devices-list" class="extension-matter-adapter-area extension-matter-adapter-hidden">
-                        
+                    <div id="extension-matter-adapter-paired-devices-list">
                     </div>
                     
-                    <pre id="extension-matter-adapter-paired-devices-list-pre">
-                        Devices list is currently empty
+                    <pre id="extension-matter-adapter-paired-devices-list-pre" class="extension-matter-adapter-developer-only">
                     </pre>
                     
                     <button id="extension-matter-adapter-show-second-page-button" class="icon-button"></button>
@@ -130,7 +129,6 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
 
 						<p>Your device should have a QR code on it which we need to scan.</p>
 
-
 						<div id="extension-matter-adapter-pairing-qr-area">
 							<p>Scan this QR code with your phone to get started:</p>
 							<div id="extension-matter-adapter-qr-code"></div>
@@ -168,7 +166,6 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
 							<p>You can find the code by using candlesmarthome.com/qr or by accessing the Candle Controller from your phone.</p>
 						</div>
 						-->
-
 
 					</div>
 
@@ -284,14 +281,72 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
         </div>
         
         
-        <!-- This is the item that is cloned to create a list. The Zigbee2MQTT addon does this, for example. -->
+        <!-- This is the item that is cloned to create a list. -->
+		
 		<div id="extension-matter-adapter-original-item" class="extension-matter-adapter-item">
+			<div class="extension-matter-adapter-item-setter">
+				<div class="extension-matter-adapter-line1">
+					<div class="extension-matter-adapter-icon">
+					</div>
+                    <div class="extension-matter-adapter-item-title"></div>
+					<div class="extension-matter-adapter-item-description">
+                        <span class="extension-matter-adapter-item-vendor-name"></span>
+                        <span class="extension-matter-adapter-item-product-name"></span>
+                    </div>
+				</div>
+				<div class="extension-matter-adapter-line2">
+                    <div class="extension-matter-adapter-item-hardware-version"></div>
+					<div class="extension-matter-adapter-item-software-version"></div>
+				</div>
+			</div>
+			<div class="extension-matter-adapter-item-menu">
+				<div class="extension-matter-adapter-item-left">
+					<button class="extension-matter-adapter-item-update-button text-button" disabled>Update</button>
+				</div>
+				<div class="extension-matter-adapter-item-right">
+					<div class="extension-matter-adapter-item-delete-button">&nbsp;</div>
+				</div>
+			</div>
+			
+            <div class="extension-matter-adapter-overlay rule-edit-overlay extension-matter-adapter-delete">
+                <div class="rule-delete-dialog">
+                    <p>Are you sure you want to remove this device from the Matter network?</p>
+                    <input class="rule-delete-cancel-button" type="button" data-l10n-id="rule-delete-cancel-button" value="Cancel">
+                    <input class="rule-delete-confirm-button" type="button" value="Force remove">
+                </div>
+            </div>
+  			
+            <div class="extension-matter-adapter-overlay rule-edit-overlay extension-matter-adapter-update">
+                <div class="rule-delete-dialog">
+                    <p>Are you sure you want to update the firmware of this device? <!--Please <span class="extension-matter-adapter-read-about-risks">read about the risks</a> first.--></p>
+                    <input class="extension-matter-adapter-overlay-cancel-update-button rule-delete-cancel-button" type="button" data-l10n-id="rule-delete-cancel-button" value="Cancel">
+                    <input class="extension-matter-adapter-overlay-start-update-button rule-delete-confirm-button" type="button" value="Update">
+                </div>
+            </div>
+			
+            <div class="extension-matter-adapter-overlay rule-edit-overlay extension-matter-adapter-updating">
+                <div class="rule-delete-dialog">
+  				    <div class="extension-matter-adapter-updating-text-container">
+                    	<img class="extension-matter-adapter-update-spinner" src="/extensions/matter-adapter/images/spinner.gif"><p>Updating firmware... Do not turn off the controller or the Matter device.</p>
+  			  	    </div>
+                    
+  				    <div class="extension-matter-adapter-update-progress-bar-container">
+  					    <div class="extension-matter-adapter-update-progress-bar"></div>
+                        <div class="extension-matter-adapter-update-progress-bar-percentage"></div>
+  				    </div>
+          
+                </div>
+            </div>
+		</div>
+        
+        <!--
+        <div id="extension-matter-adapter-original-item" class="extension-matter-adapter-item">
 
             <div class="extension-matter-adapter-item-main">
                 
                 <div class="extension-matter-adapter-item-left">
                     <div class="extension-matter-adapter-item-icon">
-                        <!-- You could add an icon depending on the type of item -->
+                        
                     </div>
                 </div>
             
@@ -305,10 +360,12 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
 			<div class="extension-matter-adapter-item-menu">
 				<div class="extension-matter-adapter-item-right">
 					<div class="extension-matter-adapter-item-delete-button">&nbsp;</div>
+                    <button class="extension-matter-adapter-item-update-button">UPDATE</button>
 				</div>
 			</div>
 
 		</div>
+        -->
         
         <!-- Give your addon's content to extra margin at the bottom - prefereable 50vh (50% height of the viewport). This is because touch screen users will need space at the bottom to show the virtual keyboard, and be able to scroll your content above it. -->
         <br/>

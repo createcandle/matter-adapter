@@ -171,12 +171,6 @@ class MatterDevice(Device):
                         
                         
                         
-                            
-                        
-                        if self.DEBUG:
-                            print("nodez created")
-                        
-                        
                         # GET VENDOR NAME, PRODUCT NAME, AND UNIQUE ID
                         
                         try:

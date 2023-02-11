@@ -141,6 +141,8 @@ class MatterAdapter(Adapter):
         self.message_counter = 0
         self.client_connected = 0
         
+        self.vendor_id = ""
+        
         self.discovered = []
         self.nodes = []
         
@@ -205,10 +207,15 @@ class MatterAdapter(Adapter):
         print("Candle's WiFi password: " + str(self.candle_wifi_password))
         """
         
+        print("user profile: " + str(self.user_profile))
+        
+        
+        
         # Create some path strings. These point to locations on the drive.
         self.addon_path = os.path.join(self.user_profile['addonsDir'], self.addon_id) # addonsDir points to the directory that holds all the addons (/home/pi/.webthings/addons).
         self.data_path = os.path.join(self.user_profile['dataDir'], self.addon_id)
         self.persistence_file_path = os.path.join(self.data_path, 'persistence.json') # dataDir points to the directory where the addons are allowed to store their data (/home/pi/.webthings/data)
+        self.chip_factory_ini_file_path = os.path.join(self.user_profile['baseDir'],'hasdata','chip_factory.ini')
         #self.certs_dir_path = os.path.join(self.data_path, 'paa-root-certs')
         pwd = run_command('pwd')
         pwd = pwd.rstrip()
@@ -248,8 +255,16 @@ class MatterAdapter(Adapter):
             print("Error loading config: " + str(ex))
 
 
-        
-            
+
+        # Override vendor ID
+        if len(self.vendor_id) > 2 and len(self.vendor_id) < 7:
+            if os.path.exists(self.chip_factory_ini_file_path):
+                if self.DEBUG:
+                    print("replacing vendor-id in chip_factory.ini with: " + str(self.vendor_id))
+                os.system("sed -i 's/.*vendor-id=*.*/vendor-id=" + str(self.vendor_id) + "/' chip_factory.ini")
+                
+        if os.path.exists(self.chip_factory_ini_file_path):
+            print("OK, CHIP FACTORY FILE EXISTS")
                 
 
         # Now we check if all the values that should exist actually do
@@ -450,6 +465,12 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     print("Use hotspot preference was in settings: " + str(self.use_hotspot))
                     
+            if "Vendor ID" in config:
+                if len(config["Vendor ID"]) > 2:
+                    self.vendor_id = str(config["Vendor ID"])
+                    if self.DEBUG:
+                        print("Vendor ID override was in settings: " + str(self.vendor_id))
+                    
             if 'Brightness transition duration' in config:
                 self.brightness_transition_time = int(config["Brightness transition duration"])
                 if self.DEBUG:
@@ -624,7 +645,13 @@ class MatterAdapter(Adapter):
                         device_info = message['result']
                         if self.DEBUG:
                             print("DEVICE INFO: " + str(json.dumps(device_info)))
-                    
+                    elif message['message_id'] == 'remove_node':
+                        if self.DEBUG:
+                            print("\n\nremove_node was succesfull\n\n")
+                        #self.nodes = message['result']
+                        #self.parse_nodes()
+                        self.get_nodes()
+                        
                 
                 # Handle event messages
                 elif message['_type'].endswith("message.EventMessage"):
@@ -1203,9 +1230,9 @@ class MatterAdapter(Adapter):
             self.handle_device_removed(obj) # Remove from device dictionary
             if self.DEBUG:
                 print("User removed thing")
-        except:
+        except Exception as ex:
             if self.DEBUG:
-                print("Could not remove thing from devices")
+                print("Could not remove thing from devices: " + str(ex))
 
 
 
@@ -1242,7 +1269,26 @@ class MatterAdapter(Adapter):
 
 
     
+    def remove_node(self, node_id):
+        print("in remove_node. node_id: " + str(node_id))
+        
+        message = {
+                "message_id": "remove_node",
+                "command": "remove_node",
+                "args": {
+                    "node_id": node_id
+                }
+              }
+        json_message = json.dumps(message)
+        self.ws.send(json_message)
+        
+        
+              
+        
+        
+    
     # Loop over all the items in the list, which is stored inside the adapter instance.
+    """
     def delete_item(self,name):
         print("in delete_item. Name: " + str(name))
         for i in range(len(self.items_list)):
@@ -1254,7 +1300,8 @@ class MatterAdapter(Adapter):
                 
         # If we end up there, the name wasn't found in the list
         return False
-
+    """
+    
 
 def run_command(cmd, timeout_seconds=30):
     try:

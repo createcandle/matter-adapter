@@ -137,6 +137,10 @@ extension-matter-adapter-
 
 /*  LIST OF ITEMS */
 
+#extension-matter-adapter-paired-devices-list{
+    margin: 4rem 0;
+}
+
 #extension-matter-adapter-main-items-list{
     margin-bottom:4rem;
 }
@@ -146,9 +150,55 @@ extension-matter-adapter-
 }
 
 .extension-matter-adapter-item{
-    margin: 2rem 0;
-    border-radius:.5rem;
-    background-color:rgba(0,0,0,.5);
+	padding: 0;
+	display: flex;
+	/*background-color: #46769C;*/
+    background-color:rgba(0,0,0,.2);
+	border-radius:.5rem;
+	margin-top:1rem;
+	border-radius: .5rem;
+	position: relative;
+	width:100%;
+}
+#extension-matter-adapter-view .rule-edit-overlay{
+	left: 0;
+	top: 0;
+	border-radius:.5rem;
+	display:none;
+	height:100%;
+	font-size:1.8rem;
+}
+
+#extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-delete .rule-edit-overlay.extension-matter-adapter-delete,
+#extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-delete .rule-edit-overlay.extension-matter-adapter-delete .rule-delete-dialog,
+#extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-update .rule-edit-overlay.extension-matter-adapter-update,
+#extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-update .rule-edit-overlay.extension-matter-adapter-update .rule-delete-dialog,
+#extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-updating .rule-edit-overlay.extension-matter-adapter-updating,
+#extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-updating .rule-edit-overlay.extension-matter-adapter-updating .rule-delete-dialog{
+	display:block;
+	opacity:100;
+}
+
+.extension-matter-adapter-item-title{
+    color:white;
+    font-size:2rem;
+    font-weight:bold;
+    display:block;
+}
+.extension-matter-adapter-item-description{
+    color:#eee;
+    font-size:1.6rem;
+}
+
+.extension-matter-adapter-line2{
+    margin-top:1rem;
+    opacity:.65;
+}
+.extension-matter-adapter-item-software-version:not(:empty)::before{
+    content:'Software version: ';
+}
+.extension-matter-adapter-item-hardware-version:not(:empty)::before{
+    content:'Hardware version: ';
 }
 
 .extension-matter-adapter-item > div{
@@ -162,6 +212,12 @@ extension-matter-adapter-
     justify-content:space-around;
     border-left:1px solid rgba(255,255,255,.1);
 }
+
+.extension-matter-adapter-item-right{
+    text-align:center;
+    margin-top:3rem;
+}
+
 
 /*  delete button */
 .extension-matter-adapter-item-delete-button{
@@ -345,6 +401,12 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
 .developer #extension-matter-adapter-stop-poll-button{
     display:inline-block;
 }
+
+body:not(.developer) .extension-matter-adapter-developer-only{
+    display:none;
+}
+
+
 
 
 /*  loading spinner  */

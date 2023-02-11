@@ -249,9 +249,10 @@ class MatterAPIHandler(APIHandler):
                         state = False
                         
                         try:
-                            name = str(request.body['name'])
-                            
+                            node_id = str(request.body['node_id'])
                             #state = self.delete_item(name) # This method returns True if deletion was succesful
+                            
+                            state = self.adapter.remove_node(node_id)
                             
                         except Exception as ex:
                             if self.DEBUG:

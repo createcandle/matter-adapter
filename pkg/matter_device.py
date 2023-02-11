@@ -27,7 +27,7 @@ class MatterDevice(Device):
         self.name = device_id
         self.adapter = adapter
         self.DEBUG = adapter.DEBUG
-        self.title = 'Matter addon thing'
+        self.title = 'Matter device'
         self.description = 'This is a Matter device'
         self._type = [] # holds capacilities
         
@@ -137,7 +137,7 @@ class MatterDevice(Device):
                 print("\n\n\n")
                 
                 
-            # MAIN ATTRIBUTES TO PROPERTIES LOOP    
+            # MAIN ATTRIBUTES TO PROPERTIES LOOP
             
             # Loop over all the node's attributes and only pay attention to the ones that are important
             for attribute_code in node['attributes'].keys():
@@ -529,8 +529,24 @@ class MatterDevice(Device):
                                     self.data_mute,
                                     {'attribute_id':'data_mute'})
                
-              
+
+            # Update device title
+            
+            try:
+                better_title = ""
+                if 'product_name' in self.adapter.persistent_data['nodez'][device_id]:
+                    better_title = str(self.adapter.persistent_data['nodez'][device_id]['product_name'])
                     
+                    #if 'vendor_name' in self.adapter.persistent_data['nodez'][device_id]:
+                    #    better_title = str(self.adapter.persistent_data['nodez'][device_id]['vendor_name']) + " " + better_title
+                    
+                if len(better_title) > 5:
+                    self.title = better_title
+                    
+            except Exception as ex:
+                print("Error generating better device title")
+
+ 
             """
             client: on_message: {
               "message_id": "get_nodes",

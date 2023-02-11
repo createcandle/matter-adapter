@@ -185,14 +185,15 @@
                 document.getElementById('extension-matter-adapter-start-network-pairing-button').addEventListener('click', (event) => {
                 	console.log("Start network pairing button clicked");
                     
-                    const code = this.pairing_code;//document.getElementById('extension-matter-adapter-pairing-code').value;
+                    const code = document.getElementById('extension-matter-adapter-network-pairing-code-input').value; //this.pairing_code;//document.getElementById('extension-matter-adapter-pairing-code').value;
                     
                     if(code.length < 5){
                         console.log("code was too short");
                         alert("That code is too short");
                         return;
                     }
-                    
+                    this.pairing_code = code;
+                    console.log("Network pairing code: ", code);
                     //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.add('extension-matter-adapter-hidden');
                     //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
                     
@@ -200,7 +201,7 @@
                     this.busy_pairing = true;
                     document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-busy-pairing');
                     
-                    console.log("Pairing code: ", code);
+                    
 					window.API.postJson(
 						`/extensions/${this.id}/api/ajax`,
 						{'action':'start_pairing',
@@ -223,11 +224,11 @@
     			});
                 
                 // Pairing failed, try again button
-                /*
+                
     			document.getElementById('extension-matter-adapter-pairing-failed-try-again-button').addEventListener('click', (event) => {
-    				this.start_discovery();
+    				this.set_pairing_page();
     			});
-                */
+                
             
                 // DEV
     			document.getElementById('extension-matter-adapter-stop-poll-button').addEventListener('click', (event) => {
@@ -266,6 +267,27 @@
     				//document.getElementById('extension-matter-adapter-other-pairing-options-container').classList.remove('extension-matter-adapter-hidden');
     			});
                 
+                
+                // Save network pairing pin code button
+                /*
+    			document.getElementById('extension-matter-adapter-save-network-pairing-code-button').addEventListener('click', (event) => {
+                    document.getElementById('extension-matter-adapter-save-network-pairing-code-button').classList.add('extension-matter-adapter-hidden');
+                    
+                    const input_code = document.getElementById('extension-matter-adapter-network-pairing-code-input').value;
+                    if(input_code.length > 3){
+                        this.pairing_code = input_code;
+                        setTimeout(function(){
+                            document.getElementById('extension-matter-adapter-save-network-pairing-code-button').classList.remove('extension-matter-adapter-hidden');
+                        }, 4000);
+                        this.show_pairing_start_area();
+                    }
+                    
+    				//document.getElementById('extension-matter-adapter-other-pairing-options-container').classList.remove('extension-matter-adapter-hidden');
+    			});
+                */
+                
+                
+                
     			document.getElementById('extension-matter-adapter-pairing-network-question-normal-button').addEventListener('click', (event) => {
     				document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-pairing-questioning');
                     document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-pairing-normal');
@@ -293,21 +315,7 @@
                     document.getElementById('extension-matter-adapter-view').style.zIndex = '3';
                     document.getElementById('extension-matter-adapter-content-container').classList.add('extension-matter-adapter-showing-second-page');
                     
-                    this.generate_qr();
-                    //this.start_discovery();
-                    
-                    // start polling for data
-                    if(window.matter_adapter_poll_interval == null){
-                        window.matter_adapter_poll_interval = setInterval(() =>{
-                            this.pairing_poll();
-                        },5000);
-                    }
-                    
-                    document.getElementById('extension-matter-adapter-pairing-start-area').classList.add('extension-matter-adapter-hidden');
-    				document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-pairing-questioning');
-                    document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-pairing-normal');
-					document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-pairing-network');
-    			    document.getElementById('extension-matter-adapter-pairing-step-qr').classList.remove('extension-matter-adapter-hidden');
+                    this.show_pairing_page();
     			});
             
                 
@@ -406,9 +414,10 @@
                 				console.error("error looping over all things" , e);
                 			}
                         }
-                    
-                        console.log("this.all_things: ", this.all_things);
-                        console.log("this.title_lookup_table: ", this.title_lookup_table);
+                        if(this.debug){
+                            console.log("Matter adapter debug: this.all_things: ", this.all_things);
+                            console.log("Matter adapter debug: this.title_lookup_table: ", this.title_lookup_table);
+                        }
                         
                         this.get_init_data2();
                     });
@@ -425,7 +434,7 @@
         }
         
         
-        
+        // Gets called after the things have first been requested from the webthings API. Which is needed to get the thing title.
         get_init_data2(){
             
 	  		// Init
@@ -447,8 +456,8 @@
                     if(typeof body.debug != 'undefined'){
                         this.debug = body.debug;
                         if(this.debug){
-                            console.log("Matter adapter debugging: Init2 response: ", body);
-                        
+                            console.log("Matter adapter debug: Init2 response: ", body);
+                            // Show big red debug warning
                             if(document.getElementById('extension-matter-adapter-debug-warning') != null){
                                 document.getElementById('extension-matter-adapter-debug-warning').style.display = 'block';
                             }
@@ -469,18 +478,10 @@
                         */
                     }
                     
-                    /*
-                    if(typeof body.nodes != 'undefined'){
-                        console.log("nodes: ", body.nodes);
-                        const nodes_string = JSON.stringify(body.nodes, null, 4)
-                        document.getElementById('extension-matter-adapter-paired-devices-list-pre').innerHTML = nodes_string;
-                        if(body.nodes.length > 0){
-                            
-                        }
-                    }
-                    */
                     if(typeof body.nodez != 'undefined'){
-                        console.log("nodez: ", body.nodez);
+                        if(this.debug){
+                            console.log("Matter adapter debug: received nodez: ", body.nodez);
+                        }
                         this.nodez = body.nodez;
                         const nodes_string = JSON.stringify(body.nodez, null, 4)
                         document.getElementById('extension-matter-adapter-paired-devices-list-pre').innerHTML = nodes_string;
@@ -518,19 +519,48 @@
     
     
     
+        // Show pairing page, triggered by opening the pairing page, or pressing the retry button if pairing failed
+        show_pairing_page(){
+            if(this.debug){
+                console.log("Matter adapter debug: in set_pairing_page");
+            }
+            this.generate_qr();
+            
+            // start polling for data
+            if(window.matter_adapter_poll_interval == null){
+                window.matter_adapter_poll_interval = setInterval(() =>{
+                    this.pairing_poll();
+                },5000);
+            }
+            
+            // Reset elements to start position
+            document.getElementById('extension-matter-adapter-pairing-start-area').classList.add('extension-matter-adapter-hidden');
+			document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-pairing-questioning');
+            document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-pairing-normal');
+			document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-pairing-network');
+		    document.getElementById('extension-matter-adapter-pairing-step-qr').classList.remove('extension-matter-adapter-hidden');
+            document.getElementById('extension-matter-adapter-save-manual-input-pairing-code-button').classList.remove('extension-matter-adapter-hidden');
+            document.getElementById('extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
+        }
     
     
 
         // is called once every few seconds by poll_interval
         pairing_poll(){
-            console.log("in pairing_poll");
+            if(this.debug){
+                //console.log("Matter adapter debug: in pairing_poll");
+            }
             
             if(this.busy_polling == true){
-                console.warn("still busy polling, not doing a new poll request");
+                if(this.debug){
+                    console.warn("still busy polling, not doing a new poll request");
+                }
                 this.busy_polling_counter++;
                 if(this.busy_polling_counter > 5){
                     this.busy_polling_counter = 0;
-                    console.log("letting a new polling attempt through")
+                    if(this.debug){
+                        console.log("letting a new polling attempt through");
+                    }
                 }
                 else{
                     return;
@@ -545,7 +575,9 @@
 				{'action':'poll','uuid':this.uuid}
             
 			).then((body) => {
-                console.log("matter adapter: poll response: ", body);
+                if(this.debug){
+                    console.log("matter adapter: poll response: ", body);
+                }
                 this.busy_polling = false;
                 
                 if(typeof body.busy_discovering != 'undefined'){
@@ -591,185 +623,79 @@
                 }
                 if(typeof body.pairing_code != 'undefined'){
                     if(body.pairing_code.startsWith('MT:')){
-                        console.log("GOT A GOOD PAIRING CODE: ", body.pairing_code);
+                        if(this.debug){
+                            console.log("Matter adapter debug: GOT A GOOD PAIRING CODE: ", body.pairing_code);
+                        }
                         this.pairing_code = body.pairing_code;
                         
                         document.getElementById('extension-matter-adapter-pairing-code-input').value = this.pairing_code;
                         
                         this.show_pairing_start_area();
                     }
+                    /*
                     else{
-                        console.log("pairing code did not start with MT: yet: ", body.pairing_code)
+                        if(this.debug){
+                            console.log("pairing code did not start with MT: yet: ", body.pairing_code);
+                        }
+                    }
+                    */
+                    //this.regenenerate_items();
+                }
+                
+                // PAIRING FAILED?
+                if(typeof body.pairing_failed != 'undefined'){
+                    if(this.busy_pairing){
+                        if(body.pairing_failed){
+                            if(this.debug){
+                                console.log("MATTER PAIRING FAILED");
+                            }
+                            document.getElementById('extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
+                            document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
+                        }
+                        
+                        
+                    }
+                    else{
+                        if(this.debug){
+                            console.log("pairing code did not start with MT: yet: ", body.pairing_code);
+                        }
                     }
                     //this.regenenerate_items();
-                }   
+                }
+                
                 
 			}).catch((e) => {
                 this.busy_polling = false;
-				console.log("matter-adapter: poll error: ", e);
+                console.error("matter-adapter: poll error: ", e);
                 document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
 			});
             
-            
-            // Check if the QR code scanner was used
-            /*
-            fetch('https://www.candlesmarthome.com/qr/ajax.php', {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ "uuid": this.uuid })
-            })
-            .then(response => response.json())
-            .then(response => console.log("Ajax read response: ", JSON.stringify(response)))
-            */
         }
         
+        
+        
+        
         show_pairing_start_area(){
-            console.log("in show_pairing_start_area");
+            if(this.debug){
+                console.log("Matter adapter debug: in show_pairing_start_area");
+            }
             if(this.pairing_code != ""){
-                console.log("WiFi credentials and pairing code are available. Showing pairing start area.");
+                if(this.debug){
+                    console.log("pairing code is available. Showing pairing start area.");
+                }
                 document.getElementById('extension-matter-adapter-pairing-start-area').classList.remove('extension-matter-adapter-hidden');
                 document.getElementById('extension-matter-adapter-pairing-step-qr').classList.add('extension-matter-adapter-hidden');
                 document.getElementById('extension-matter-adapter-pairing-start-area-pairing-code').innerText = this.pairing_code;
             }
             else{
-                console.log("WiFi credentials and pairing code are NOT both available yet. Not revealing pairing start area.");
-            }
-            
-        }
-        
-        
-        
-        // Called whenever the addon should start discovering devices
-        /*
-        start_discovery(){
-            
-            this.busy_discovering = true;
-            this.busy_pairing = false;
-            this.device_to_pair = null;
-            
-            document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-busy-discovering');
-            document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
-            document.getElementById('extension-matter-adapter-discovered-devices-list').innerHTML = '<div class="extension-matter-adapter-spinner"><div></div><div></div><div></div><div></div></div>';
-            document.getElementById('extension-matter-adapter-pairing-step1').classList.remove(extension-matter-adapter-hidden);
-            document.getElementById('extension-matter-adapter-pairing-step2').classList.add(extension-matter-adapter-hidden);
-            document.getElementById('extension-matter-adapter-pairing-step3').classList.add(extension-matter-adapter-hidden);
-            
-            document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.add('extension-matter-adapter-hidden');
-            
-			window.API.postJson(
-				`/extensions/${this.id}/api/ajax`,
-				{'action':'discover'}
-                //{'action':'start_pairing', 'name':new_name  ,'value':new_value}
-            
-			).then((body) => {
-                console.log("discover response: ", body);
-                if(body.state == true){
-                    console.log("discover response was OK");
-                    //document.getElementById('extension-matter-adapter-add-item-name').value = "";
-                    //document.getElementById('extension-matter-adapter-add-item-value').value = null;
-                    //console.log("new item was saved");
-                    //document.getElementById('extension-matter-adapter-pairing-step2').style.display = 'block';
-                    
+                if(this.debug){
+                    console.log("WiFi credentials and pairing code are NOT both available yet. Not revealing pairing start area.");
                 }
-                else{
-                    console.log("discover failed?");
-                    //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
-                }
-            
-			}).catch((e) => {
-				console.log("matter-adapter: connnection error after discover button press: ", e);
-                //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
-			});
-        }
-        */
-        
-        
-        
-        //
-        //  GENERATE DISCOVERED DEVICES LIST
-        //
-        
-        old_list_discovered_devices(){
-            
-            let list_el = document.getElementById('extension-matter-adapter-discovered-devices-list');
-            if(list_el == null){
-                console.error("Error, the discovered devices list container did not exist yet");
-                return;
             }
-            
-            // If the items list does not contain actual items, then stop
-            if(this.discovered.length == 0){
-                list_el.innerHTML = "No devices found";
-                return;
-            }
-            else{
-                list_el.innerHTML = "";
-            }
-            
-			for( var index in this.discovered ){
-                
-                const item = this.discovered[index];
-				console.log("creating discovered devices list. Item: ", item);
-                
-				let div_el = document.createElement('div');
-                div_el.classList.add('extension-matter-adapter-discovered-item');
-                
-                // add discovered device title
-				let title_el = document.createElement('h3');
-                title_el.classList.add('extension-matter-adapter-discovered-item-device-name');
-                title_el.innerText = item.deviceName;
-                div_el.appendChild(title_el);
-                
-                /*
-                let pair_button_el = document.createElement('button');
-                pair_button_el.classList.add('extension-matter-adapter-discovered-item-pair-button');
-                pair_button_el.classList.add('text-button');
-                pair_button_el.innerText = "Pair";
-                
-				pair_button_el.addEventListener('click', (event) => {
-                    console.log("Pair button click. event: ", event);
-                    
-                    document.getElementById('extension-matter-adapter-pairing-step1').classList.add('extension-matter-adapter-hidden');
-                    document.getElementById('extension-matter-adapter-pairing-step2').classList.remove('extension-matter-adapter-hidden');
-                    document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.add('extension-matter-adapter-hidden');
-                    //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
-                    
-                    document.getElementById('extension-matter-adapter-pairing-step2-device-title').innerText = item.deviceName;
-                    this.device_to_pair = item;
-                    
-                    event.target.closest(".extension-matter-adapter-discovered-item").classList.add('extension-matter-adapter-discovered-item-being-paired');
-                    
-			  	});
-                */
-                
-                div_el.appendChild(pair_button_el);
-                
-                // Add the clone to the list container
-				list_el.append(div_el);
-                
-			} // end of for loop
-            
-            
             
         }
         
         
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     
     
@@ -779,7 +705,9 @@
 	
 		regenerate_items(){
 			try {
-				console.log("regenerating list");
+				if(this.debug){
+                    console.log("Matter adapter debug: in regenerating_items");
+                }
 				//console.log(items);
 		
 				//const pre = document.getElementById('extension-matter-adapter-response-data');
@@ -792,7 +720,9 @@
 				//this.all_things.sort((a, b) => (a.title.toLowerCase() > b.title.toLowerCase()) ? 1 : -1)
                 //this.title_lookup_table.sort((a, b) => (a.toLowerCase() > b.toLowerCase()) ? 1 : -1)
                 
-                console.log("sorted title_lookup_table: ", this.title_lookup_table);
+                if(this.debug){
+                    console.log("Matter adapter debug: sorted title_lookup_table: ", this.title_lookup_table);
+                }
 				if(typeof list == 'undefined'){
                     console.error('Error, target list element does not exist');
 				    return;
@@ -801,11 +731,14 @@
 		        
 				// Loop over all things
 				for( let thing_id in this.title_lookup_table ){
-					console.log("thing_id = ", thing_id );
-                    console.log(this.title_lookup_table[thing_id]);
+					if(this.debug){
+                        console.log("Matter adapter debug: thing_id: ", thing_id );
+                    }
     				try{
                         let title = this.title_lookup_table[thing_id];
-    					console.log("thing_title = ", title);
+    					if(this.debug){
+                            console.log("Matter adapter debug: thing_title: ", title);
+                        }
 				
     					//let thing_id = things[key]['href'].substr(things[key]['href'].lastIndexOf('/') + 1);
                         //console.log("thing_id: ", thing_id);
@@ -813,20 +746,27 @@
                         
                         
                         if(typeof this.nodez[thing_id] == 'undefined'){
-                            console.error("ERROR, THING ID NOT PRESENT IN NODEZ: ", thing_id)
+                            if(this.debug){
+                                console.error("Matter adapter debug: ERROR, THING ID NOT PRESENT IN NODEZ: ", thing_id);
+                            }
                             continue;
                         }
                         else{
-                            console.log("OK, thing_id is in nodez");
+                            if(this.debug){
+                                console.log("Matter adapter debug: OK, thing_id is in nodez");
+                            }
                         }
                         let qitremz = this.nodez[thing_id];
-                        
-                        console.log("qitremz: ", qitremz); // device_id
+                        if(this.debug){
+                            console.log("Matter adapter debug: qitremz: ", qitremz); // device_id
+                        }
                         //console.log("qitremz: ", qitremz);
                     
     					var clone = original.cloneNode(true);
     					clone.removeAttribute('id');
-    					console.log("clone: ", clone);
+    					if(this.debug){
+                            //console.log("clone: ", clone);
+                        }
                     
                         /*
     					try{
@@ -928,11 +868,13 @@
                                     clone.querySelector('.extension-matter-adapter-item-title').appendChild(a);
                                 }
                                 else{
-                                    console.warn("not in lookup table: ", qitremz['node_id']);
+                                    if(this.debug){
+                                        console.warn("not in lookup table: ", qitremz['node_id']);
+                                    }
                                 }
                             }
                             catch(e){
-                                console.error("Error getting thing title: ", e);
+                                console.error("Matter adapter debug: Error getting thing title: ", e);
                             }
                         
                             //var desc_span = document.createElement("span");
@@ -947,7 +889,7 @@
                                 clone.querySelector('.extension-matter-adapter-item-product-name').innerText = qitremz['product_name']
                             }
                             catch(e){
-                                console.log("Error setting vendor or product name: ", e);
+                                console.log("Matter adapter debug: Error setting vendor or product name: ", e);
                             }
                             
                             /*
@@ -962,7 +904,9 @@
                             
                             // Add firmware version
     						if(typeof qitremz['software_version'] != "undefined"){
-                                console.log("software version: ", qitremz['software_version']);
+                                if(this.debug){
+                                    console.log("software version: ", qitremz['software_version']);
+                                }
                                 //alert(qitremz['software_version']);
     							var s = document.createElement("span");
     							//s.classList.add('extension-matter-adapter-matter-id');             
@@ -981,7 +925,7 @@
 						
     					}
     					catch(e){
-    						console.log("error handling Matter device data: " , e);
+    						console.log("Matter adapter debug: error handling Matter device data: " , e);
     					}
 						
     					// Click on first firmware update button

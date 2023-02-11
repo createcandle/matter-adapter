@@ -389,30 +389,8 @@ class MatterAdapter(Adapter):
         run(self.run_matter(), shutdown_callback=self.handle_stop)
         
         
-        #self.server.start()
-        
-        # How to shut down nicely?
-        # https://pypi.org/project/aiorun/
-        # loop = asyncio.get_event_loop()
-        # loop.stop()
-        
-        
-        
-        
-        
-        
-        
-        
-        #if self.unsubscribe != None:
-        #    print("self.unsubscribe DIR: " + str(dir(self.unsubscribe)))
-        
-        
-        #if self.client != None:
-        #    print("\nself.client DIR: " + str(dir(self.client)))
-        #    self.client.disconnect()
-        
         if self.server != None:
-            print("\nself.server DIR: " + str(dir(self.server)))
+            #print("\nself.server DIR: " + str(dir(self.server)))
             self.server.stop()
         
         
@@ -422,9 +400,9 @@ class MatterAdapter(Adapter):
         #self.save_persistent_data()
         
         # The addon is now ready
-        self.ready = True 
+        
         if self.DEBUG:
-            print("Matter adapter init complete")
+            print("Matter adapter init end. Calling exit.")
         exit()
 
 
@@ -562,7 +540,8 @@ class MatterAdapter(Adapter):
         
         
     def on_message(self, ws, message="{}"):
-        print("\n.\nclient: on_message: " + str(message) + "\n\n")
+        if self.DEBUG:
+            print("\n.\nclient: on_message: " + str(message) + "\n\n")
         try:
             
             # matter_server.common.models.message.SuccessResultMessage
@@ -639,6 +618,7 @@ class MatterAdapter(Adapter):
                             print("\n\nGET NODES succesfull\n\n")
                         self.nodes = message['result']
                         self.parse_nodes()
+                        self.ready = True # the addon should now have recreated the things
                     elif message['message_id'].startswith('get_node_'):
                         if self.DEBUG:
                             print("\n\nGET NODE succesfull\n\n")
@@ -834,7 +814,8 @@ class MatterAdapter(Adapter):
             if self.DEBUG:
                 print("certificates download command: " + str(certificates_download_command))
             download_certs_output = run_command(certificates_download_command,120)
-            print("download_certs_output: " + str(download_certs_output))
+            if self.DEBUG:
+                print("download_certs_output: " + str(download_certs_output))
             
             if len(download_certs_output) < 5:
                 self.certificates_updated = True
@@ -918,7 +899,6 @@ class MatterAdapter(Adapter):
         self.download_certs()
         
         
-        
         try:
             if self.client_connected:
                 if self.DEBUG:
@@ -926,7 +906,7 @@ class MatterAdapter(Adapter):
         
                 # Set the wifi credentials
                 if self.set_wifi_credentials():
-                    time.sleep(5)
+                    time.sleep(5) # TODO: Dodgy
         
                 # create pairing message
                 message = None
@@ -1270,7 +1250,8 @@ class MatterAdapter(Adapter):
 
     
     def remove_node(self, node_id):
-        print("in remove_node. node_id: " + str(node_id))
+        if self.DEBUG:
+            print("in remove_node. node_id: " + str(node_id))
         
         message = {
                 "message_id": "remove_node",
@@ -1281,7 +1262,7 @@ class MatterAdapter(Adapter):
               }
         json_message = json.dumps(message)
         self.ws.send(json_message)
-        
+        return True
         
               
         

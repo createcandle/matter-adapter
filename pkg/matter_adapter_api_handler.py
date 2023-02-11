@@ -174,7 +174,7 @@ class MatterAPIHandler(APIHandler):
                         
                     
                     # DISCOVER
-                    # does a bluetooth scan for pairable devices
+                    # does a scan for pairable devices. Currently not used.
                     elif action == 'discover':
                         if self.DEBUG:
                             print("\n\nAPI: in discover")
@@ -204,26 +204,33 @@ class MatterAPIHandler(APIHandler):
                         code = ""
                         
                         try:
-                            if 'pairing_type' in request.body and 'code' in request.body and 'wifi_ssid' in request.body and 'wifi_password' in request.body and 'wifi_remember' in request.body:
-                                if self.DEBUG:
-                                    print("OK all required parameters were provided")
-                                code = str(request.body['code'])
+                            if 'pairing_type' in request.body and 'code' in request.body:
+                            
                                 pairing_type = str(request.body['pairing_type'])
-                                self.adapter.wifi_ssid = str(request.body['wifi_ssid']).rstrip()
-                                self.adapter.wifi_password = str(request.body['wifi_password']).rstrip()
-                                if self.DEBUG:
-                                    print("self.adapter.wifi_ssid: " + str(self.adapter.wifi_ssid))
-                                    print("self.adapter.wifi_password: " + str(self.adapter.wifi_password))
-                                if request.body['wifi_remember'] == True:
+                                
+                                if pairing_type == 'commission_with_code':
+                                    if 'wifi_ssid' in request.body and 'wifi_password' in request.body and 'wifi_remember' in request.body:
+                                        if self.DEBUG:
+                                            print("OK all required parameters were provided")
+                                            
+                                        if len(str(request.body['wifi_password'])) > 7:
+                                            self.adapter.wifi_ssid = str(request.body['wifi_ssid']).rstrip()
+                                            self.adapter.wifi_password = str(request.body['wifi_password']).rstrip()
+                                            if self.DEBUG:
+                                                print("self.adapter.wifi_ssid: " + str(self.adapter.wifi_ssid))
+                                                print("self.adapter.wifi_password: " + str(self.adapter.wifi_password))
+                                            if request.body['wifi_remember'] == True:
+                                                if self.DEBUG:
+                                                    print("Remembering wifi credentials")
+                                                self.adapter.persistent_data['wifi_ssid'] = str(request.body['wifi_ssid'])
+                                                self.adapter.persistent_data['wifi_password'] = str(request.body['wifi_password'])
+                                                self.adapter.should_save_persistent = True
+                                    
+                                else:
                                     if self.DEBUG:
-                                        print("Remembering wifi credentials")
-                                    self.adapter.persistent_data['wifi_ssid'] = str(request.body['wifi_ssid'])
-                                    self.adapter.persistent_data['wifi_password'] = str(request.body['wifi_password'])
-                                    self.adapter.should_save_persistent = True
+                                        print("OK all required parameters were provided")
                                 
-                                
-                                
-                                
+                                code = str(request.body['code'])
                                 if len(code) > 5:
                                     #device = request.body['device']
                                     state = self.adapter.start_matter_pairing(pairing_type, code) # device data isn't really needed, CHIP brute-force scans all devices on the network.
@@ -253,7 +260,7 @@ class MatterAPIHandler(APIHandler):
                             #state = self.delete_item(name) # This method returns True if deletion was succesful
                             
                             state = self.adapter.remove_node(node_id)
-                            
+                            state = True
                         except Exception as ex:
                             if self.DEBUG:
                                 print("Error deleting: " + str(ex))

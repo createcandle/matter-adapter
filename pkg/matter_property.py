@@ -46,12 +46,15 @@ class MatterProperty(Property):
         self.value = value # the initial value of the property
         
         self.attribute = attribute
+        self.settings = settings
         
-        
-        if settings != None:
-            for key, value in setings.items():
-                print("creating self." + str(key) + ", with value: " + str(value))
-                self[key] = value
+        #try:
+        #    if settings != None:
+        #        for key, value in settings.items():
+        #            print("creating self." + str(key) + ", with value: " + str(value))
+        #            self[key] = value
+        #except Exception as ex:
+        #    print("Property: error parsing settings: " + str(ex))
         
         # Notifies the controller that this property has a (initial) value
         self.set_cached_value(value)
@@ -69,6 +72,7 @@ class MatterProperty(Property):
         print("property: set_value called for " + str(self.title))
         print("property: set value to: " + str(value))
         print("self.attribute: " + str(self.attribute))
+        print("self.settings: " + str(self.settings))
         try:
             
             # Data Mute is a little different
@@ -85,9 +89,9 @@ class MatterProperty(Property):
                     return
                 
                 
-                #if self.title.lower() == 'state' or self.short_type = 'OnOff.Attributes.OnOff':
+                #if self.title.lower() == 'state' or self.settings.short_type = 'OnOff.Attributes.OnOff':
                 # OnOff switch
-                if self.short_type == 'OnOff.Attributes.OnOff':
+                if self.settings['short_type'] == 'OnOff.Attributes.OnOff':
                     print("attempting to create cluster command for OnOff")
                     if value == True:
                         command = clusters.OnOff.Commands.On()
@@ -95,7 +99,7 @@ class MatterProperty(Property):
                         command = clusters.OnOff.Commands.Off()
                 
                 # Brightness
-                elif self.short_type == 'LevelControl.Attributes.CurrentLevel':
+                elif self.settings['short_type'] == 'LevelControl.Attributes.CurrentLevel':
                     print("attempting to create cluster command for CurrentLevel")
                     if value == True:
                         command = clusters.LevelControl.Commands.MoveToLevelWithOnOff(
@@ -104,7 +108,7 @@ class MatterProperty(Property):
                                         )
                 
                 # Color temperature
-                elif self.short_type == 'ColorControl.Attributes.ColorTemperatureMireds':
+                elif self.settings['short_type'] == 'ColorControl.Attributes.ColorTemperatureMireds':
                     print("attempting to create cluster command for ColorTemperatureMireds")
                     #if value == True:
                         
@@ -115,7 +119,7 @@ class MatterProperty(Property):
                                 )
                 
                 # color
-                elif self.short_type == 'ColorControl.Attributes.CurrentX':
+                elif self.settings['short_type'] == 'ColorControl.Attributes.CurrentX':
                     print("attempting to create cluster command for CurrentX and CurrentY")
                     if not value.startswith('#'): # could be a string like "green" or "blue"
                         value = colorNameToHex(value)

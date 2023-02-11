@@ -127,6 +127,7 @@ class MatterDevice(Device):
                 print("\n\n\n")
             all_short_attributes = {}
             for attribute_code in node['attributes'].keys():
+                attr = node['attributes'][attribute_code]
                 type_list = attr['attribute_type'].split('.')
                 short_type = type_list[-3] + "." + type_list[-2] + "." + type_list[-1]
                 all_short_attributes[short_type] = attribute_code
@@ -207,6 +208,23 @@ class MatterDevice(Device):
                                     print("unique_id: " + str(self.adapter.persistent_data['nodez'][device_id]['unique_id']))
                                 continue
                                 
+                            # Save hardware version to nodez dict
+                            if short_type == 'BasicInformation.Attributes.HardwareVersionString':
+                                if not 'hardware_version' in self.adapter.persistent_data['nodez'][device_id]:
+                                    self.adapter.should_save = True
+                                self.adapter.persistent_data['nodez'][device_id]['hardware_version'] = attr['value']
+                                if self.DEBUG:
+                                    print("hardware_version: " + str(self.adapter.persistent_data['nodez'][device_id]['hardware_version']))
+                                continue
+                        
+                            # Save software version to nodez dict
+                            if short_type == 'BasicInformation.Attributes.SoftwareVersionString':
+                                if not 'software_version' in self.adapter.persistent_data['nodez'][device_id]:
+                                    self.adapter.should_save = True
+                                self.adapter.persistent_data['nodez'][device_id]['software_version'] = attr['value']
+                                if self.DEBUG:
+                                    print("software_version: " + str(self.adapter.persistent_data['nodez'][device_id]['software_version']))
+                                continue
                         
                         except Exception as ex:
                             print("Error extracting vendor name, product name or unique_id: " + str(ex))
@@ -322,23 +340,26 @@ class MatterDevice(Device):
                         
                         
                         def add_device_capability():
-                            if self.DEBUG:
-                                print("in add_device_capability. supported_attributes[short_type]: " + str(supported_attributes[short_type]))
-                            if '@type' in supported_attributes[short_type]:
-                                if supported_attributes[short_type] not in used_property_at_types:
-                                    description['@type'] = supported_attributes[short_type]
-                                    used_property_at_types.append(description['@type'])
+                            try:
+                                if self.DEBUG:
+                                    print("in add_device_capability. supported_attributes[short_type]: " + str(supported_attributes[short_type]))
+                                if '@type' in supported_attributes[short_type]:
+                                    if supported_attributes[short_type]['@type'] not in used_property_at_types:
+                                        description['@type'] = supported_attributes[short_type]['@type']
+                                        used_property_at_types.append(description['@type'])
                                     
-                                    # Theoretically it would be nicer to check if ALL required properies for the dev@type exist. Also, currenty there is a tiny chance that the dev@type is never set
-                                    if 'dev@type' in supported_attributes[short_type]:
-                                        if not supported_attributes[short_type]['dev@type'] in self._type:
-                                            self._type.append( supported_attributes[short_type]['dev@type'] )
-                                            if self.DEBUG:
-                                                print("add new capability: " + str(supported_attributes[short_type]['dev@type']))
-                                        else:
-                                            if self.DEBUG:
-                                                print("capability already existed: " + str(supported_attributes[short_type]['dev@type']))
-                        
+                                        # Theoretically it would be nicer to check if ALL required properies for the dev@type exist. Also, currenty there is a tiny chance that the dev@type is never set
+                                        if 'dev@type' in supported_attributes[short_type]:
+                                            if not supported_attributes[short_type]['dev@type'] in self._type:
+                                                self._type.append( supported_attributes[short_type]['dev@type'] )
+                                                if self.DEBUG:
+                                                    print("add new capability: " + str(supported_attributes[short_type]['dev@type']))
+                                            else:
+                                                if self.DEBUG:
+                                                    print("capability already existed: " + str(supported_attributes[short_type]['dev@type']))
+                            
+                            except Exception as ex:
+                                print("Device: error in add_device_capability: " + str(ex))
                         
                         # Add these attributes to each MatterProperty object
                         settings = {'short_type':short_type}
@@ -373,16 +394,21 @@ class MatterDevice(Device):
                             
                                 #chip.clusters.Objects.ColorControl.Attributes.CurrentY
                             
-                            # use these as minimum and maximum:
-                            #ColorTempPhysicalMinMireds
-                            #ColorTempPhysicalMaxMireds
-                            description['minimum'] = node['attributes'][ all_short_attributes['ColorControl.Attributes.ColorTempPhysicalMinMireds'] ]['value']
-                            description['maximum'] = node['attributes'][ all_short_attributes['ColorControl.Attributes.ColorTempPhysicalMaxMireds'] ]['value']
+                            # Change minimum and maximum mireds according to device data
+                            if short_type == 'ColorControl.Attributes.ColorTemperatureMireds':
+                                if 'ColorControl.Attributes.ColorTempPhysicalMinMireds' in all_short_attributes and 'ColorControl.Attributes.ColorTempPhysicalMaxMireds' in all_short_attributes:
+                                    description['minimum'] = node['attributes'][ all_short_attributes['ColorControl.Attributes.ColorTempPhysicalMinMireds'] ]['value']
+                                    description['maximum'] = node['attributes'][ all_short_attributes['ColorControl.Attributes.ColorTempPhysicalMaxMireds'] ]['value']
+                                    
                         except Exception as ex:
                             print("Device: error optimizing color value: " + str(ex))
                             
+                            
+                            
+                            
                         # ADD PROPERTY
-                        
+                        if self.DEBUG:
+                            print("FINALIZED PROPERTY DESCRIPTION: " + str(description) + "\n\n")
                         # Add the MatterProperty to this device
                         self.properties[property_id] = MatterProperty(
                                         self,

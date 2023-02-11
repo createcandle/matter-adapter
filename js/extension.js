@@ -409,11 +409,21 @@
                             */
                         }
                         
+                        /*
                         if(typeof body.nodes != 'undefined'){
                             console.log("nodes: ", body.nodes);
                             const nodes_string = JSON.stringify(body.nodes, null, 4)
                             document.getElementById('extension-matter-adapter-paired-devices-list-pre').innerHTML = nodes_string;
                             if(body.nodes.length > 0){
+                                
+                            }
+                        }
+                        */
+                        if(typeof body.nodez != 'undefined'){
+                            console.log("nodez: ", body.nodez);
+                            const nodes_string = JSON.stringify(body.nodez, null, 4)
+                            document.getElementById('extension-matter-adapter-paired-devices-list-pre').innerHTML = nodes_string;
+                            if(body.nodez.length > 0){
                                 //alert("MATTER DEVICE PAIRED!");
                             }
                         }

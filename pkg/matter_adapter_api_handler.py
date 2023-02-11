@@ -115,7 +115,7 @@ class MatterAPIHandler(APIHandler):
                                       'wifi_ssid': self.adapter.wifi_ssid,
                                       'wifi_credentials_available': wifi_credentials_available,
                                       'client_connected': self.adapter.client_connected,
-                                      'nodes': self.adapter.nodes,
+                                      #'nodes': self.adapter.nodes,
                                       'nodez': self.adapter.persistent_data['nodez']
                                       }),
                         )

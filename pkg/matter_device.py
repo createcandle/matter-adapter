@@ -160,7 +160,7 @@ class MatterDevice(Device):
                         
                         property_id = 'property-' + str(attr['attribute_id'])
                         
-                        # Save the message so it can be used to regenerate the device later. 
+                        
                         # Only save actually useful attribute data in the persistent data.
                         if not device_id in self.adapter.persistent_data['nodez'].keys():
                             self.adapter.persistent_data['nodez'][device_id] = {
@@ -168,9 +168,9 @@ class MatterDevice(Device):
                                                                         'attributes':{}
                                                                     }
                             self.adapter.should_save = True
-                        if property_id not in self.adapter.persistent_data['nodez'][device_id].keys():
-                            self.adapter.persistent_data['nodez'][device_id]['attributes'][property_id] = attr
-                            self.adapter.should_save = True
+                        
+                        
+                        
                             
                         
                         if self.DEBUG:
@@ -227,7 +227,14 @@ class MatterDevice(Device):
                                 continue
                         
                         except Exception as ex:
-                            print("Error extracting vendor name, product name or unique_id: " + str(ex))
+                            print("Error extracting BasicInfo: " + str(ex))
+                        
+                        
+                        # Save the message in persistent data so it can be used to regenerate the device later.
+                        # TODO: actually, that's not necessary, the matter server keeps track of it just fine
+                        if property_id not in self.adapter.persistent_data['nodez'][device_id].keys():
+                            self.adapter.persistent_data['nodez'][device_id]['attributes'][property_id] = attr
+                            self.adapter.should_save = True
                         
                         
                         

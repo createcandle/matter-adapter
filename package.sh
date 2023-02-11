@@ -20,13 +20,16 @@ else
 fi
 
 
-#echo "installing apt packages"
+echo "installing apt packages"
 #sudo apt-get update
 #sudo apt-get install libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential g++ -y
 # Not sure is libjpeg-dev is the correct one
 
-#echo "installing rust compiler"
+echo "installing rust compiler"
 #curl https://sh.rustup.rs -sSf | sh -s -- -y
+
+#exit 0
+#echo "I SHOULD NOT BE SEEN"
 
 # Prep new package
 echo "creating package"
@@ -35,9 +38,9 @@ mkdir -p lib package
 PY11="no"
 python3.11 --version && PY11="yes"
 
-#PIPPY="pip3"
-#python3.11 --version && PIPPY="python3.11 -m pip"
-#echo "PIP STRING: $PIPPY"
+PIPPY="pip3"
+python3.11 --version && PIPPY="python3.11 -m pip"
+echo "PIP STRING: $PIPPY"
 
 # Is upgrading pip needed?
 # "$PIPPY" install --upgrade pip
@@ -59,19 +62,29 @@ python3.11 --version && PY11="yes"
 #pip3 install aiorun -t lib --no-binary :all: --prefix ""
 #pip3 install python-matter-server[server] -t lib  --prefix ""
 
-#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
+wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
 
 
-#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_repl-2023.1.0-py3-none-any.whl -O home_assistant_chip_repl-2023.1.0-py3-none-any.whl
-#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -O home_assistant_chip_clusters-2023.1.0-py3-none-any.whl
+wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_repl-2023.1.0-py3-none-any.whl -O home_assistant_chip_repl-2023.1.0-py3-none-any.whl
+wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -O home_assistant_chip_clusters-2023.1.0-py3-none-any.whl
 
 # doesn't seem to work
 # $PIPPY install -r requirements.txt -t lib --no-cache-dir --no-binary  :all: --prefix ""
 
 if [ "$PY11" = "yes" ]; then
-  python3.11 -m pip install -r requirements.txt -t lib  --prefix ""
+  python3.11 -m pip install home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -t lib  --prefix ""
+  python3.11 -m pip install home_assistant_chip_repl-2023.1.0-py3-none-any.whl -t lib  --prefix ""
+  python3.11 -m pip install home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -t lib  --prefix ""
+  
+  python3.11 -m pip install python-matter-server[server] -t lib --prefix ""
+  python3.11 -m pip install aiorun -t lib --prefix ""
 else
-  pip3 install -r requirements.txt -t lib  --prefix ""
+  pip3 install home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -t lib  --prefix ""
+  pip3 install home_assistant_chip_repl-2023.1.0-py3-none-any.whl -t lib  --prefix ""
+  pip3 install home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -t lib  --prefix ""
+
+  pip3 install python-matter-server[server] -t lib --prefix ""
+  pip3 install aiorun -t lib --prefix ""
 fi
 
 if [ -f ./lib/aiorun.py ]; then

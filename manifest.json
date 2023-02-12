@@ -31,7 +31,6 @@
 	  "Use Hotspot addon as WiFi network for devices": false,
 	  "Vendor ID":"",
       "Debugging": false
-	  
     },
     "schema": {
       "properties": {
@@ -59,7 +58,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

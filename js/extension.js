@@ -200,7 +200,7 @@
                     
                     const code = document.getElementById('extension-matter-adapter-network-pairing-code-input').value; //this.pairing_code;//document.getElementById('extension-matter-adapter-pairing-code').value;
                     
-                    if(code.length < 5){
+                    if(code.length < 4){
                         console.log("code was too short");
                         alert("That code is too short");
                         return;

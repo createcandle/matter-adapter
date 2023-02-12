@@ -173,6 +173,10 @@ extension-matter-adapter-
 	display:none;
 	height:100%;
 	font-size:1.8rem;
+    
+}
+#extension-matter-adapter-view .rule-edit-overlay p{
+    font-weight:bold;
 }
 
 #extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-share .rule-edit-overlay.extension-matter-adapter-share,
@@ -184,7 +188,7 @@ extension-matter-adapter-
 #extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-updating .rule-edit-overlay.extension-matter-adapter-updating,
 #extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-updating .rule-edit-overlay.extension-matter-adapter-updating .rule-delete-dialog{
 	display:block;
-	opacity:100;
+	opacity:1;
     box-sizing:border-box;
 }
 
@@ -248,7 +252,9 @@ extension-matter-adapter-
 	box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
 }
 
-/*  share device button  */
+
+/*  Share  */
+
 .extension-matter-adapter-item-reveal-share-button{
     display:inline-block;
     background-color:rgba(0,0,0,.15);
@@ -257,6 +263,10 @@ extension-matter-adapter-
     cursor:pointer;
 }
 
+.extension-matter-adapter-item-delete-confirm-button,
+.extension-matter-adapter-rule-share-confirm-button{
+    margin-left:2rem;
+}
 
 
 /*  SECOND PAGE  */

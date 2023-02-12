@@ -155,6 +155,7 @@ class MatterAdapter(Adapter):
         self.brightness_transition_time = 0
         
         self.share_node_code = "" # used with open window
+        self.device_was_deleted = False # set to True is a device is deleted from the Matter fabric
         
         pwd = run_command('pwd')
         print("\n\n\n\n\n\n\n\n\n\n\n\n\n" + str(pwd))
@@ -629,6 +630,7 @@ class MatterAdapter(Adapter):
                     elif message['message_id'] == 'remove_node':
                         if self.DEBUG:
                             print("\n\nremove_node was succesfull\n\n")
+                        self.device_was_deleted = True
                         #self.nodes = message['result']
                         #self.parse_nodes()
                         self.get_nodes()

@@ -995,6 +995,7 @@
 					    // UPDATE
 					
     					// Click on start firmware update button
+                        /*
     					const start_update_button = clone.querySelectorAll('.extension-matter-adapter-overlay-start-update-button')[0];
                         start_update_button.dataset.node_id = item_data['node_id'];
     					start_update_button.addEventListener('click', (event) => {
@@ -1037,48 +1038,79 @@
 
     						}).catch((e) => {
     							if(this.debug){
-                                    console.log("matter: postJson error while requesting update start");
+                                    console.log("Matter adapter debug: postJson error while requesting update start");
                                 }
     						});
 					
     				  	});
-					
+					    */
+                        
                     
 					    // DELETE
                         
-    					// Delete button click
+    					// Show delete overlay button
     					const delete_button = clone.querySelector('.extension-matter-adapter-item-delete-button');
     					delete_button.addEventListener('click', (event) => {
                             if(this.debug){
-                                //console.log("delete button clicked");
+                                console.log("Matter adapter debug: show delete overlay button clicked");
                             }
-                            if(confirm("Are you sure you want to remove this device?")){
-        						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-        						item_el.classList.add("delete");
-        						let item_el_parent = item_el.parentElement;
-        						item_el_parent.removeChild(item_el);
-					
-        						// Ask backend to delete device from Matter fabric
-        						window.API.postJson(
-        							`/extensions/${this.id}/api/ajax`,
-        							{'action':'delete','node_id':item_data['node_id']}
-        						).then((body) => { 
-        							if(this.debug){
-                                        console.log("delete matter item reaction: ", body);
-                                    }
-                                    if(body['state'] == true){
-                                        item_el.classList.add(".extension-matter-adapter-hidden");
-                                    }
-
-        						}).catch((e) => {
-        							if(this.debug){
-                                        console.error('delete connection error', e);
-                                    }
-        						});
-                            }
-					
+    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+    						item_el.classList.add("extension-matter-adapter-delete");
     				  	});
 					    
+                        // Delete confirm button
+                        const delete_confirm_button = clone.querySelector('.extension-matter-adapter-item-delete-confirm-button');
+    					delete_confirm_button.addEventListener('click', (event) => {
+                            if(this.debug){
+                                console.log("Matter adapter debug: delete confirm button clicked");
+                            }
+                            
+    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+    						item_el.classList.add("extension-matter-adapter-delete");
+                            
+    						// Ask backend to delete device from Matter fabric
+    						window.API.postJson(
+    							`/extensions/${this.id}/api/ajax`,
+    							{'action':'delete','node_id':item_data['node_id']}
+    						).then((body) => { 
+    							if(this.debug){
+                                    console.log("Matter adapter debug: delete matter item reaction: ", body);
+                                }
+                                if(body['state'] == true){
+                                    item_el.classList.add(".extension-matter-adapter-hidden");
+                                    if(this.debug){
+                                        console.error("Matter adapter debug: Delete succeeded: ", body.message);
+                                    }
+            						//let item_el_parent = item_el.parentElement;
+            						//item_el_parent.removeChild(item_el);
+                                }
+                                else{
+                                    if(this.debug){
+                                        console.error("Matter adapter debug: Delete failed: ", body.message);
+                                        alert(body.message);
+                                    }
+                                }
+
+    						}).catch((e) => {
+    							if(this.debug){
+                                    console.error('Matter adapter debug: delete: connection error', e);
+                                }
+    						});
+                            
+    				  	});
+                        
+                        // Delete cancel button
+                        const delete_cancel_button = clone.querySelector('.extension-matter-adapter-item-delete-cancel-button');
+    					delete_cancel_button.addEventListener('click', (event) => {
+                            if(this.debug){
+                                console.log("delete cancel button clicked");
+                            }
+    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+    						item_el.classList.remove("extension-matter-adapter-delete");
+                        });
+                        
+                        
+                        
                         
                         // SHARE
                         
@@ -1090,6 +1122,9 @@
     						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
     						//console.log("item_el: ", item_el);
                             //console.log(parent3);
+                            item_el.querySelector('.extension-matter-adapter-rule-share-confirm-button').classList.remove('extension-matter-adapter-hidden');
+                            item_el.querySelector('.extension-matter-adapter-share-code').innerText = "Would you like to share this device with another Matter controller?";
+                            item_el.querySelector('.extension-matter-adapter-rule-share-cancel-button').value = 'Cancel'; 
     						item_el.classList.add("extension-matter-adapter-share");
     					});
                         
@@ -1104,12 +1139,17 @@
                         // Confirm share
     					const confirm_share_button = clone.querySelector('.extension-matter-adapter-rule-share-confirm-button');
     					confirm_share_button.addEventListener('click', (event) => {
-    						//console.log("confirm share button has been clicked");
+    						if(this.debug){
+                                console.log("confirm share button has been clicked");
+                            }
                             confirm_share_button.classList.add('extension-matter-adapter-hidden');
-                            item_el.querySelector('.extension-matter-adapter-share-code').innerText = "One moment... "
+                            
+                            let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+                            item_el.querySelector('.extension-matter-adapter-rule-share-cancel-button').value = 'Close'; 
+                            item_el.querySelector('.extension-matter-adapter-share-code').innerText = "One moment... ";
     						//let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
     						//item_el.classList.remove("extension-matter-adapter-update");
-                            let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+                            
     						// Send new values to backend
     						window.API.postJson(
     							`/extensions/${this.id}/api/ajax`,
@@ -1123,11 +1163,14 @@
                                     if(body['state'] == true){
                                         if(typeof body.pairing_code != 'undefined'){
                                             item_el.querySelector('.extension-matter-adapter-share-code').innerText = "Enter this code in the other controller: " + body.pairing_code;
-                                            item_el.querySelector('.extension-matter-adapter-share-question').classList.add('extension-matter-adapter-hidden');
+                                            //item_el.querySelector('.extension-matter-adapter-share-question').classList.add('extension-matter-adapter-hidden');
                                         }
                                         //parent3.classList.add(".extension-matter-adapter-hidden");
                                     }
                                     else{
+                                        if(this.debug){
+                                            console.error('share failed: ', body.message);
+                                        }
                                         item_el.querySelector('.extension-matter-adapter-share-code').innerText = body.message;
                                     }
                                 }
@@ -1163,7 +1206,6 @@
         			catch(e){
         				console.log("general error while looping over nodez: ", e);
         			}
-                    
                     
                     
 				} // end of for loop

@@ -147,9 +147,11 @@ class MatterAPIHandler(APIHandler):
                                 if 'code' in qr_json:
                                     code = qr_json['code']
                                 else:
-                                    print('no code in post json')
+                                    if self.adapter.DEBUG2:
+                                        print('no code in post json')
                             else: 
-                                print('not long enough')
+                                if self.adapter.DEBUG2:
+                                    print('Matter adapter debug: poll: response not long enough')
                         
                         except Exception as ex:
                             if self.DEBUG:
@@ -191,7 +193,7 @@ class MatterAPIHandler(APIHandler):
                         return APIResponse(
                           status=200,
                           content_type='application/json',
-                          content=json.dumps({'state' : state}),
+                          content=json.dumps({'state':state}),
                         )
                     
                     
@@ -244,7 +246,7 @@ class MatterAPIHandler(APIHandler):
                         return APIResponse(
                           status=200,
                           content_type='application/json',
-                          content=json.dumps({'state' : state}),
+                          content=json.dumps({'state':state}),
                         )
                     
                     
@@ -254,13 +256,36 @@ class MatterAPIHandler(APIHandler):
                             print("API: in delete")
                         
                         state = False
-                        
+                        message = "An unknown error has occured"
+                        self.adapter.device_was_deleted = False
                         try:
                             node_id = str(request.body['node_id'])
+                            device_id = 'matter-' + str(node_id)
                             #state = self.delete_item(name) # This method returns True if deletion was succesful
                             
                             state = self.adapter.remove_node(node_id)
-                            state = True
+                            # TODO: check how long this actually takes
+                            time.sleep(3)
+                            if self.adapter.device_was_deleted == False:
+                                time.sleep(3)
+                            if self.adapter.device_was_deleted == False:
+                                time.sleep(3)
+                            if self.adapter.device_was_deleted == False:
+                                message = "Deletion may have failed; it took longer than 9 seconds."
+                            else:
+                                message = "Device was succesfully removed"
+                                state = True
+                                if self.DEBUG:
+                                    print("OK: " + message)
+                                    
+                            if device_id in self.adapter.persistent_data['nodez']:
+                                del self.adapter.persistent_data['nodez'][device_id]
+                                state = True
+                            else:
+                                message = "Device was not present in data; already deleted?"
+                                if self.DEBUG:
+                                    print("Error: " + message)
+                            
                         except Exception as ex:
                             if self.DEBUG:
                                 print("Error deleting: " + str(ex))
@@ -268,7 +293,10 @@ class MatterAPIHandler(APIHandler):
                         return APIResponse(
                           status=200,
                           content_type='application/json',
-                          content=json.dumps({'state' : state}),
+                          content=json.dumps({'state' : state, 
+                                              'mesage':message, 
+                                              'nodez':self.adapter.persistent_data['nodez']
+                                          }),
                         )
                     
                     
@@ -301,7 +329,10 @@ class MatterAPIHandler(APIHandler):
                         return APIResponse(
                           status=200,
                           content_type='application/json',
-                          content=json.dumps({'state' : state,'pairing_code':self.adapter.share_node_code,'message':message}),
+                          content=json.dumps({'state':state, 
+                                              'message':message, 
+                                              'pairing_code':self.adapter.share_node_code
+                                          }),
                         )
                     
                     

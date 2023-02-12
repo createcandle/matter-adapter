@@ -72,8 +72,8 @@ class MatterDevice(Device):
                     'readOnly': True,
                     'type': 'number',
                     'multipleOf':0.1,
-                    '@type': 'TemperatureProperty'},
-                    'dev@type':'TemperatureSensor'} # temperature
+                    '@type': 'TemperatureProperty',
+                    'dev@type':'TemperatureSensor'}, # temperature
                 "PressureMeasurement.Attributes.MeasuredValue":{
                     'readOnly': True,
                     'type': 'number',

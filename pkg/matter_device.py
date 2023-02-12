@@ -35,16 +35,6 @@ class MatterDevice(Device):
         self.node_id = node['node_id']
         self.data_mute = False
         
-        # We give this device a "capability". This will cause it to have an icon that indicates what it can do. 
-        # Capabilities are always a combination of giving a this a capability type, and giving at least one of its properties a capability type.
-        # For example, here the device is a "multi level switch", which means it should have a boolean toggle property as well as a numeric value property
-        # There are a lot of capabilities, read about them here: https://webthings.io/schemas/
-        
-        #self._type = ['MultiLevelSwitch'] # a combination of a toggle switch and a numeric value
-        
-        
-        
-        
         
         try:
             
@@ -60,6 +50,7 @@ class MatterDevice(Device):
                     'type':'boolean', 
                     '@type':'OnOffProperty', 
                     'dev@type':'OnOffSwitch'}, # state
+                    
                 "BooleanState.Attributes.StateValue":{
                     'readOnly': True, 
                     'type':'boolean',
@@ -70,6 +61,7 @@ class MatterDevice(Device):
                     'type':'boolean',
                     '@type': 'MotionProperty',
                     'dev@type':'MotionSensor'}, # occupancy
+                    
                 "RelativeHumidityMeasurement.Attributes.MeasuredValue":{
                     'readOnly':True, 
                     'type':'integer', 
@@ -80,29 +72,55 @@ class MatterDevice(Device):
                     'readOnly': True,
                     'type': 'number',
                     'multipleOf':0.1,
-                    '@type': 'LevelProperty'}, # temperature
+                    '@type': 'TemperatureProperty'},
+                    'dev@type':'TemperatureSensor'} # temperature
+                "PressureMeasurement.Attributes.MeasuredValue":{
+                    'readOnly': True,
+                    'type': 'number',
+                    'multipleOf':0.1,
+                    '@type': 'BarometricPressureProperty',
+                    'dev@type': 'BarometricPressureSensor'}, # pressure
+                "FlowMeasurement.Attributes.MeasuredValue":{
+                    'readOnly':True, 
+                    'type':'number',
+                    'multipleOf':0.1,
+                    '@type':'LevelProperty',
+                    'dev@type':'MultiLevelSensor'}, # flow
+                "IlluminanceMeasurement.Attributes.MeasuredValue":{
+                    'readOnly':True, 
+                    'type':'integer',
+                    'multipleOf':1,
+                    '@type':'LevelProperty',
+                    'dev@type':'MultiLevelSensor'}, # illuminance
+                    
                 "LevelControl.Attributes.CurrentLevel":{
                     'readOnly': False, 
                     'type':'integer', 
                     'percent':True, 
-                    '@type':'BrightnessProperty'}, # light brightness
+                    '@type':'BrightnessProperty',
+                    'dev@type':'Light'}, # light brightness
                 "ColorControl.Attributes.ColorMode":{
                     'readOnly': False, 
                     'type':'string', 
-                    '@type': 'ColorProperty'}, # light color
+                    '@type': 'ColorProperty',
+                    'dev@type':'Light'}, # light color
                 "ColorControl.Attributes.CurrentX":{
                     'readOnly': False, 
                     'type':'string', 
-                    '@type': 'ColorProperty'}, # Color X coordinate. Y value will be loaded too if this one is an attribute
+                    '@type': 'ColorProperty',
+                    'dev@type':'Light'}, # color X coordinate. Y value will be loaded too if this one is an attribute
                 "ColorControl.Attributes.ColorTemperatureMireds":{
                     'readOnly': False, 
                     'type':'integer', 
                     'minimum':-200,
                     'maximum':200,
-                    '@type': 'ColorTemperatureProperty'}, # Color temperature (in Mireds)
+                    '@type': 'ColorTemperatureProperty',
+                    'dev@type':'Light'}, # Color temperature (in Mireds)
+                
+                    
                     
                 # TODO: with color, the properties are all options for the 'light' capability. Done, removed dev@type
-                # TODO: color temperature has minimum and maximum values (should use those), and both physical and 'level' (which to choose?).
+                # TODO: color temperature has minimum and maximum values (should use those), and both physical and 'level' (which to choose?). Done, should be overridden later
                 # https://github.com/project-chip/connectedhomeip/blob/f24ce30a0e120e7bb8649c0ed2fa4558a03b28a5/examples/all-clusters-app/ameba/main/include/ColorControlCommands.h#L302
                     
             }
@@ -310,35 +328,9 @@ class MatterDevice(Device):
                         
                         
                         # ADD CAPABILITES
-                        """
-                        try:
-                        
-                            description = {
-                                '@type': 'OnOffProperty',
-                                'title': "State",
-                                'readOnly': False,
-                                'type': 'boolean'
-                            }
-                        
-                            
-                        
-                        
-                            elif short_type = 'LevelControl.Attributes.CurrentLevel'
-                        
-                        
-                            self._type.append('MultiLevelSensor')
-                            
-                        except Exception as ex:
-                            if self.DEBUG:
-                                print("Device: Error adding capacility: " + str(ex))
-                        """
-                        
-                        
                         
                         if self.DEBUG:
                             print("new property_id: " + str(property_id) + ", type: " + str(attr['attribute_type']))
-                        
-                        
                         
                         def add_device_capability():
                             try:
@@ -395,7 +387,7 @@ class MatterDevice(Device):
                             
                                 #chip.clusters.Objects.ColorControl.Attributes.CurrentY
                             
-                            # Change minimum and maximum mireds according to device data
+                            # Override minimum and maximum mireds according to provided data
                             if short_type == 'ColorControl.Attributes.ColorTemperatureMireds':
                                 if 'ColorControl.Attributes.ColorTempPhysicalMinMireds' in all_short_attributes and 'ColorControl.Attributes.ColorTempPhysicalMaxMireds' in all_short_attributes:
                                     description['minimum'] = node['attributes'][ all_short_attributes['ColorControl.Attributes.ColorTempPhysicalMinMireds'] ]['value']
@@ -418,104 +410,14 @@ class MatterDevice(Device):
                                         value,
                                         attr,
                                         settings)
-                        
-                        
-                        
-                        #MatterColorControlFeatures.COLOR_TEMP
-                        
-                        
-                        
-                        
-                        """
-                        # ON/OFF SWITCH
-                        
-                        #if attr['attribute_type'] == 'chip.clusters.Objects.OnOff.Attributes.OnOff':
-                        if short_type == 'OnOff.Attributes.OnOff':
-                            value = attr['value']
-                            
-                            # Capabilities
-                            if property_title.lower() == 'state' and description['readOnly'] == False:
-                                add_device_capability()
-                            
-                            
-                            self.properties[property_id] = MatterProperty(
-                                            self,
-                                            property_id,
-                                            description,
-                                            value,
-                                            attr,
-                                            settings)
-                        
-                        
-                            continue
-                            
-                            # Binary read-only
-                            # clusters.BooleanState.Attributes.StateValue
-                            # clusters.OccupancySensing.Attributes.Occupancy
-                            
-                            # sensors: https://github.com/home-assistant/core/blob/dev/homeassistant/components/matter/sensor.py
-                            # clusters.RelativeHumidityMeasurement.Attributes.MeasuredValue
-                            # clusters.TemperatureMeasurement.Attributes.MeasuredValue
-                            
-                            # light: https://github.com/home-assistant/core/blob/dev/homeassistant/components/matter/light.py
-                            # clusters.LevelControl.Attributes.CurrentLevel
-                            
-                            
-                            
-                        # MOTION / BINARY SENSORS
-                            
-                        if short_type == 'BooleanState.Attributes.StateValue':
-                            value = attr['value']
-                            
-                            add_device_capability()
-                            
-                            settings = {'matter_type':short_type}
-                            self.properties[property_id] = MatterProperty(
-                                            self,
-                                            property_id,
-                                            description,
-                                            value,
-                                            attr,
-                                            settings)    
-                            
-                        
-                        
-                        
-                        # LIGHT
-                        
-                        if short_type == 'ColorControl.Attributes.ColorMode':
-                            value = attr['value']
-                            
-                            if self.DEBUG:
-                                print("new property_id: " + str(property_id) + ", type: " + str(attr['attribute_type']))
-                            
-                            # Toggle switch
-                            settings = {'matter_type':short_type}
-                            self.properties[property_id] = MatterProperty(
-                                            self,
-                                            "state",
-                                            {
-                                                '@type': 'OnOffProperty',
-                                                'title': "State",
-                                                'readOnly': False,
-                                                'type': 'boolean'
-                                            },
-                                            value,
-                                            attr,
-                                            settings)
-                        
-                       """ 
-                        
-                        
-                        
-                        
+                    
                                         
                 except Exception as ex:
                     if self.DEBUG:
                         print("Device: error in generating property: " + str(ex))
                     
             
-            # add Data Mute if relevant. Add is as the last property, so it shows up last in the UI
+            # Add Data Mute if relevant. Add is as the last property, so it shows up last in the UI
             if add_data_mute:
                 if not 'data_mute' in self.properties:
                     self.properties['data_mute'] = MatterProperty(

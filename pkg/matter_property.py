@@ -31,7 +31,7 @@ class MatterProperty(Property):
     def __init__(self, device, name, description, value, attribute,settings=None): # description here means the dictionary that described the property, not a text description.
         # This creates the initial property
         property_id = 'property-' + str(attribute['attribute_id'])
-        print("Property: property_id: " + str(property_id))
+        #print("Property: property_id: " + str(property_id))
         Property.__init__(self, device, property_id, description)
         
         self.DEBUG = device.DEBUG
@@ -63,16 +63,17 @@ class MatterProperty(Property):
         
         
         
-        if self.device.DEBUG:
+        if self.DEBUG:
             print("property: initiated: " + str(self.title) + ", with value: " + str(value))
 
 
     def set_value(self, value):
         # This gets called by the controller whenever the user changes the value inside the interface. For example if they press a button, or use a slider.
-        print("property: set_value called for " + str(self.title))
-        print("property: set value to: " + str(value))
-        print("self.attribute: " + str(self.attribute))
-        print("self.settings: " + str(self.settings))
+        if self.DEBUG:
+            print("property: set_value called for " + str(self.title))
+            print("property: set value to: " + str(value))
+            print("self.attribute: " + str(self.attribute))
+            print("self.settings: " + str(self.settings))
         try:
             
             # Data Mute is a little different
@@ -85,14 +86,16 @@ class MatterProperty(Property):
                 command = None
                 
                 if self.description['readOnly'] == True:
-                    print("Error / impossible: readOnly property cannot be changed")
+                    if self.DEBUG:
+                        print("Error / impossible: readOnly property cannot be changed")
                     return
                 
                 
                 #if self.title.lower() == 'state' or self.settings.short_type = 'OnOff.Attributes.OnOff':
                 # OnOff switch
                 if self.settings['short_type'] == 'OnOff.Attributes.OnOff':
-                    print("attempting to create cluster command for OnOff")
+                    if self.DEBUG:
+                        print("attempting to create cluster command for OnOff")
                     if value == True:
                         command = clusters.OnOff.Commands.On()
                     else:
@@ -100,7 +103,8 @@ class MatterProperty(Property):
                 
                 # Brightness
                 elif self.settings['short_type'] == 'LevelControl.Attributes.CurrentLevel':
-                    print("attempting to create cluster command for CurrentLevel")
+                    if self.DEBUG:
+                        print("attempting to create cluster command for CurrentLevel")
                     if value == True:
                         command = clusters.LevelControl.Commands.MoveToLevelWithOnOff(
                                         level=int(value),
@@ -109,7 +113,8 @@ class MatterProperty(Property):
                 
                 # Color temperature
                 elif self.settings['short_type'] == 'ColorControl.Attributes.ColorTemperatureMireds':
-                    print("attempting to create cluster command for ColorTemperatureMireds")
+                    if self.DEBUG:
+                        print("attempting to create cluster command for ColorTemperatureMireds")
                     #if value == True:
                         
                     clusters.ColorControl.Commands.MoveToColorTemperature(
@@ -118,9 +123,10 @@ class MatterProperty(Property):
                                     transitionTime=self.device.adapter.brightness_transition_time,
                                 )
                 
-                # color
+                # Color
                 elif self.settings['short_type'] == 'ColorControl.Attributes.CurrentX':
-                    print("attempting to create cluster command for CurrentX and CurrentY")
+                    if self.DEBUG:
+                        print("attempting to create cluster command for CurrentX and CurrentY")
                     if not value.startswith('#'): # could be a string like "green" or "blue"
                         value = colorNameToHex(value)
                     else:
@@ -134,14 +140,17 @@ class MatterProperty(Property):
                                 )
                 
                 
-                # If a matching command was found, then it can be sent to the Matter server
+                # If a matching command was found, then it can be forwarder to the Matter server
                 if command == None:
-                    print("ERROR, COMMAND WAS STILL NONE")
+                    if self.DEBUG:
+                        print("Property: ERROR, COMMAND WAS STILL NONE")
                 else:
-                    print("\n\nSTART\n\n")
+                    if self.DEBUG:
+                        print("\n\nForwarding value to Matter server")
                     #command = clusters.OnOff.Commands.Toggle() # test
                     payload = dataclass_to_dict(command)
-                    print("\n\n_____\npayload as dict: " + str(payload))
+                    if self.DEBUG:
+                        print("payload as dict: " + str(payload))
                     message = {
                             "message_id": "device_command",
                             "command": "device_command",
@@ -158,7 +167,8 @@ class MatterProperty(Property):
                         # send device command
                         if self.DEBUG:
                             dump = json.dumps(message, sort_keys=True, indent=4, separators=(',', ': '))
-                            print("\n.\n) ) )\n.\nsending change value message to the Matter network: " + str(dump))
+                            if self.DEBUG:
+                                print("\n.\n) ) )\n.\nsending change value message to the Matter network: " + str(dump))
                         json_message = json.dumps(message)
 
                         self.device.adapter.ws.send(json_message)
@@ -199,7 +209,8 @@ class MatterProperty(Property):
                 print("update of value blocked by Data mute for: " + str(self.title))
             return
         
-        print("property: update. value: " + str(value))
+        if self.DEBUG:
+            print("property: update. value: " + str(value))
          
         if value != self.value:
             self.value = value

@@ -154,6 +154,7 @@ class MatterAdapter(Adapter):
         
         self.brightness_transition_time = 0
         
+        self.share_node_code = "" # used with open window
         
         pwd = run_command('pwd')
         print("\n\n\n\n\n\n\n\n\n\n\n\n\n" + str(pwd))
@@ -632,6 +633,14 @@ class MatterAdapter(Adapter):
                         #self.parse_nodes()
                         self.get_nodes()
                         
+                    elif message['message_id'] == 'open_commissioning_window':
+                        if self.DEBUG:
+                            print("\n\nopen_commissioning_window was succesfull\n\n")
+                        try:
+                            self.share_node_code = message['result']
+                        except Exception as ex:
+                            print("Error in open_commissioning_window -> getting pairing code")
+                
                 
                 # Handle event messages
                 elif message['_type'].endswith("message.EventMessage"):
@@ -641,7 +650,6 @@ class MatterAdapter(Adapter):
                             if self.DEBUG:
                                 print("\nRECEIVED NODE ADDED MESSAGE\n")
                 
-                        
                         if message['event'] == 'attribute_updated':
                             if self.DEBUG:
                                 print("\nADAPTER: INCOMING PROPERTY CHANGE\n")
@@ -665,7 +673,14 @@ class MatterAdapter(Adapter):
                             print("commission_with_code failed")
                         self.pairing_failed = True
                         
-                    
+                    elif message['message_id'] == 'open_commissioning_window':
+                        if self.DEBUG:
+                            print("open_commissioning_window failed")
+                        self.share_node_code = ""
+                    else:
+                        if self.DEBUG:
+                            print("unhandled error message, message_id: " + str(message['message_id']))
+                        
             else:
                 if self.DEBUG:
                     print("Warning, there was no _type in the message")
@@ -743,6 +758,38 @@ class MatterAdapter(Adapter):
 
     # open_commissioning_window
     def share_node(self, node_id):
+        try:
+            if self.client_connected:
+                
+                if self.DEBUG:
+                    print("share-node: Client is connected, so asking to open commissioning window")
+                
+                message = {
+                        "message_id": "open_commissioning_window",
+                        "command": "open_commissioning_window",
+                        "args": {
+                            "node_id": node_id
+                        }
+                        
+                      }
+                json_message = json.dumps(message)
+                self.ws.send(json_message)
+            
+                return True
+                
+        except Exception as ex:
+            print("Error in share_node: " + str(ex))
+        
+        return False
+        
+        
+        {
+          "message_id": "open_commissioning_window",
+          "command": "open_commissioning_window",
+          "args": {
+            "node_id": node_id
+          }
+        }
         
         """
         async def open_commissioning_window(

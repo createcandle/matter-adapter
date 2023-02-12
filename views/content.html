@@ -51,6 +51,8 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
                     <div id="extension-matter-adapter-paired-devices-list">
                     </div>
                     
+                    <button id="extension-matter-adapter-refresh-paired-list-button" class="text-button extension-matter-adapter-hidden">Refresh</button>
+                    
                     <pre id="extension-matter-adapter-paired-devices-list-pre" class="extension-matter-adapter-developer-only">
                     </pre>
                     
@@ -130,11 +132,20 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
 						<p>Your device should have a QR code on it which we need to scan.</p>
 
 						<div id="extension-matter-adapter-pairing-qr-area">
-							<p>Scan this QR code with your phone to get started:</p>
-							<div id="extension-matter-adapter-qr-code"></div>
-							<div style="background-color:white; padding:0 2rem 2rem 2rem; text-align:center">
-								<a id="extension-matter-adapter-qr-scan-link" href="https://www.candlesmarthome.com/qr"><span id="extension-matter-adapter-short-qr-scan-url">candlesmarthome.com/qr</span></a>
-							</div>
+							<div id="extension-matter-adapter-desktop-qr">
+                                <p>Scan this QR code with your phone to get started:</p>
+							    <div id="extension-matter-adapter-qr-code"></div>
+							    <div style="background-color:white; padding:0 2rem 2rem 2rem; text-align:center">
+								    <a id="extension-matter-adapter-qr-scan-link" href="https://www.candlesmarthome.com/qr"><span id="extension-matter-adapter-short-qr-scan-url">candlesmarthome.com/qr</span></a>
+							    </div>
+                            </div>
+
+							<div id="extension-matter-adapter-mobile-qr">
+                                <p>Open the Candle QR code scanner to find the pairing code. You will have to grant permission to use your camera.</p>
+							    <div style="background-color:white; padding:0 2rem 2rem 2rem; text-align:center">
+								    <a id="extension-matter-adapter-mobile-qr-scan-link" href="https://www.candlesmarthome.com/qr"><span id="extension-matter-adapter-mobile-short-qr-scan-url">candlesmarthome.com/qr</span></a>
+							    </div>
+                            </div>
 
 							<div class="extension-matter-adapter-align-right">
 								<button id="extension-matter-adapter-show-more-pairing-options-button" class="text-button">Show other options</button>
@@ -181,7 +192,7 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
                     </div>
                     
 
-					<div id="extension-matter-adapter-pairing-start-area" class="extension-matter-adapter-area">
+					<div id="extension-matter-adapter-pairing-start-area" class="extension-matter-adapter-area extension-matter-adapter-hidden">
 						<h4>Ready to pair</h4>
 
                         <p>Using pairing code: <span id="extension-matter-adapter-pairing-start-area-pairing-code">Error!</span></p>
@@ -189,7 +200,7 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
 							<div class="extension-matter-adapter-spinner">
 								<div></div><div></div><div></div><div></div>
 							</div>
-							<p style"text-align:center">Updating certificates...</p>
+							<p style"text-align:center">Updating certificates... please wait</p>
 						</div>
                         
                         <div id="extension-matter-adapter-pairing-bluetooth-hint">
@@ -272,7 +283,7 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
 					-->
 
 
-					<button id="extension-matter-adapter-stop-poll-button">STOP POLL</button>
+					<button id="extension-matter-adapter-stop-poll-button" class="extension-matter-adapter-developer-only text-button">Stop polling</button>
                     
 				</div>
 					
@@ -311,10 +322,24 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
                     <div class="extension-matter-adapter-item-hardware-version"></div>
 					<div class="extension-matter-adapter-item-software-version"></div>
 				</div>
+                <div class="extension-matter-adapter-line3">
+                    
+                    <!--
+                    <div id="extension-matter-adapter-item-share-container">
+                        
+                        <div id="extension-matter-adapter-item-share-explanation">
+                            <p>You can share this device with another Matter controller (for example, another Candle controller). This will require you to enter a pairing code.</p>
+                                
+                            <button>Share
+                        </div>
+                    </div>
+                    -->
+                </div>
 			</div>
 			<div class="extension-matter-adapter-item-menu">
 				<div class="extension-matter-adapter-item-left">
-					<button class="extension-matter-adapter-item-update-button text-button" disabled>Update</button>
+					<!--<button class="extension-matter-adapter-item-update-button text-button" disabled>Update</button>-->
+                    <button class="extension-matter-adapter-item-reveal-share-button text-button">Share</button>
 				</div>
 				<div class="extension-matter-adapter-item-right">
 					<div class="extension-matter-adapter-item-delete-button">&nbsp;</div>
@@ -347,9 +372,19 @@ Addons may add buttons to the top-right and bottom-right corner. Buttons to add 
   					    <div class="extension-matter-adapter-update-progress-bar"></div>
                         <div class="extension-matter-adapter-update-progress-bar-percentage"></div>
   				    </div>
-          
                 </div>
             </div>
+            
+            <div class="extension-matter-adapter-overlay rule-edit-overlay extension-matter-adapter-share">
+                <div class="rule-delete-dialog">
+                    <p class="extension-matter-adapter-share-question">Would you like to share this device with another Matter controller?</p>
+                    <p class="extension-matter-adapter-share-code"></p>
+                    <input class="extension-matter-adapter-rule-share-cancel-button text-button" type="button" data-l10n-id="rule-delete-cancel-button" value="Cancel">
+                    <input class="extension-matter-adapter-rule-share-confirm-button text-button" type="button" value="Yes">
+                    
+                </div>
+            </div>
+            
 		</div>
         
         <!--

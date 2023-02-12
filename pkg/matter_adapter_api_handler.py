@@ -272,6 +272,41 @@ class MatterAPIHandler(APIHandler):
                         )
                     
                     
+                    elif action == 'share_node':
+                        if self.DEBUG:
+                            print("API: in share_node")
+                        
+                        self.adapter.share_node_code = ""
+                        message = "Failed to share the device"
+                        state = False
+                        
+                        try:
+                            node_id = str(request.body['node_id'])
+                            #state = self.delete_item(name) # This method returns True if deletion was succesful
+                            
+                            state = self.adapter.share_node(node_id)
+                            
+                            time.sleep(4)
+                            if self.adapter.share_node_code == "":
+                                time.sleep(4)
+                            if self.adapter.share_node_code == "":
+                                time.sleep(4)
+                            if self.adapter.share_node_code != "":
+                                message = "You can now pair the device (for 60 seconds)"
+                                state = True
+                        except Exception as ex:
+                            if self.DEBUG:
+                                print("Error in share_node: " + str(ex))
+                        
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state' : state,'pairing_code':self.adapter.share_node_code,'message':message}),
+                        )
+                    
+                    
+                    
+                    
                     else:
                         print("Error, that action is not possible")
                         return APIResponse(

@@ -29,6 +29,10 @@ extension-matter-adapter-
     font-size:1.8rem;
     padding:1rem 2rem;
 }
+#extension-matter-adapter-view button:hover{
+    background-color:rgba(0,0,0,.3);
+}
+
 #extension-matter-adapter-view p{
     line-height: 2.6rem;
 }
@@ -160,6 +164,7 @@ extension-matter-adapter-
 	border-radius: .5rem;
 	position: relative;
 	width:100%;
+    flex-direction:column;
 }
 #extension-matter-adapter-view .rule-edit-overlay{
 	left: 0;
@@ -170,6 +175,8 @@ extension-matter-adapter-
 	font-size:1.8rem;
 }
 
+#extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-share .rule-edit-overlay.extension-matter-adapter-share,
+#extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-share .rule-edit-overlay.extension-matter-adapter-share .rule-delete-dialog,
 #extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-delete .rule-edit-overlay.extension-matter-adapter-delete,
 #extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-delete .rule-edit-overlay.extension-matter-adapter-delete .rule-delete-dialog,
 #extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-update .rule-edit-overlay.extension-matter-adapter-update,
@@ -178,6 +185,7 @@ extension-matter-adapter-
 #extension-matter-adapter-view .extension-matter-adapter-item.extension-matter-adapter-updating .rule-edit-overlay.extension-matter-adapter-updating .rule-delete-dialog{
 	display:block;
 	opacity:100;
+    box-sizing:border-box;
 }
 
 .extension-matter-adapter-item-title{
@@ -185,6 +193,7 @@ extension-matter-adapter-
     font-size:2rem;
     font-weight:bold;
     display:block;
+    margin-bottom:.5rem;
 }
 .extension-matter-adapter-item-description{
     color:#eee;
@@ -209,14 +218,13 @@ extension-matter-adapter-
 
 .extension-matter-adapter-item-menu{
     display:flex;
-    flex-direction:column;
-    justify-content:space-around;
-    border-left:1px solid rgba(255,255,255,.1);
+    flex-direction:row;
+    justify-content:space-between;
+    border-top:1px solid rgba(255,255,255,.1);
 }
 
 .extension-matter-adapter-item-right{
     text-align:center;
-    margin-top:3rem;
 }
 
 
@@ -238,6 +246,15 @@ extension-matter-adapter-
 .extension-matter-adapter-item-delete-button:hover{
 	opacity:1;
 	box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+}
+
+/*  share device button  */
+.extension-matter-adapter-item-reveal-share-button{
+    display:inline-block;
+    background-color:rgba(0,0,0,.15);
+    border-radius:.5rem;
+    padding:.5rem 1rem;
+    cursor:pointer;
 }
 
 
@@ -316,6 +333,16 @@ extension-matter-adapter-
     display:none;
 }
 
+
+#extension-matter-adapter-mobile-qr{
+    display:none;
+}
+.extension-matter-adapter-is-mobile #extension-matter-adapter-mobile-qr{
+    display:block;
+}
+.extension-matter-adapter-is-mobile #extension-matter-adapter-desktop-qr{
+    display:none;
+}
 
 
 #extension-matter-adapter-wifi-remember-checkbox{
@@ -405,13 +432,6 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
 }
 
 
-#extension-matter-adapter-stop-poll-button{
-    display:none;
-}
-.developer #extension-matter-adapter-stop-poll-button{
-    display:inline-block;
-}
-
 body:not(.developer) .extension-matter-adapter-developer-only{
     display:none;
 }
@@ -496,14 +516,23 @@ body:not(.developer) .extension-matter-adapter-developer-only{
 
 
 
-@media screen and (max-width: 640px) {
-
+@media screen and (max-width: 760px) {
+    
 }
 
-@media screen and (min-width: 641px) {
+@media screen and (min-width: 760px) {
     .extension-matter-adapter-item{
-        display:flex;
         justify-content:space-between;
+        flex-direction:row;
+    }
+    .extension-matter-adapter-item-menu{
+        flex-direction:column;
+        justify-content: space-around;
+        border-top:0;
+        border-left:1px solid rgba(255,255,255,.1);
+    }
+    .extension-matter-adapter-item-right{
+        margin-top:3rem;
     }
 }
 

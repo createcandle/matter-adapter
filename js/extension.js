@@ -30,10 +30,20 @@
             
             this.uuid == null; // used with qr scanner
             
+            this.retried_init = false;
+            
             window.matter_adapter_poll_interval = null;
             // We'll try and get this data from the addon backend
             //this.items = [];
             
+            
+            this.is_narrow = window.matchMedia("only screen and (max-width: 760px)").matches;
+            this.is_touch = ('ontouchstart' in document.documentElement && navigator.userAgent.match(/Mobi/));
+            
+            this.is_mobile = false;
+            if(this.is_narrow && this.is_touch){
+                this.is_mobile = true
+            }
             
             // Load the html
             this.content = ''; // The html from the view will be loaded into this variable
@@ -87,6 +97,9 @@
 			
             try{
                 
+                if(this.is_mobile){
+                    document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-is-mobile');
+                }
                 
                 // Discover button
                 /*
@@ -305,6 +318,13 @@
     			document.getElementById('extension-matter-adapter-title').addEventListener('click', (event) => {
     				this.show();
     			});
+                
+    			document.getElementById('extension-matter-adapter-refresh-paired-list-button').addEventListener('click', (event) => {
+    				document.getElementById('extension-matter-adapter-refresh-paired-list-button').classList.add('extension-matter-adapter-hidden');
+                    document.getElementById('extension-matter-adapter-paired-devices-list').innerHTML = '<div class="extension-matter-adapter-spinner"><div></div><div></div><div></div><div></div></div>';
+                    this.get_init_data();
+    			});
+    				    
             
             
                 // ADD DEVICES PLUS BUTTON
@@ -380,9 +400,7 @@
         // This gets the first data from the addon API
         
         get_init_data(){
-            
 			try{
-				
                 
                 // Load all things, in order to integrate that data with the init data
                 try{
@@ -436,6 +454,9 @@
         
         // Gets called after the things have first been requested from the webthings API. Which is needed to get the thing title.
         get_init_data2(){
+            if(this.debug){
+                console.log("Matter adapter debug: in get_init_data2");
+            }
             
 	  		// Init
 	        window.API.postJson(
@@ -445,10 +466,6 @@
 	        ).then((body) => {
                 
                 try{
-                    if(this.debug){
-                        console.log("Matter adapter debug: init2 response: ", body);
-                    }
-                    
                     // We have now received initial data from the addon, so we can hide the loading spinner by adding the extension-matter-adapter-hidden class to it.
                     document.getElementById('extension-matter-adapter-loading').classList.add('extension-matter-adapter-hidden');
                 
@@ -456,12 +473,16 @@
                     if(typeof body.debug != 'undefined'){
                         this.debug = body.debug;
                         if(this.debug){
-                            console.log("Matter adapter debug: Init2 response: ", body);
+                            console.log("Matter adapter debug: init2 response: ", body);
                             // Show big red debug warning
                             if(document.getElementById('extension-matter-adapter-debug-warning') != null){
                                 document.getElementById('extension-matter-adapter-debug-warning').style.display = 'block';
                             }
                         }
+                    }
+                
+                    if(this.debug){
+                        console.log("Matter adapter debug: is_mobile? ", this.is_mobile);
                     }
                 
                     if(typeof body.use_hotspot != 'undefined' && typeof body.hotspot_addon_installed != 'undefined' && typeof body.wifi_credentials_available != 'undefined'){
@@ -513,7 +534,15 @@
                 }
 			
 	        }).catch((e) => {
-	  			console.log("Error getting MatterAdapter init data: ", e);
+	  			console.log("Error getting MatterAdapter init2 data: ", e);
+                setTimeout(() => {
+                    if(this.retried_init == false){
+                        this.retried_init = true;
+                        console.log("Restaring get_init_data after earlier attempt failed");
+                        this.get_init_data();
+                    }
+                    
+                },15000);
 	        });	
         }
     
@@ -653,7 +682,6 @@
                             document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
                         }
                         
-                        
                     }
                     else{
                         if(this.debug){
@@ -662,7 +690,6 @@
                     }
                     //this.regenenerate_items();
                 }
-                
                 
 			}).catch((e) => {
                 this.busy_polling = false;
@@ -674,7 +701,7 @@
         
         
         
-        
+        // Reveal the Div with the actual normal pairing button
         show_pairing_start_area(){
             if(this.debug){
                 console.log("Matter adapter debug: in show_pairing_start_area");
@@ -744,7 +771,6 @@
                         //console.log("thing_id: ", thing_id);
                         //this.title_lookup_table[thing_id] = thing_title;
                         
-                        
                         if(typeof this.nodez[thing_id] == 'undefined'){
                             if(this.debug){
                                 console.error("Matter adapter debug: ERROR, THING ID NOT PRESENT IN NODEZ: ", thing_id);
@@ -756,11 +782,11 @@
                                 console.log("Matter adapter debug: OK, thing_id is in nodez");
                             }
                         }
-                        let qitremz = this.nodez[thing_id];
+                        let item_data = this.nodez[thing_id];
                         if(this.debug){
-                            console.log("Matter adapter debug: qitremz: ", qitremz); // device_id
+                            console.log("Matter adapter debug: item_data: ", item_data); // device_id
                         }
-                        //console.log("qitremz: ", qitremz);
+                        //console.log("item_data: ", item_data);
                     
     					var clone = original.cloneNode(true);
     					clone.removeAttribute('id');
@@ -768,11 +794,13 @@
                             //console.log("clone: ", clone);
                         }
                     
+                        
                         /*
-    					try{
-    						//console.log("qitremz['model_id'] = " + qitremz['model_id']);
-    						if(typeof qitremz['vendor_name'] != "undefined"){
-    							var icon_name = qitremz['vendor_name'].toLowerCase();
+    					// Generate a somewhat fancy icon
+                        try{
+    						//console.log("item_data['model_id'] = " + item_data['model_id']);
+    						if(typeof item_data['vendor_name'] != "undefined"){
+    							var icon_name = item_data['vendor_name'].toLowerCase();
                                 //console.log("vendor name: " + icon_name);
     							if(icon_name.toLowerCase() == "ikea"){
     								icon_name = "IKEA";
@@ -848,28 +876,30 @@
     						console.error("error adding icon: ", e);
     					}	
 					    */
-					
+					    
+                        
+                        // Insert data into item
                     
     					try{
                             // Create big title
     						var a = document.createElement("a");
     						//s.classList.add('extension-matter-adapter-description'); 
-    						a.setAttribute("href", "/things/matter-" + qitremz['node_id']);
+    						a.setAttribute("href", "/things/matter-" + item_data['node_id']);
                         
                             // Add title if it could be found
                             try{
-                                if( typeof this.title_lookup_table[ 'matter-' + qitremz['node_id'] ] != 'undefined' ){
+                                if( typeof this.title_lookup_table[ 'matter-' + item_data['node_id'] ] != 'undefined' ){
                                     var title_span = document.createElement("span");
                                     title_span.classList.add('extension-matter-adapter-item-title');
                             
-                                    var title_text = document.createTextNode(this.title_lookup_table[ 'matter-' + qitremz['node_id'] ]);
+                                    var title_text = document.createTextNode(this.title_lookup_table[ 'matter-' + item_data['node_id'] ]);
                                     title_span.appendChild(title_text);
                                     a.appendChild(title_span);
                                     clone.querySelector('.extension-matter-adapter-item-title').appendChild(a);
                                 }
                                 else{
                                     if(this.debug){
-                                        console.warn("not in lookup table: ", qitremz['node_id']);
+                                        console.warn("not in lookup table: ", item_data['node_id']);
                                     }
                                 }
                             }
@@ -880,13 +910,13 @@
                             //var desc_span = document.createElement("span");
                             //desc_span.classList.add('extension-matter-adapter-item-description');
                     
-                            //var desc_text = document.createTextNode( qitremz['product_name'] );
+                            //var desc_text = document.createTextNode( item_data['product_name'] );
                             //desc_span.appendChild(desc_text);
                             //clone.querySelectorAll('.extension-matter-adapter-description' )[0].appendChild(title_span);
                             //a.appendChild(desc_span);
     						try{
-                                clone.querySelector('.extension-matter-adapter-item-vendor-name').innerText = qitremz['vendor_name']
-                                clone.querySelector('.extension-matter-adapter-item-product-name').innerText = qitremz['product_name']
+                                clone.querySelector('.extension-matter-adapter-item-vendor-name').innerText = item_data['vendor_name']
+                                clone.querySelector('.extension-matter-adapter-item-product-name').innerText = item_data['product_name']
                             }
                             catch(e){
                                 console.log("Matter adapter debug: Error setting vendor or product name: ", e);
@@ -896,28 +926,28 @@
                             // Add MAC address link
     						var s = document.createElement("a");
     						//s.classList.add('extension-matter-adapter-matter-id');  
-    						s.setAttribute("href", "/things/matter-" + qitremz['node_id']);              
-    						var t = document.createTextNode( qitremz['node_id'] );
+    						s.setAttribute("href", "/things/matter-" + item_data['node_id']);              
+    						var t = document.createTextNode( item_data['node_id'] );
     						s.appendChild(t);                                   
     						clone.querySelectorAll('.extension-matter-adapter-matter-id' )[0].appendChild(s);
 						    */
                             
                             // Add firmware version
-    						if(typeof qitremz['software_version'] != "undefined"){
+    						if(typeof item_data['software_version'] != "undefined"){
                                 if(this.debug){
-                                    console.log("software version: ", qitremz['software_version']);
+                                    console.log("Matter adapter debug: software version: ", item_data['software_version']);
                                 }
-                                //alert(qitremz['software_version']);
+                                //alert(item_data['software_version']);
     							var s = document.createElement("span");
     							//s.classList.add('extension-matter-adapter-matter-id');             
-    							var t = document.createTextNode( qitremz['software_version'] );
+    							var t = document.createTextNode( item_data['software_version'] );
     							s.appendChild(t);                                   
     							clone.querySelector('.extension-matter-adapter-item-software-version' ).appendChild(s);
     						}
-    						if(typeof qitremz['hardware_version'] != "undefined"){
+    						if(typeof item_data['hardware_version'] != "undefined"){
     							var s = document.createElement("span");
     							//s.classList.add('extension-matter-adapter-matter-id');             
-    							var t = document.createTextNode( qitremz['hardware_version'] );
+    							var t = document.createTextNode( item_data['hardware_version'] );
     							s.appendChild(t);                                   
     							clone.querySelector('.extension-matter-adapter-item-hardware-version' ).appendChild(s);
     						}
@@ -928,21 +958,23 @@
     						console.log("Matter adapter debug: error handling Matter device data: " , e);
     					}
 						
+                        
+                        // UPDATE
+                        
     					// Click on first firmware update button
     					const show_update_button = clone.querySelector('.extension-matter-adapter-item-update-button');
-    					//console.log("show_update_button = ");
-    					//console.log(show_update_button);
-    					
-                        //if(qitremz['update']['state'] == 'available'){
+                        //if(item_data['update']['state'] == 'available'){
     					//	show_update_button.disabled = false;
     					//}
-    					show_update_button.addEventListener('click', (event) => {
-    						//console.log("clicked on show update button. node_id:" + qitremz['node_id']);
-    						var target = event.currentTarget;
-    						var parent3 = target.closest("extension-matter-adapter-item");
-    						//console.log(parent3);
-    						parent3.classList.add("extension-matter-adapter-update");
-    					});
+                        if(show_update_button != null){
+        					show_update_button.addEventListener('click', (event) => {
+        						//console.log("clicked on show update button. node_id:" + item_data['node_id']);
+        						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+        						//console.log(parent3);
+        						item_el.classList.add("extension-matter-adapter-update");
+        					});
+                        }
+    					
 					    
 					    /*
     					const read_about_risks_button = clone.querySelectorAll('.extension-matter-adapter-read-about-risks')[0];
@@ -954,28 +986,26 @@
     					const cancel_update_button = clone.querySelector('.extension-matter-adapter-overlay-cancel-update-button');
     					cancel_update_button.addEventListener('click', (event) => {
     						//console.log("cancel update button has been clicked");
-    						var target = event.currentTarget;
-    						var parent3 = target.closest("extension-matter-adapter-item");
-    						parent3.classList.remove("extension-matter-adapter-update");
+    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+    						item_el.classList.remove("extension-matter-adapter-update");
     					});
 					
 					
 					
-					
+					    // UPDATE
 					
     					// Click on start firmware update button
     					const start_update_button = clone.querySelectorAll('.extension-matter-adapter-overlay-start-update-button')[0];
-                        start_update_button.dataset.node_id = qitremz['node_id'];
+                        start_update_button.dataset.node_id = item_data['node_id'];
     					start_update_button.addEventListener('click', (event) => {
     						//console.log("clicked on start update button. Event:", event);
-    						//console.log("- node_id:" + qitremz['node_id']);
+    						//console.log("- node_id:" + item_data['node_id']);
                             //console.log("data attribute: ", event.target.dataset);
                             //console.log("data attribute: ", event.target.dataset.node_id);
                         
-    						var target = event.currentTarget;
-    						var parent3 = target.target.closest("extension-matter-adapter-item");
-    						parent3.classList.remove("extension-matter-adapter-update");
-    						parent3.classList.add("extension-matter-adapter-updating");
+    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+    						item_el.classList.remove("extension-matter-adapter-update");
+    						item_el.classList.add("extension-matter-adapter-updating");
 						
     						//setTimeout(() => hideBtn(0), 1000);
 						
@@ -1013,40 +1043,34 @@
 					
     				  	});
 					
-					
-    					// Force-delete device from matter network feature. Unfinished, may just be confusing.
-    					// Add delete button click event
+                    
+					    // DELETE
+                        
+    					// Delete button click
     					const delete_button = clone.querySelector('.extension-matter-adapter-item-delete-button');
     					delete_button.addEventListener('click', (event) => {
                             if(this.debug){
                                 //console.log("delete button clicked");
                             }
                             if(confirm("Are you sure you want to remove this device?")){
-        						var target = event.currentTarget;
-        						var parent3 = target.closest("extension-matter-adapter-item");
-        						parent3.classList.add("delete");
-        						var parent4 = parent3.parentElement;
-        						parent4.removeChild(parent3);
+        						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+        						item_el.classList.add("delete");
+        						let item_el_parent = item_el.parentElement;
+        						item_el_parent.removeChild(item_el);
 					
-        						// Send new values to backend
+        						// Ask backend to delete device from Matter fabric
         						window.API.postJson(
         							`/extensions/${this.id}/api/ajax`,
-        							{'action':'delete','node_id':qitremz['node_id']}
+        							{'action':'delete','node_id':item_data['node_id']}
         						).then((body) => { 
         							if(this.debug){
                                         console.log("delete matter item reaction: ", body);
-        							    //console.log(body); 
-        							    //if( body['state'] != true ){
-        							    //pre.innerText = body['message'];
                                     }
-                                    if(body['status'] == 'ok'){
-                                        parent3.classList.add(".extension-matter-adapter-hidden");
+                                    if(body['state'] == true){
+                                        item_el.classList.add(".extension-matter-adapter-hidden");
                                     }
-                                
-        							//}
 
         						}).catch((e) => {
-        							//console.log("matter2mqt error in delete items handler: " , e);
         							if(this.debug){
                                         console.error('delete connection error', e);
                                     }
@@ -1054,25 +1078,85 @@
                             }
 					
     				  	});
-					
-					
-                        // makes it easier to target each item in the list by giving it a unique class
-                        clone.classList.add('extension-matter-adapter-item-' + qitremz['node_id']);
+					    
+                        
+                        // SHARE
+                        
+                        // Share Matter device buttons
+                        
+                        // Reveal share overlay
+    					const reveal_share_button = clone.querySelector('.extension-matter-adapter-item-reveal-share-button');
+    					reveal_share_button.addEventListener('click', (event) => {
+    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+    						//console.log("item_el: ", item_el);
+                            //console.log(parent3);
+    						item_el.classList.add("extension-matter-adapter-share");
+    					});
+                        
+                        // Cancel share
+    					const cancel_share_button = clone.querySelector('.extension-matter-adapter-rule-share-cancel-button');
+    					cancel_share_button.addEventListener('click', (event) => {
+    						//console.log("cancel share button has been clicked");
+    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+    						item_el.classList.remove("extension-matter-adapter-share");
+    					});
+                        
+                        // Confirm share
+    					const confirm_share_button = clone.querySelector('.extension-matter-adapter-rule-share-confirm-button');
+    					confirm_share_button.addEventListener('click', (event) => {
+    						//console.log("confirm share button has been clicked");
+                            confirm_share_button.classList.add('extension-matter-adapter-hidden');
+                            item_el.querySelector('.extension-matter-adapter-share-code').innerText = "One moment... "
+    						//let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+    						//item_el.classList.remove("extension-matter-adapter-update");
+                            let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+    						// Send new values to backend
+    						window.API.postJson(
+    							`/extensions/${this.id}/api/ajax`,
+    							{'action':'share_node','node_id':item_data['node_id']}
+    						).then((body) => {
+    							if(this.debug){
+                                    console.log("share_node reaction: ", body);
+                                    console.log("item_el in response: ", item_el);
+                                }
+                                if(typeof body.state != 'undefined'){
+                                    if(body['state'] == true){
+                                        if(typeof body.pairing_code != 'undefined'){
+                                            item_el.querySelector('.extension-matter-adapter-share-code').innerText = "Enter this code in the other controller: " + body.pairing_code;
+                                            item_el.querySelector('.extension-matter-adapter-share-question').classList.add('extension-matter-adapter-hidden');
+                                        }
+                                        //parent3.classList.add(".extension-matter-adapter-hidden");
+                                    }
+                                    else{
+                                        item_el.querySelector('.extension-matter-adapter-share-code').innerText = body.message;
+                                    }
+                                }
+                            
+    						}).catch((e) => {
+    							if(this.debug){
+                                    console.error('delete connection error', e);
+                                }
+    						});
+                            
+    					});
+                        
+                        
+                        // Makes it easier to target each item in the list by giving it a unique class
+                        clone.classList.add('extension-matter-adapter-item-' + item_data['node_id']);
                     
-                        // show firmware update status
-                        if( typeof qitremz['update'] != 'undefined' ){
-                            if(qitremz['update']['state'] == "updating"){
+                        // Show firmware update status
+                        if( typeof item_data['update'] != 'undefined' ){
+                            if(item_data['update']['state'] == "updating"){
                                 clone.classList.add('extension-matter-adapter-updating');
                                 const clone_progress_bar = clone.querySelectorAll('.extension-matter-adapter-update-progress-bar')[0];
-                                clone_progress_bar.style.width = qitremz['update']['progress'] + "%";
+                                clone_progress_bar.style.width = item_data['update']['progress'] + "%";
                                 const clone_progress_bar_percentage = clone.querySelectorAll('.extension-matter-adapter-update-progress-bar-percentage')[0];
-                                clone_progress_bar_percentage.innerText = qitremz['update']['progress'] + "%";
+                                clone_progress_bar_percentage.innerText = item_data['update']['progress'] + "%";
                                 this.updating_firmware = true;
         					}
                         }
 				
     					list.append(clone);
-                        
                         
                         
                     }
@@ -1115,111 +1199,16 @@
 			
 			}
 			catch (e) {
-				// statements to handle any exceptions
-				//console.log("error while generating items: " , e); // pass exception object to error handler
+				console.log("Matter adapter: general error while generating items: ", e);
 			}
-			
-
-			
-		}    
-	
-		//
-		//  REGENERATE ITEMS LIST ON MAIN PAGE
-		//
-	    /*
-		regenerate_items(items){
-            // This funcion takes a list of items and generates HTML from that, and places it in the list container on the main page
-			try {
-				console.log("regenerating. items: ", items);
-		        if(this.debug){
-		            console.log("I am only here because debugging is enabled");
-		        }
-                
-                let list_el = document.getElementById('extension-matter-adapter-paired-devices-list'); // list element
-                if(list_el == null){
-                    console.log("Error, the main list container did not exist yet");
-                    return;
-                }
-                
-                // If the items list does not contain actual items, then stop
-                if(items.length == 0){
-                    list_el.innerHTML = "No items";
-                    return
-                }
-                else{
-                    list_el.innerHTML = "";
-                }
-                
-                // The original item which we'll clone  for each item that is needed in the list.  This makes it easier to design each item.
-				const original = document.getElementById('extension-matter-adapter-original-item');
-			    //console.log("original: ", original);
-                
-			    // Since each item has a name, here we're sorting the list based on that name first
-				items.sort((a, b) => (a.name.toLowerCase() > b.name.toLowerCase()) ? 1 : -1)
-				
-                
-				for( var item in items ){
-					
-					var clone = original.cloneNode(true); // Clone the original item
-					clone.removeAttribute('id'); // Remove the ID from the clone
-                    
-                    // Place the name in the clone
-                    clone.querySelector(".extension-matter-adapter-item-name").innerText = qitremz.name; 
-                    clone.getElementsByClassName("extension-matter-adapter-item-value")[0].innerText = qitremz.value;
-                     
-                    
-                    // You could add a specific CSS class to an element depending, for example depending on some value
-                    //clone.classList.add('extension-matter-adapter-item-highlighted');   
-                    
-
-					// ADD DELETE BUTTON
-					const delete_button = clone.querySelectorAll('.extension-matter-adapter-item-delete-button')[0];
-                    //console.log("delete button element: ", delete_button);
-                    delete_button.setAttribute('data-name', qitremz.name);
-                    
-					delete_button.addEventListener('click', (event) => {
-                        console.log("delete button click. event: ", event);
-                        if(confirm("Are you sure you want to delete this item?")){
-    						
-    						// Inform backend
-    						window.API.postJson(
-    							`/extensions/${this.id}/api/ajax`,
-    							{'action':'delete','name': event.target.dataset.name}
-    						).then((body) => { 
-    							console.log("delete item response: ", body);
-                                if(body.state == true){
-                                    console.log('the item was deleted on the backend');
-                                    
-                                    event.target.closest(".extension-matter-adapter-item").style.display = 'none'; // find the parent item
-                                    // Remove the item form the list, or regenerate the entire list instead
-                                    // parent4.removeChild(parent3);
-                                }
-
-    						}).catch((e) => {
-    							console.log("matter-adapter: error in delete items handler: ", e);
-    						});
-                        }
-				  	});
-
-                    // Add the clone to the list container
-					list_el.append(clone);
-                    
-				} // end of for loop
-                
-                // Hide the loading spinner and show the paired devices list
-                document.getElementById('extension-matter-adapter-loading').classList.add('extension-matter-adapter-hidden');
-                list_el.classList.remove('extension-matter-adapter-hidden');
             
-            
-			}
-			catch (e) {
-				console.log("Error in regenerate_items: ", e);
-			}
+            // Show refresh button
+			document.getElementById('extension-matter-adapter-refresh-paired-list-button').classList.remove('extension-matter-adapter-hidden');
+			
 		}
-	
-        */
+        
  
- 
+        // Generate QR code to go to QR code scanner (feels weird, but it works)
         generate_qr(){
             
             function make_id(length) {
@@ -1239,7 +1228,10 @@
             const long_url = 'https://www.' + short_url;
             
             document.getElementById('extension-matter-adapter-short-qr-scan-url').innerText = short_url;
+            document.getElementById('extension-matter-adapter-mobile-short-qr-scan-url').innerText = short_url;
+            
             document.getElementById('extension-matter-adapter-qr-scan-link').href = long_url;
+            document.getElementById('extension-matter-adapter-mobile-qr-scan-link').href = long_url;
             
             const target_element = document.getElementById('extension-matter-adapter-qr-code');
 	

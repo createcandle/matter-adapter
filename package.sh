@@ -3,7 +3,12 @@
 #-e
 set -x
 
-
+echo ""
+echo ""
+echo "PLATFORM:"
+uname -a
+echo ""
+echo ""
 version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
 
 # Setup environment for building inside Dockerized toolchain
@@ -92,14 +97,14 @@ echo "PIP STRING: $PIPPY"
 
 set -e
 
-#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -O home_assistant_chip_clusters-2023.1.0-py3-none-any.whl
+wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -O home_assistant_chip_clusters-2023.1.0-py3-none-any.whl
 #wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-py3-none-any.whl # home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
-#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
-#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_repl-2023.1.0-py3-none-any.whl -O home_assistant_chip_repl-2023.1.0-py3-none-any.whl
+wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
+wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_repl-2023.1.0-py3-none-any.whl -O home_assistant_chip_repl-2023.1.0-py3-none-any.whl
 
 ls
 
-# upgrade pip
+# Upgrade pip
 python3 -m pip install --upgrade pip
 
 PYTHON3PATH=$(which python3.9)
@@ -108,10 +113,16 @@ echo ""
 echo "PYTHON VERSION"
 file $PYTHON3PATH
 
+pip3 install \
+    home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
+    home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
+    #home_assistant_chip_core-2023.1.0-py3-none-any.whl \
+    home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
+
 pip3 install coloredlogs aiorun python-matter-server[server] requests click click_option_group \
-    home_assistant_chip_clusters \
-    home_assistant_chip_core \
-    home_assistant_chip_repl \
+    #home_assistant_chip_clusters \
+    #home_assistant_chip_core \
+    #home_assistant_chip_repl \
     #home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
     #home_assistant_chip_core-2023.1.0-py3-none-any.whl \

@@ -118,7 +118,7 @@ ls
 
 echo ""
 echo "PIP OPTIONS:"
-pip debug --verbose
+python3 -m pip debug --verbose
 echo ""
 
 PYTHON3PATH=$(which python3.9)

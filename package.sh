@@ -8,6 +8,7 @@ echo ""
 echo "PLATFORM:"
 uname -a
 lsb_release -a
+ldd --version
 echo ""
 echo ""
 version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)

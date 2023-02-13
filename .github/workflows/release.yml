@@ -68,6 +68,7 @@ jobs:
         #githubToken: ${{ github.token }}
 
         install: |
+          add-apt-repository ppa:deadsnakes/ppa
           apt-get update -q -y
           #apt-get install -q -y --no-install-recommends cmake make gcc libc6-dev
           
@@ -104,9 +105,10 @@ jobs:
                 libcairo2-dev \
                 libjpeg-dev \
                 libpango1.0-dev \
-                libgif-dev
+                libgif-dev \
+                software-properties-common
         run: |
-          pip3 install setuptools wheel
+          python3.9 -m pip install setuptools wheel
           echo ::set-output name=ls::$(ls)
           cd build
           echo ::set-output name=ls2::$(ls2)

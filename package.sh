@@ -34,39 +34,10 @@ echo ""
 echo "TARFILE_SUFFIX: $TARFILE_SUFFIX"
 echo ""
 
-#echo "installing apt packages"
-#sudo apt-get update
-#sudo apt update libc6 libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential -y
 
-sudo apt install -y \
-        autoconf \
-        automake \
-        build-essential \
-        curl \
-        git \
-        libbz2-dev \
-        libc6-dev \
-        libffi-dev \
-        libgdbm-dev \
-        libglib2.0-dev \
-        libjpeg-dev \
-        liblzma-dev \
-        libncurses5-dev \
-        libncursesw5-dev \
-        libreadline-dev \
-        libsqlite3-dev \
-        libssl-dev \
-        libudev-dev \
-        openssl \
-        pkg-config \
-        sudo \
-        wget \
-        zlib1g-dev
-
-
-echo ""
-echo "GLIBC VERSION AFTER UPDATE:"
-ldd --version
+#echo ""
+#echo "GLIBC VERSION AFTER UPDATE:"
+#ldd --version
 
 # g++ -
 #sudo apt-get install cairo pkgconf gobject-introspection gtk3 \

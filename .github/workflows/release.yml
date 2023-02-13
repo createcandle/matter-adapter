@@ -53,7 +53,7 @@ jobs:
         arch: aarch64
         distro: ubuntu_latest
         setup: |
-          mkdir -p "${PWD}/package"
+          mkdir -p "${PWD}/build"
 
         # Mount the artifacts directory as /artifacts in the container
         dockerRunArgs: |

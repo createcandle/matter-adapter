@@ -68,6 +68,7 @@ jobs:
         #githubToken: ${{ github.token }}
 
         install: |
+          apt install software-properties-common -y
           add-apt-repository ppa:deadsnakes/ppa
           apt-get update -q -y
           #apt-get install -q -y --no-install-recommends cmake make gcc libc6-dev

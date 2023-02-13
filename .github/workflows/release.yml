@@ -70,6 +70,7 @@ jobs:
         install: |
           apt-get update -q -y
           #apt-get install -q -y --no-install-recommends cmake make gcc libc6-dev
+          
           #apt-get installpython3.10 python3-pip -y
           apt install -y \
                 autoconf \
@@ -97,7 +98,11 @@ jobs:
                 pkg-config \
                 sudo \
                 wget \
-                zlib1g-dev
+                zlib1g-dev \
+                libcairo2-dev \
+                libjpeg-dev \
+                libpango1.0-dev \
+                libgif-dev
         run: |
           pip3 install setuptools wheel
           echo ::set-output name=ls::$(ls)

@@ -57,7 +57,7 @@ jobs:
 
         # Mount the artifacts directory as /artifacts in the container
         dockerRunArgs: |
-          --volume "${PWD}/build:/build
+          --volume "${PWD}/build:/build"
           #--volume "${PWD}/package:/package"
 
         # Pass some environment variables to the container

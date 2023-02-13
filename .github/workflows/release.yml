@@ -70,7 +70,7 @@ jobs:
         install: |
           apt-get update -q -y
           #apt-get install -q -y --no-install-recommends cmake make gcc libc6-dev
-          apt-get install wget -y
+          apt-get install wget python3.9 -y
         run: |
           echo ::set-output name=ls::$(ls)
           cd build

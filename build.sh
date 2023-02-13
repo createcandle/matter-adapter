@@ -54,7 +54,8 @@ function build_native() {
 }
 
 function build_cross_compiled() {
-  docker run --rm -t -v $PWD:/build webthingsio/toolchain-${ADDON_ARCH}-${LANGUAGE_NAME}-${LANGUAGE_VERSION} bash -c "cd /build; ADDON_ARCH=${ADDON_ARCH} ./package.sh"
+  #docker run --rm -t -v $PWD:/build webthingsio/toolchain-${ADDON_ARCH}-${LANGUAGE_NAME}-${LANGUAGE_VERSION} bash -c "cd /build; ADDON_ARCH=${ADDON_ARCH} ./package.sh"
+  bash -c "cd /build; ADDON_ARCH=${ADDON_ARCH} ./package.sh"
 }
 
 case "${ADDON_ARCH}" in

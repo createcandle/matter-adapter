@@ -109,10 +109,13 @@ echo "PYTHON VERSION"
 file $PYTHON3PATH
 
 pip3 install coloredlogs aiorun python-matter-server[server] requests click click_option_group \
-    home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
-    home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
+    home_assistant_chip_clusters \
+    home_assistant_chip_core \ 
+    home_assistant_chip_repl \
+    #home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
+    #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
     #home_assistant_chip_core-2023.1.0-py3-none-any.whl \
-    home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
+    #home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
     -t lib --prefix "" --no-binary :all:
 
 

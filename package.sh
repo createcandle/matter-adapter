@@ -35,8 +35,8 @@ echo "TARFILE_SUFFIX: $TARFILE_SUFFIX"
 echo ""
 
 #echo "installing apt packages"
-sudo apt-get update
-sudo apt update libc6 libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential -y
+#sudo apt-get update
+#sudo apt update libc6 libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential -y
 
 sudo apt install -y \
         autoconf \

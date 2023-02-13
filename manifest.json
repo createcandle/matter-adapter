@@ -8,7 +8,7 @@
       ],
       "js": [
         "js/extension.js",
-		"js/qrcode.js"
+	"js/qrcode.js"
       ]
     }
   ],  
@@ -30,7 +30,7 @@
 	  "Brightness transition duration":0,
 	  "Use Hotspot addon as WiFi network for devices": false,
 	  "Vendor ID":"",
-      "Debugging": false
+          "Debugging": false
     },
     "schema": {
       "properties": {
@@ -43,12 +43,12 @@
         "Use Hotspot addon as WiFi network for devices":{
             "type": "boolean",
             "description": "Advanced. Under development. The Hotspot addon can generate a separate guest WiFi network for your smart devices. Doing so will give you more insight into the communication habits of your Matter devices, and you can also block connections you don't want or trust."
-		},
+	},
         "Vendor ID":{
             "type": "string",
             "description": "Advanced. You can manually set the Vendor ID of the Matter fabric. If you change this you will have to pair all your devices again."
-		},
-		"Debugging": {
+	},
+	"Debugging": {
           "type": "boolean",
           "description": "Advanced. Will generate details about the addon's processes in the internal log."
         }
@@ -58,7 +58,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.1.42",
+  "version": "0.1.43",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

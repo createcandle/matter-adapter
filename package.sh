@@ -1,7 +1,7 @@
 #!/bin/bash 
 
 #-e
-
+set -x # echo commands too
 
 echo ""
 echo ""
@@ -10,6 +10,7 @@ uname -a
 lsb_release -a
 ldd --version
 python3 --version
+python3.9 --version
 echo ""
 echo ""
 version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
@@ -26,7 +27,8 @@ rm -rf *.tgz *.sha256sum package SHA256SUMS lib
 if [ -z "${ADDON_ARCH}" ]; then
   TARFILE_SUFFIX=
 else
-  PYTHON_VERSION="$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d. -f 1-2)"
+  #PYTHON_VERSION="$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d. -f 1-2)"
+  PYTHON_VERSION="3.9"
   TARFILE_SUFFIX="-${ADDON_ARCH}-v${PYTHON_VERSION}"
 fi
 
@@ -108,13 +110,13 @@ mkdir -p lib package
 #fi
 
 set -e
-echo ""
-echo "downloading CHIP"
-wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -O home_assistant_chip_clusters-2023.1.0-py3-none-any.whl
-#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-py3-none-any.whl # home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
-#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_28_aarch64.whl
-wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
-wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_repl-2023.1.0-py3-none-any.whl -O home_assistant_chip_repl-2023.1.0-py3-none-any.whl
+#echo ""
+#echo "downloading CHIP"
+#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -O home_assistant_chip_clusters-2023.1.0-py3-none-any.whl
+##wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-py3-none-any.whl # home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
+##wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_28_aarch64.whl
+#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
+#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_repl-2023.1.0-py3-none-any.whl -O home_assistant_chip_repl-2023.1.0-py3-none-any.whl
 
 echo ""
 echo "files:"
@@ -124,17 +126,17 @@ ls
 
 echo ""
 echo "PIP OPTIONS BEFORE:"
-python3 -m pip debug --verbose
+python3.9 -m pip debug --verbose
 echo ""
 
 echo "UPGRADING PIP"
-python3 -m pip install --upgrade pip
-python3 -m pip install --upgrade pip setuptools wheel
+python3.9 -m pip install --upgrade pip
+python3.9 -m pip install --upgrade pip setuptools wheel
 
-echo ""
-echo "PIP OPTIONS AFTER:"
-python3 -m pip debug --verbose
-echo ""
+#echo ""
+#echo "PIP OPTIONS AFTER:"
+#python3.9 -m pip debug --verbose
+#echo ""
 
 #PYTHON3PATH=$(which python3.10)
 #echo ""
@@ -150,7 +152,7 @@ echo ""
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
     #home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
     
-python3 -m pip install \
+python3.9 -m pip install \
     python-matter-server[server] \
     home_assistant_chip_clusters \
     home_assistant_chip_core \
@@ -168,7 +170,7 @@ echo ""
 echo ""
 echo ""
 
-python3 -m pip install coloredlogs aiorun requests click click_option_group \
+python3.9 -m pip install coloredlogs aiorun requests click click_option_group \
     -t lib --prefix "" --no-binary :all: --no-cache-dir
     
     
@@ -216,3 +218,8 @@ shasum --algorithm 256 ${TARFILE} > ${TARFILE}.sha256sum
 cat ${TARFILE}.sha256sum
 #sha256sum ${TARFILE}
 #rm -rf SHA256SUMS package
+
+echo ""
+echo "DONE! files:"
+ls -lh
+

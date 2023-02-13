@@ -102,7 +102,8 @@ set -e
 
 wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -O home_assistant_chip_clusters-2023.1.0-py3-none-any.whl
 #wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-py3-none-any.whl # home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
-wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_28_aarch64.whl
+#wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_28_aarch64.whl
+wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
 wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_repl-2023.1.0-py3-none-any.whl -O home_assistant_chip_repl-2023.1.0-py3-none-any.whl
 
 ls
@@ -121,15 +122,15 @@ echo ""
 echo "PYTHON VERSION"
 file $PYTHON3PATH
 
-pip3 install \
+python3 -m pip install \
     home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
-    #home_assistant_chip_core-2023.1.0-cp39-abi3-manylinux_2_31_aarch64.whl \
-    home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_28_aarch64.whl \
+    home_assistant_chip_core-2023.1.0-cp39-abi3-manylinux_2_31_aarch64.whl \
+    #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_28_aarch64.whl \
     #home_assistant_chip_core-2023.1.0-py3-none-any.whl \
     home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
-    -t lib --prefix "" 
+    -t lib --prefix "" --no-cache-dir
 
-pip3 install coloredlogs aiorun python-matter-server[server] requests click click_option_group \
+python3 -m pip install coloredlogs aiorun python-matter-server[server] requests click click_option_group \
     #home_assistant_chip_clusters \
     #home_assistant_chip_core \
     #home_assistant_chip_repl \
@@ -137,7 +138,7 @@ pip3 install coloredlogs aiorun python-matter-server[server] requests click clic
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
     #home_assistant_chip_core-2023.1.0-py3-none-any.whl \
     #home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
-    -t lib --prefix "" --no-binary :all:
+    -t lib --prefix "" --no-binary :all: --no-cache-dir
 
 
 #pip3 install -r requirements.txt -t lib --no-cache-dir --no-binary  :all: --prefix ""

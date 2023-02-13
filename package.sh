@@ -34,7 +34,8 @@ echo "TARFILE_SUFFIX: $TARFILE_SUFFIX"
 echo ""
 
 #echo "installing apt packages"
-#sudo apt-get update
+sudo apt-get update
+sudo apt update glibc libc6 -y
 #sudo apt-get install cairo pkgconf gobject-introspection gtk3 \
 #libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential g++ \
 #libgirepository1.0-dev -y

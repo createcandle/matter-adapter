@@ -121,7 +121,9 @@ echo ""
 echo "PIP OPTIONS BEFORE:"
 python3 -m pip debug --verbose
 echo ""
-#python3 -m pip install --upgrade pip
+
+echo "UPGRADING PIP"
+python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade pip setuptools wheel
 
 echo ""

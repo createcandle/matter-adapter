@@ -83,6 +83,8 @@ jobs:
                 libc6-dev \
                 libffi-dev \
                 libgdbm-dev \
+                libjpeg-dev \
+                libgirepository1.0-dev \
                 libglib2.0-dev \
                 libjpeg-dev \
                 liblzma-dev \

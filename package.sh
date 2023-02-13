@@ -127,7 +127,7 @@ echo ""
 echo "PYTHON VERSION"
 file $PYTHON3PATH
 
-python3 -m pip install coloredlogs aiorun python-matter-server[server] requests click click_option_group \
+python3 -m pip install coloredlogs aiorun requests click click_option_group \
     #home_assistant_chip_clusters \
     #home_assistant_chip_core \
     #home_assistant_chip_repl \
@@ -141,6 +141,7 @@ echo "LS lib after first round of pip:"
 ls lib
 
 python3 -m pip install \
+    python-matter-server[server] \
     home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
     home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_28_aarch64.whl \

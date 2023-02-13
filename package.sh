@@ -96,7 +96,8 @@ wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/202
 wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-py3-none-any.whl # home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl
 wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_repl-2023.1.0-py3-none-any.whl -O home_assistant_chip_repl-2023.1.0-py3-none-any.whl
 
-#python3 -m pip install --upgrade pip
+# upgrade pip
+python3 -m pip install --upgrade pip
 
 PYTHON3PATH=$(which python3.9)
 echo ""

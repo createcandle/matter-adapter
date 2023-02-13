@@ -70,7 +70,34 @@ jobs:
         install: |
           apt-get update -q -y
           #apt-get install -q -y --no-install-recommends cmake make gcc libc6-dev
-          apt-get install wget python3.9 python3-pip -y
+          #apt-get installpython3.10 python3-pip -y
+          apt install -y \
+                autoconf \
+                automake \
+                build-essential \
+                ca-certificates \
+                curl \
+                git \
+                libbz2-dev \
+                libc6-dev \
+                libffi-dev \
+                libgdbm-dev \
+                libglib2.0-dev \
+                libjpeg-dev \
+                liblzma-dev \
+                libncurses5-dev \
+                libncursesw5-dev \
+                libreadline-dev \
+                libsqlite3-dev \
+                libssl-dev \
+                libudev-dev \
+                python3.10 \
+                python3-pip \
+                openssl \
+                pkg-config \
+                sudo \
+                wget \
+                zlib1g-dev
         run: |
           pip3 install setuptools wheel
           echo ::set-output name=ls::$(ls)

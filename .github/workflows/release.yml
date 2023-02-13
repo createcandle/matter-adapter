@@ -68,8 +68,9 @@ jobs:
         #githubToken: ${{ github.token }}
 
         install: |
-          #apt-get update -q -y
+          apt-get update -q -y
           #apt-get install -q -y --no-install-recommends cmake make gcc libc6-dev
+          apt-get install wget
         run: |
           echo ::set-output name=ls::$(ls)
           cd build

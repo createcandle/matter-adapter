@@ -344,6 +344,8 @@ extension-matter-adapter-
 }
 
 
+/*  pairing on mobile  */
+
 #extension-matter-adapter-mobile-qr{
     display:none;
 }
@@ -352,6 +354,14 @@ extension-matter-adapter-
 }
 .extension-matter-adapter-is-mobile #extension-matter-adapter-desktop-qr{
     display:none;
+}
+
+#extension-matter-adapter-mobile-qr-button{
+    background-color:white; 
+    padding:2rem; 
+    text-align:center;
+    border-radius:1rem;
+    margin: 1rem 0;
 }
 
 

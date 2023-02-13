@@ -110,7 +110,7 @@ ls
 
 # Upgrade pip
 python3 -m pip install --upgrade pip
-pip install --upgrade pip setuptools wheel
+pip install --upgrade pip setuptools wheel manylinux
 
 echo ""
 echo "PIP OPTIONS:"

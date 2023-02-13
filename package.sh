@@ -32,7 +32,7 @@ echo ""
 echo "TARFILE_SUFFIX: $TARFILE_SUFFIX"
 echo ""
 
-echo "installing apt packages"
+#echo "installing apt packages"
 #sudo apt-get update
 #sudo apt-get install cairo pkgconf gobject-introspection gtk3 \
 #libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential g++ \
@@ -49,12 +49,12 @@ echo "installing apt packages"
 echo "creating package"
 mkdir -p lib package
 
-PY11="no"
-python3.11 --version && PY11="yes"
+#PY11="no"
+#python3.11 --version && PY11="yes"
 
-PIPPY="pip3"
-python3.11 --version && PIPPY="python3.11 -m pip"
-echo "PIP STRING: $PIPPY"
+#PIPPY="pip3"
+#python3.11 --version && PIPPY="python3.11 -m pip"
+#echo "PIP STRING: $PIPPY"
 
 # Is upgrading pip needed?
 # "$PIPPY" install --upgrade pip
@@ -113,8 +113,8 @@ echo "files:"
 ls
 
 # Upgrade pip
-python3 -m pip install --upgrade pip
-python3 -m pip install --upgrade pip setuptools wheel manylinux
+#python3 -m pip install --upgrade pip
+#python3 -m pip install --upgrade pip setuptools wheel manylinux
 
 echo ""
 echo "PIP OPTIONS:"

@@ -35,7 +35,8 @@ echo ""
 
 #echo "installing apt packages"
 sudo apt-get update
-sudo apt update glibc libc6 -y
+sudo apt update glibc libc6 libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential -y
+# g++ -
 #sudo apt-get install cairo pkgconf gobject-introspection gtk3 \
 #libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential g++ \
 #libgirepository1.0-dev -y
@@ -115,11 +116,16 @@ echo "files:"
 ls
 
 # Upgrade pip
-#python3 -m pip install --upgrade pip
-#python3 -m pip install --upgrade pip setuptools wheel manylinux
 
 echo ""
-echo "PIP OPTIONS:"
+echo "PIP OPTIONS BEFORE:"
+python3 -m pip debug --verbose
+echo ""
+#python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade pip setuptools wheel
+
+echo ""
+echo "PIP OPTIONS AFTER:"
 python3 -m pip debug --verbose
 echo ""
 

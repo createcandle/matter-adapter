@@ -102,7 +102,7 @@ pip3 install coloredlogs aiorun python-matter-server[server] requests click clic
     home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
     home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
     home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
-    -t lib --prefix ""
+    -t lib --prefix "" --no-binary :all:
 
 
 #pip3 install -r requirements.txt -t lib --no-cache-dir --no-binary  :all: --prefix ""

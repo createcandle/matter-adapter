@@ -110,6 +110,11 @@ ls
 # Upgrade pip
 python3 -m pip install --upgrade pip
 
+echo ""
+echo "PIP OPTIONS:"
+pip debug --verbose
+echo ""
+
 PYTHON3PATH=$(which python3.9)
 echo ""
 echo ""

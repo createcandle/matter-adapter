@@ -25,6 +25,9 @@ else
   TARFILE_SUFFIX="-${ADDON_ARCH}-v${PYTHON_VERSION}"
 fi
 
+echo ""
+echo "TARFILE_SUFFIX: $TARFILE_SUFFIX"
+echo ""
 
 echo "installing apt packages"
 sudo apt-get update

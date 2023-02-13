@@ -165,11 +165,11 @@ echo "PIP OPTIONS AFTER:"
 python3 -m pip debug --verbose
 echo ""
 
-PYTHON3PATH=$(which python3.10)
-echo ""
-echo ""
-echo "PYTHON VERSION"
-file $PYTHON3PATH
+#PYTHON3PATH=$(which python3.10)
+#echo ""
+#echo ""
+#echo "PYTHON VERSION"
+#file $PYTHON3PATH
 
 
     

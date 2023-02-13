@@ -146,20 +146,32 @@ echo ""
     
 
 
+    #home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
+    #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
+    #home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
+    
 python3 -m pip install \
     python-matter-server[server] \
-    home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
-    home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
-    #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_28_aarch64.whl \
-    #home_assistant_chip_core-2023.1.0-py3-none-any.whl \
-    home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
-    -t lib --prefix "" --no-cache-dir 
-    # --no-manylinux
+    home_assistant_chip_clusters \
+    home_assistant_chip_core \
+    home_assistant_chip_repl \
+    -t lib --prefix ""
 
+echo ""
+echo ""
+echo ""
+echo ""
 echo "LS lib after first round of pip:"
+echo ""
 ls lib
+echo ""
+echo ""
+echo ""
 
 python3 -m pip install coloredlogs aiorun requests click click_option_group \
+    -t lib --prefix "" --no-binary :all: --no-cache-dir
+    
+    
     #home_assistant_chip_clusters \
     #home_assistant_chip_core \
     #home_assistant_chip_repl \
@@ -167,7 +179,8 @@ python3 -m pip install coloredlogs aiorun requests click click_option_group \
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
     #home_assistant_chip_core-2023.1.0-py3-none-any.whl \
     #home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
-    -t lib --prefix "" --no-binary :all: --no-cache-dir
+    
+    
 
 echo "LS lib after second round of pip:"
 ls lib

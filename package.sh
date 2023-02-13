@@ -13,7 +13,7 @@ echo ""
 echo ""
 version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
 
-set -x
+#set -x
 
 # Setup environment for building inside Dockerized toolchain
 [ $(id -u) = 0 ] && umask 0
@@ -35,7 +35,12 @@ echo ""
 
 #echo "installing apt packages"
 sudo apt-get update
-sudo apt update glibc libc6 libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential -y
+sudo apt update libc6 libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential -y
+
+echo ""
+echo "GLIBC VERSION AFTER UPDATE:"
+ldd --version
+
 # g++ -
 #sudo apt-get install cairo pkgconf gobject-introspection gtk3 \
 #libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential g++ \

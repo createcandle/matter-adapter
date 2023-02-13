@@ -129,7 +129,8 @@ python3 -m pip install \
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_28_aarch64.whl \
     #home_assistant_chip_core-2023.1.0-py3-none-any.whl \
     home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
-    -t lib --prefix "" --no-cache-dir --no-manylinux
+    -t lib --prefix "" --no-cache-dir 
+    # --no-manylinux
 
 python3 -m pip install coloredlogs aiorun python-matter-server[server] requests click click_option_group \
     #home_assistant_chip_clusters \

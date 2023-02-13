@@ -32,8 +32,6 @@ jobs:
         base_image: raspios_lite_arm64:latest
         commands: |
             uname -a
-            grep Model /proc/cpuinfo
-
     - name: Download upload_url
       uses: actions/download-artifact@v3
       with:
@@ -48,15 +46,15 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: 3.9
-    - name: update pip
-      run: python3 -m pip install --upgrade pip
+    #- name: update pip
+    #  run: python3 -m pip install --upgrade pip
     - name: Make build script executable
       run: chmod +x ./build.sh
     - name: Make packaging script executable
       run: chmod +x ./package.sh
     - name: Build adapter
       run: |
-        ./build.sh "linux-arm64" "python" "3.9"
+        ADDON_ARCH="linux-arm64" ./package.sh "linux-arm64" "python" "3.9"
       shell: bash
       
     - name: Upload Release Asset tgz

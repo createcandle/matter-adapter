@@ -75,7 +75,8 @@ jobs:
           cd build
           echo ::set-output name=ls2::$(ls2)
           chmod +x package.sh
-          ADDON_ARCH="linux-arm64" ./package.sh "linux-arm64" "python" "3.9"
+          # "linux-arm64" "python" "3.9"
+          ADDON_ARCH=linux-arm64 ./package.sh
          
     
     - name: Get the output

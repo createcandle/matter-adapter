@@ -1,6 +1,7 @@
 #!/bin/bash 
 
 #-e
+set -x
 
 
 version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
@@ -25,7 +26,7 @@ sudo apt-get update
 sudo apt-get install cairo pkgconf gobject-introspection gtk3 libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential g++ libgirepository1.0-dev  -y
 # Not sure is libjpeg-dev is the correct one
 
-echo "installing rust compiler"
+#echo "installing rust compiler"
 #curl https://sh.rustup.rs -sSf | sh -s -- -y
 
 #exit 0
@@ -86,6 +87,8 @@ echo "PIP STRING: $PIPPY"
 #  pip3 install python-matter-server[server] -t lib --prefix ""
 #  pip3 install aiorun -t lib --prefix ""
 #fi
+
+set -e
 
 wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_clusters-2023.1.0-py3-none-any.whl -O home_assistant_chip_clusters-2023.1.0-py3-none-any.whl
 wget -c https://github.com/home-assistant-libs/chip-wheels/releases/download/2023.1.0/home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl -O home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl

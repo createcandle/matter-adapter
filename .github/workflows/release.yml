@@ -68,6 +68,7 @@ jobs:
         #githubToken: ${{ github.token }}
 
         install: |
+          apt update -q -y
           apt install software-properties-common -y
           add-apt-repository ppa:deadsnakes/ppa
           apt-get update -q -y

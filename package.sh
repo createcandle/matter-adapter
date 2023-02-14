@@ -157,6 +157,7 @@ python3.9 -m pip install \
     home_assistant_chip_clusters \
     home_assistant_chip_core \
     home_assistant_chip_repl \
+    cryptography \
     -t lib --prefix ""
 
 echo ""
@@ -170,7 +171,7 @@ echo ""
 echo ""
 echo ""
 
-python3.9 -m pip install coloredlogs aiorun requests click click_option_group cryptography \
+python3.9 -m pip install coloredlogs aiorun requests click click_option_group \
     -t lib --prefix "" --no-binary :all: --no-cache-dir
     
     

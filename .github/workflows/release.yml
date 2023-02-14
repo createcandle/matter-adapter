@@ -54,7 +54,10 @@ jobs:
         distro: ubuntu_latest
         setup: |
           mkdir -p "${PWD}/build"
-
+        
+        # Caches the image. Make sure there are no secrets in the disk image!
+        githubToken: ${{ github.token }}
+        
         # Mount the artifacts directory as /artifacts in the container
         dockerRunArgs: |
           --volume "${PWD}/build:/build"
@@ -112,8 +115,8 @@ jobs:
                 python3-distutils
                 
           apt-get install --reinstall python3.9-distutils python3.9-dev -y
-        run: |
           python3.9 -m pip install setuptools wheel
+        run: |
           echo ::set-output name=ls::$(ls)
           cd build
           echo ::set-output name=ls2::$(ls2)

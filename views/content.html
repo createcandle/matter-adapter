@@ -1,21 +1,8 @@
-<!-- 
-The controller creates a view elemenf for the addon. This addon's Javascript then loads this chunk of HTML into that view.
-
-It's recommended to not manipulate the view container. That's why this HTML starts with making its own content container.
-
-- extension-matter-adapter-content-container is the main container. It's use is mainly to allow everything inside to scroll (through overflow: auto in the CSS)
-- - extension-matter-adapter-content holds the content for the addon. It starts with the title, and is then followed by some tabs.
-
-The page has a imaginary border of 10 rem, which is where things like the menu button reside.(Those buttons are themselves 2rem from the side, and 8 rem wide and tall).
-
-Addons may add buttons to the top-right and bottom-right corner. Buttons to add or refresh things are prefered in the bottom-right. Settings or tutorial buttons are prefered in the rop right.
-
--->
 
 <div id="extension-matter-adapter-content-container">
   
     <div id="extension-matter-adapter-content">
-        <h3 id="extension-matter-adapter-title">Matter</h3> <!-- The icon is loaded into this title as a background, through CSS -->
+        <h3 id="extension-matter-adapter-title">Matter</h3>
 
         <!--
 		<div class="extension-matter-adapter-tab-buttons">

@@ -210,6 +210,7 @@ class MatterAPIHandler(APIHandler):
                             
                                 pairing_type = str(request.body['pairing_type'])
                                 
+                                # commission_with_code
                                 if pairing_type == 'commission_with_code':
                                     if 'wifi_ssid' in request.body and 'wifi_password' in request.body and 'wifi_remember' in request.body:
                                         if self.DEBUG:
@@ -228,12 +229,13 @@ class MatterAPIHandler(APIHandler):
                                                 self.adapter.persistent_data['wifi_password'] = str(request.body['wifi_password'])
                                                 self.adapter.should_save_persistent = True
                                     
+                                # commission_on_network
                                 else:
                                     if self.DEBUG:
                                         print("OK all required parameters were provided")
                                 
                                 code = str(request.body['code'])
-                                if len(code) > 5:
+                                if len(code) > 3:
                                     #device = request.body['device']
                                     state = self.adapter.start_matter_pairing(pairing_type, code) # device data isn't really needed, CHIP brute-force scans all devices on the network.
                             else:

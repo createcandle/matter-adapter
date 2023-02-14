@@ -232,8 +232,8 @@
                         'pairing_type':'commission_on_network',
                         'code':code}
 					).then((body) => { 
-						cif(this.debug){
-                            onsole.log("pair device via commission_on_network response: ", body);
+						if(this.debug){
+                            console.log("pair device via commission_on_network response: ", body);
                         }
                         if(typeof body.state != 'undefined'){
                             if(body.state == true){

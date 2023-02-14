@@ -131,8 +131,9 @@
                 // commission_with_code
                 // Start pairing button press
                 document.getElementById('extension-matter-adapter-start-normal-pairing-button').addEventListener('click', (event) => {
-                	console.log("Start commission_with_code button clicked. this.busy_pairing: ", this.busy_pairing);
-                    
+                	if(this.debug){
+                        console.log("Start commission_with_code button clicked. this.busy_pairing: ", this.busy_pairing);
+                    }
                     const wifi_ssid = document.getElementById('extension-matter-adapter-wifi-ssid').value;
                     const wifi_password = document.getElementById('extension-matter-adapter-wifi-password').value;
                     const wifi_remember = document.getElementById('extension-matter-adapter-wifi-remember-checkbox').value;
@@ -150,10 +151,17 @@
                     
                     
                     const code = this.pairing_code;
-                    console.log("Pairing code: ", code);
+                    if(this.debug){
+                        console.log("Pairing code: ", code);
+                    }
                     if(code.length < 5){
                         console.log("pairing code was too short");
                         alert("That pairing code is too short");
+                        return;
+                    }
+                    if(!code.startsWith('MT:')){
+                        console.log("pairing code did not start with MT:");
+                        alert("The pairing code should start with 'MT:'");
                         return;
                     }
                     //this.device_to_pair = {"not":"needed"}
@@ -196,8 +204,9 @@
                 // commission_on_network
                 // Start pairing via commission_on_network button press
                 document.getElementById('extension-matter-adapter-start-network-pairing-button').addEventListener('click', (event) => {
-                	console.log("Start network pairing button clicked");
-                    
+                	if(this.debug){
+                        console.log("Start network pairing button clicked");
+                    }
                     const code = document.getElementById('extension-matter-adapter-network-pairing-code-input').value; //this.pairing_code;//document.getElementById('extension-matter-adapter-pairing-code').value;
                     
                     if(code.length < 4){
@@ -206,7 +215,9 @@
                         return;
                     }
                     this.pairing_code = code;
-                    console.log("Network pairing code: ", code);
+                    if(this.debug){
+                        console.log("Network pairing code: ", code);
+                    }
                     //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.add('extension-matter-adapter-hidden');
                     //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
                     
@@ -221,7 +232,23 @@
                         'pairing_type':'commission_on_network',
                         'code':code}
 					).then((body) => { 
-						console.log("pair device via commission_on_network response: ", body);
+						cif(this.debug){
+                            onsole.log("pair device via commission_on_network response: ", body);
+                        }
+                        if(typeof body.state != 'undefined'){
+                            if(body.state == true){
+                                if(this.debug){
+                                    console.log('Matter adapter debug: start commission on network response: state was good');
+                                }
+                            }
+                            else{
+                                if(this.debug){
+                                    console.error('Matter adapter debug: error, start commission on network failed');
+                                }
+                                alert("Error, could not start the pairing process");
+                            }
+                        }
+                        
 					}).catch((e) => {
                         this.busy_pairing = false;
 						console.error("matter-adapter: error making commission_on_network pairing request: ", e);
@@ -329,7 +356,9 @@
             
                 // ADD DEVICES PLUS BUTTON
                 document.getElementById('extension-matter-adapter-show-second-page-button').addEventListener('click', (event) => {
-                    console.log("clicked on (+) button");
+                    if(this.debug){
+                        console.log("Matter adapter debug: clicked on (+) button");
+                    }
                     
                     // iPhones need this fix to make the back button lay on top of the main menu button
                     document.getElementById('extension-matter-adapter-view').style.zIndex = '3';
@@ -341,7 +370,9 @@
                 
                 // Back button, shows main page
                 document.getElementById('extension-matter-adapter-back-button-container').addEventListener('click', (event) => {
-                    console.log("clicked on back button");
+                    if(this.debug){
+                        console.log("Matter adapter debug: clicked on back button");
+                    }
                     this.busy_discovering = false;
                     this.busy_pairing = false;
                     
@@ -381,7 +412,9 @@
 	
 		// This is called then the user navigates away from the addon. It's an opportunity to do some cleanup. To remove the HTML, for example, or stop running intervals.
 		hide() {
-			console.log("matter-adapter hide called");
+			if(this.debug){
+                console.log("Matter adapter debug: hide called");
+            }
             
             try{
 				clearInterval(window.matter_adapter_poll_interval);
@@ -429,7 +462,7 @@
                             
                             }
                 			catch(e){
-                				console.error("error looping over all things" , e);
+                				console.error("Matter adapter: error looping over all things: ", e);
                 			}
                         }
                         if(this.debug){
@@ -441,13 +474,13 @@
                     });
                 }
     			catch(e){
-    				console.log("Error calling API.getThings(): " , e);
+    				console.log("Matter adapter debug: Error calling API.getThings(): " , e);
                     this.request_devices_list();
     			}
                 
 			}
 			catch(e){
-				console.log("Error in API call to init: ", e);
+				console.log("Matter adapter debug: Error in API call to init: ", e);
 			}
         }
         

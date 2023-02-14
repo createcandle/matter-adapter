@@ -108,7 +108,9 @@ jobs:
                 libjpeg-dev \
                 libpango1.0-dev \
                 libgif-dev \
-                software-properties-common
+                software-properties-common \
+                python3-distutils
+                
         run: |
           python3.9 -m pip install setuptools wheel
           echo ::set-output name=ls::$(ls)

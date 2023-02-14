@@ -74,7 +74,7 @@ jobs:
           apt-get update -q -y
           #apt-get install -q -y --no-install-recommends cmake make gcc libc6-dev
           
-          #apt-get installpython3.10 python3-pip -y
+          #apt-get install python3.9 python3-pip -y
           apt install -y \
                 autoconf \
                 automake \
@@ -111,7 +111,7 @@ jobs:
                 software-properties-common \
                 python3-distutils
                 
-          apt-get install --reinstall python3.9-distutils
+          apt-get install --reinstall python3.9-distutils -y
         run: |
           python3.9 -m pip install setuptools wheel
           echo ::set-output name=ls::$(ls)

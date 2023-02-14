@@ -111,7 +111,7 @@ jobs:
                 software-properties-common \
                 python3-distutils
                 
-          apt-get install --reinstall python3.9-distutils -y
+          apt-get install --reinstall python3.9-distutils python3.9-dev -y
         run: |
           python3.9 -m pip install setuptools wheel
           echo ::set-output name=ls::$(ls)

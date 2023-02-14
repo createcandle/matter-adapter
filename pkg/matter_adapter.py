@@ -114,7 +114,7 @@ class MatterAdapter(Adapter):
         verbose -- whether or not to enable verbose logging
         """
         
-        print("Starting adapter init")
+        print("Starting Matter adapter init")
 
         self.ready = False # set this to True once the init process is complete.
         self.addon_id = 'matter-adapter'
@@ -158,7 +158,7 @@ class MatterAdapter(Adapter):
         self.device_was_deleted = False # set to True is a device is deleted from the Matter fabric
         
         pwd = run_command('pwd')
-        print("\n\n\n\n\n\n\n\n\n\n\n\n\n" + str(pwd))
+        print("PWD:" + str(pwd))
         
         
         
@@ -347,12 +347,14 @@ class MatterAdapter(Adapter):
             os.mkdir(self.data_path)
             
         if not os.path.isdir(self.certs_dir_path):
+            print("making certificates directory")
             os.system('mkdir -p ' + self.certs_dir_path)
 
         # /data
         if not os.path.isdir("/data"):
             print("Error! Could not find /data, which the server will be looking for")
-
+            time.sleep(30)
+            exit()
         
         # Download the latest certificates
         self.download_certs()
@@ -866,6 +868,8 @@ class MatterAdapter(Adapter):
             if self.DEBUG:
                 print("download_certs_output: " + str(download_certs_output))
             
+            self.certificates_updated = True
+            
             if len(download_certs_output) < 5:
                 self.certificates_updated = True
                 #self.last_certificates_download_time = time.time()
@@ -1225,8 +1229,7 @@ class MatterAdapter(Adapter):
         #if self.client != None:
         #    self.client.stop()
             
-        if self.server != None:
-            self.server.stop()
+        
         
         # loop = asyncio.get_event_loop()
         # loop.stop()
@@ -1242,7 +1245,14 @@ class MatterAdapter(Adapter):
         
         # A final chance to save the data.
         self.save_persistent_data()
-        #if self.DEBUG:
+        
+            
+        if self.server != None:
+            self.server.stop()
+            time.sleep(5)
+            exit()
+        
+        # does it reach this?
         if self.DEBUG:
             print("goodbye")
         return

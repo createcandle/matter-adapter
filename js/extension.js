@@ -7,7 +7,7 @@
             
             this.id = 'matter-adapter';
             
-			console.log("Adding matter-adapter addon to main menu");
+			//console.log("Adding matter-adapter addon to main menu");
 			this.addMenuEntry('Matter');
         
             this.discovered = null;
@@ -75,7 +75,7 @@
         //
         // This is called then the user clicks on the addon in the main menu, or when the page loads and is already on this addon's location.
 	    show() {
-			console.log("matter-adapter show called");
+			//console.log("matter-adapter show called");
             
             try{
 				clearInterval(window.matter_adapter_poll_interval);
@@ -128,7 +128,8 @@
                 });
                 */
                 
-                // commission_with_code
+                
+                // Commission_with_code
                 // Start pairing button press
                 document.getElementById('extension-matter-adapter-start-normal-pairing-button').addEventListener('click', (event) => {
                 	if(this.debug){
@@ -138,17 +139,20 @@
                     const wifi_password = document.getElementById('extension-matter-adapter-wifi-password').value;
                     const wifi_remember = document.getElementById('extension-matter-adapter-wifi-remember-checkbox').value;
                     
-                    if(wifi_ssid.length < 2){
-                        console.log("Wifi name is too short");
-                        alert("That wifi name is too short");
-                        return;
-                    }
-                    if(wifi_password.length < 8){
-                        console.log("Wifi password is too short");
-                        alert("That wifi password is too short");
-                        return;
-                    }
+                    document.getElementById('extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
                     
+                    if(this.wifi_credentials_available == false){
+                        if(wifi_ssid.length < 2){
+                            console.log("Wifi name is too short");
+                            alert("That wifi name is too short");
+                            return;
+                        }
+                        if(wifi_password.length < 8){
+                            console.log("Wifi password is too short");
+                            alert("That wifi password is too short");
+                            return;
+                        }
+                    }
                     
                     const code = this.pairing_code;
                     if(this.debug){
@@ -189,8 +193,9 @@
                         'pairing_type':'commission_with_code',
                         'code':code}
 					).then((body) => { 
-						console.log("pair device via commission_with_code response: ", body);
-                        
+						if(this.debug){
+                            console.log("pair device via commission_with_code response: ", body);
+                        }
                         
                         
 					}).catch((e) => {
@@ -201,13 +206,15 @@
                 });
                 
                 
-                // commission_on_network
+                // Commission_on_network
                 // Start pairing via commission_on_network button press
                 document.getElementById('extension-matter-adapter-start-network-pairing-button').addEventListener('click', (event) => {
                 	if(this.debug){
                         console.log("Start network pairing button clicked");
                     }
                     const code = document.getElementById('extension-matter-adapter-network-pairing-code-input').value; //this.pairing_code;//document.getElementById('extension-matter-adapter-pairing-code').value;
+                    
+                    document.getElementById('extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
                     
                     if(code.length < 4){
                         console.log("code was too short");
@@ -266,7 +273,7 @@
                 // Pairing failed, try again button
                 
     			document.getElementById('extension-matter-adapter-pairing-failed-try-again-button').addEventListener('click', (event) => {
-    				this.set_pairing_page();
+    				this.show_pairing_page();
     			});
                 
             
@@ -584,7 +591,7 @@
         // Show pairing page, triggered by opening the pairing page, or pressing the retry button if pairing failed
         show_pairing_page(){
             if(this.debug){
-                console.log("Matter adapter debug: in set_pairing_page");
+                console.log("Matter adapter debug: in show_pairing_page");
             }
             this.generate_qr();
             
@@ -600,9 +607,11 @@
 			document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-pairing-questioning');
             document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-pairing-normal');
 			document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-pairing-network');
+            document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
 		    document.getElementById('extension-matter-adapter-pairing-step-qr').classList.remove('extension-matter-adapter-hidden');
             document.getElementById('extension-matter-adapter-save-manual-input-pairing-code-button').classList.remove('extension-matter-adapter-hidden');
             document.getElementById('extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
+           
         }
     
     
@@ -806,7 +815,7 @@
                         
                         if(typeof this.nodez[thing_id] == 'undefined'){
                             if(this.debug){
-                                console.error("Matter adapter debug: ERROR, THING ID NOT PRESENT IN NODEZ: ", thing_id);
+                                console.warning("Matter adapter debug: WARNING, THING ID NOT PRESENT IN NODEZ. user should delete thing: ", thing_id);
                             }
                             continue;
                         }
@@ -1098,6 +1107,8 @@
                                 console.log("Matter adapter debug: delete confirm button clicked");
                             }
                             
+                            delete_confirm_button.classList.add('extension-matter-adapter-hidden');
+                            
     						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
     						item_el.classList.add("extension-matter-adapter-delete");
                             
@@ -1246,6 +1257,10 @@
                 if(list.innerHTML == ""){
                     list.innerHTML = '<div style="margin:10rem auto;padding:2rem;max-width:40rem;text-align:center; background-color:rgba(0,0,0,.1);border-radius:10px"><h2>No Matter devices paired yet</h2><p>Click on the (+) button in the bottom right corner if you want to connect a new Matter device.</p></div>';
                 }
+                else{
+                    // Show refresh button
+        			document.getElementById('extension-matter-adapter-refresh-paired-list-button').classList.remove('extension-matter-adapter-hidden');
+                }
                 
                 if(this.updating_firmware){
 					// Disable all update buttons an update is in progress
@@ -1276,9 +1291,6 @@
 			catch (e) {
 				console.log("Matter adapter: general error while generating items: ", e);
 			}
-            
-            // Show refresh button
-			document.getElementById('extension-matter-adapter-refresh-paired-list-button').classList.remove('extension-matter-adapter-hidden');
 			
 		}
         

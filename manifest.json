@@ -48,7 +48,7 @@
             "type": "string",
             "description": "Advanced. You can manually set the Vendor ID of the Matter fabric. If you change this you will have to pair all your devices again."
 	},
-	"Debugging": {
+        "Debugging": {
           "type": "boolean",
           "description": "Advanced. Will generate details about the addon's processes in the internal log."
         }
@@ -58,7 +58,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.1.52",
+  "version": "0.1.53",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

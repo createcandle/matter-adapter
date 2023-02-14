@@ -170,7 +170,7 @@ echo ""
 echo ""
 echo ""
 
-python3.9 -m pip install coloredlogs aiorun requests click click_option_group \
+python3.9 -m pip install coloredlogs aiorun requests click click_option_group cryptography \
     -t lib --prefix "" --no-binary :all: --no-cache-dir
     
     

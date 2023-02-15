@@ -16,6 +16,7 @@
             this.all_things = {};
             this.title_lookup_table = {};
             this.nodez = {};
+            this.initial_nodez_count = 0;
             this.updating_firmware = false;
             
             this.busy_discovering = false;
@@ -179,6 +180,7 @@
                     //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.add('extension-matter-adapter-hidden');
                     //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
                     
+                    this.initial_nodez_count = this.nodez.length; // if this increases, then a new device has been paired.
 					
                     this.busy_pairing = true;
                     document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-busy-pairing');
@@ -216,6 +218,8 @@
                     
                     document.getElementById('extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
                     
+                    
+                    
                     if(code.length < 4){
                         console.log("code was too short");
                         alert("That code is too short");
@@ -227,6 +231,8 @@
                     }
                     //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.add('extension-matter-adapter-hidden');
                     //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
+                    
+                    this.initial_nodez_count = this.nodez.length;
                     
 					// Inform backend
                     this.busy_pairing = true;
@@ -373,6 +379,21 @@
                     
                     this.show_pairing_page();
     			});
+                
+                // SHOW WIFI PASSWORD CHECKBOX
+                document.getElementById('extension-matter-adapter-wifi-show-password-checkbox').addEventListener('change', (event) => {
+                    if(this.debug){
+                        console.log("Matter adapter debug: clicked on wifi password reveal checkbox");
+                    }
+                    const checked = document.getElementById('extension-matter-adapter-wifi-show-password-checkbox').checked;
+                    if(checked){
+                        document.getElementById('extension-matter-adapter-wifi-password').type = 'text';
+                    }
+                    else{
+                        document.getElementById('extension-matter-adapter-wifi-password').type = 'password';
+                    }
+    			});
+                
             
                 
                 // Back button, shows main page
@@ -407,6 +428,7 @@
             
 
                 // Finally, request the first data from the addon's API
+                console.log("Matter adapter: making init data request");
                 this.get_init_data();
                 
             }
@@ -478,6 +500,7 @@
                         }
                         
                         this.get_init_data2();
+                        
                     });
                 }
     			catch(e){
@@ -590,9 +613,27 @@
     
         // Show pairing page, triggered by opening the pairing page, or pressing the retry button if pairing failed
         show_pairing_page(){
+            this.busy_pairing = false;
+            
             if(this.debug){
                 console.log("Matter adapter debug: in show_pairing_page");
             }
+            
+            
+            window.API.postJson(
+				`/extensions/${this.id}/api/ajax`,
+				{'action':'reset_pairing'}
+			).then((body) => { 
+				if(this.debug){
+                    console.log("reset pairing done");
+                }
+                this.busy_pairing = false;
+			}).catch((e) => {
+                this.busy_pairing = false;
+				console.error("matter-adapter: error making reset pairing request: ", e);
+			});
+            
+            
             this.generate_qr();
             
             // start polling for data
@@ -611,7 +652,7 @@
 		    document.getElementById('extension-matter-adapter-pairing-step-qr').classList.remove('extension-matter-adapter-hidden');
             document.getElementById('extension-matter-adapter-save-manual-input-pairing-code-button').classList.remove('extension-matter-adapter-hidden');
             document.getElementById('extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
-           
+            document.getElementById('extension-matter-adapter-pairing-success-hint').classList.add('extension-matter-adapter-hidden');
         }
     
     
@@ -651,6 +692,7 @@
                 }
                 this.busy_polling = false;
                 
+                /*
                 if(typeof body.busy_discovering != 'undefined'){
                     this.busy_discovering = body.busy_discovering;
                     if(this.busy_discovering){
@@ -660,6 +702,7 @@
                         document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-discovering');
                     }
                 }
+                */
                 if(typeof body.busy_pairing != 'undefined'){
                     this.busy_pairing = body.busy_pairing;
                     if(this.busy_pairing){
@@ -688,6 +731,18 @@
                     this.list_discovered_devices();
                 }
                 */
+                
+                if(typeof body.nodez != 'undefined'){
+                    if(body.nodez.length > this.initial_nodez_count){
+                        console.log("THE DEVICE LIST IS LONGER NOW, PAIRING MUST HAVE SUCCEEDED");
+                        document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
+                        document.getElementById('extension-matter-adapter-pairing-success-hint').classList.remove('extension-matter-adapter-hidden');
+                    }
+                    this.nodez = body.nodez;
+                    //this.regenenerate_items();
+                }
+                
+                
                 if(typeof body.nodes != 'undefined'){
                     this.nodes = body.nodes;
                     //this.regenenerate_items();
@@ -722,6 +777,15 @@
                             }
                             document.getElementById('extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
                             document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
+                            
+                            try{
+                				clearInterval(window.matter_adapter_poll_interval);
+                                window.matter_adapter_poll_interval = null;
+                			}
+                			catch(e){
+                				//console.log("no interval to clear? ", e);
+                			}
+                            this.busy_polling = false;
                         }
                         
                     }
@@ -799,31 +863,24 @@
 				list.innerHTML = "";
 		        
 				// Loop over all things
-				for( let thing_id in this.title_lookup_table ){
+				for( let thing_id in this.nodez ){
 					if(this.debug){
                         console.log("Matter adapter debug: thing_id: ", thing_id );
                     }
     				try{
-                        let title = this.title_lookup_table[thing_id];
+                        let title = 'New device';
+                        if(typeof this.title_lookup_table[thing_id] != 'undefined'){
+                            title = this.title_lookup_table[thing_id];
+                        }
     					if(this.debug){
-                            console.log("Matter adapter debug: thing_title: ", title);
+                            console.log("Matter adapter debug: thing title: ", title);
                         }
 				
     					//let thing_id = things[key]['href'].substr(things[key]['href'].lastIndexOf('/') + 1);
                         //console.log("thing_id: ", thing_id);
                         //this.title_lookup_table[thing_id] = thing_title;
                         
-                        if(typeof this.nodez[thing_id] == 'undefined'){
-                            if(this.debug){
-                                console.warning("Matter adapter debug: WARNING, THING ID NOT PRESENT IN NODEZ. user should delete thing: ", thing_id);
-                            }
-                            continue;
-                        }
-                        else{
-                            if(this.debug){
-                                console.log("Matter adapter debug: OK, thing_id is in nodez");
-                            }
-                        }
+                        
                         let item_data = this.nodez[thing_id];
                         if(this.debug){
                             console.log("Matter adapter debug: item_data: ", item_data); // device_id
@@ -930,23 +987,19 @@
                         
                             // Add title if it could be found
                             try{
-                                if( typeof this.title_lookup_table[ 'matter-' + item_data['node_id'] ] != 'undefined' ){
-                                    var title_span = document.createElement("span");
-                                    title_span.classList.add('extension-matter-adapter-item-title');
+                                
+                                var title_span = document.createElement("span");
+                                title_span.classList.add('extension-matter-adapter-item-title');
                             
-                                    var title_text = document.createTextNode(this.title_lookup_table[ 'matter-' + item_data['node_id'] ]);
-                                    title_span.appendChild(title_text);
-                                    a.appendChild(title_span);
-                                    clone.querySelector('.extension-matter-adapter-item-title').appendChild(a);
-                                }
-                                else{
-                                    if(this.debug){
-                                        console.warn("not in lookup table: ", item_data['node_id']);
-                                    }
-                                }
+                                var title_text = document.createTextNode(title);
+                                title_span.appendChild(title_text);
+                                
+                                a.appendChild(title_span);
+                                clone.querySelector('.extension-matter-adapter-item-title').appendChild(a);
+                                
                             }
                             catch(e){
-                                console.error("Matter adapter debug: Error getting thing title: ", e);
+                                console.error("Matter adapter debug: Error ading thing title to clone: ", e);
                             }
                         
                             //var desc_span = document.createElement("span");
@@ -1104,13 +1157,16 @@
                         const delete_confirm_button = clone.querySelector('.extension-matter-adapter-item-delete-confirm-button');
     					delete_confirm_button.addEventListener('click', (event) => {
                             if(this.debug){
-                                console.log("Matter adapter debug: delete confirm button clicked");
+                                console.log("Matter adapter debug: delete confirm button clicked. event: ", event);
                             }
                             
                             delete_confirm_button.classList.add('extension-matter-adapter-hidden');
                             
     						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
     						item_el.classList.add("extension-matter-adapter-delete");
+                            item_el.querySelector('.extension-matter-adapter-overlay-delete-text').innerText = "Deleting...";
+                            
+                            const local_event = event;
                             
     						// Ask backend to delete device from Matter fabric
     						window.API.postJson(
@@ -1119,18 +1175,29 @@
     						).then((body) => { 
     							if(this.debug){
                                     console.log("Matter adapter debug: delete matter item reaction: ", body);
+                                    console.log("Do event and item exist here?: ", event);
                                 }
-                                if(body['state'] == true){
-                                    item_el.classList.add(".extension-matter-adapter-hidden");
-                                    if(this.debug){
-                                        console.error("Matter adapter debug: Delete succeeded: ", body.message);
+                                if(body.state == true){
+                                    this.nodez = body.nodez;
+                                    //let item_el = local_event.currentTarget.closest(".extension-matter-adapter-item");
+                                    if(typeof event.target != 'undefined'){
+                                        console.log("in delete response, event.target exists");
+                                        let item_el = event.target.closest('extension-matter-adapter-item');
+                                        console.log('item_el ', item_el);
+                                        item_el.classList.add("extension-matter-adapter-hidden");
+                                        console.log("item_el.classList: ", item_el.classList);
                                     }
+                                    
+                                    if(this.debug){
+                                        console.log("Matter adapter debug: Delete succeeded. Message: ", body.message);
+                                    }
+                                    
             						//let item_el_parent = item_el.parentElement;
             						//item_el_parent.removeChild(item_el);
                                 }
                                 else{
                                     if(this.debug){
-                                        console.error("Matter adapter debug: Delete failed: ", body.message);
+                                        console.error("Matter adapter debug: Delete failed. Message: ", body.message);
                                         alert(body.message);
                                     }
                                 }
@@ -1138,6 +1205,7 @@
     						}).catch((e) => {
     							if(this.debug){
                                     console.error('Matter adapter debug: delete: connection error', e);
+                                    alert("An error occured during the delete process. Try reloading the page.");
                                 }
     						});
                             
@@ -1321,7 +1389,8 @@
             document.getElementById('extension-matter-adapter-mobile-qr-scan-link').href = long_url;
             
             const target_element = document.getElementById('extension-matter-adapter-qr-code');
-	
+	        target_element.innerHTML = "";
+    
     	    var qrcode = new QRCode(target_element, {
     		    width : 300,
     		    height : 300

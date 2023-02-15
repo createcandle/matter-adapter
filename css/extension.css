@@ -29,7 +29,7 @@ extension-matter-adapter-
     font-size:1.8rem;
     padding:1rem 2rem;
 }
-#extension-matter-adapter-view button:hover{
+#extension-matter-adapter-view button:not(#extension-matter-adapter-back-button):hover{
     background-color:rgba(0,0,0,.3);
 }
 
@@ -343,6 +343,10 @@ extension-matter-adapter-
     display:none;
 }
 
+#extension-matter-adapter-current-wifi-ssid{
+    font-weight:bold;
+}
+
 
 /*  pairing on mobile  */
 
@@ -388,13 +392,15 @@ extension-matter-adapter-
     display:block;
 }
 
-
+div.extension-matter-adapter-busy-pairing #extension-matter-adapter-pairing-step-wifi,
+div.extension-matter-adapter-busy-pairing #extension-matter-adapter-pairing-start-area,
 div.extension-matter-adapter-busy-pairing #extension-matter-adapter-start-normal-pairing-button,
 div.extension-matter-adapter-busy-pairing #extension-matter-adapter-start-network-pairing-button{
     display:none;
 }
 
-#extension-matter-adapter-second-page input[type='text']{
+#extension-matter-adapter-second-page input[type='text'],
+#extension-matter-adapter-second-page input[type='password']{
     width:100%;
     box-sizing:border-box;
     padding:2rem;
@@ -458,6 +464,45 @@ body:not(.developer) .extension-matter-adapter-developer-only{
 
 
 
+#extension-matter-adapter-view .rule-delete-dialog input[type=button]{
+    background-color: #01116a;
+    color:white;
+}
+
+#extension-matter-adapter-view .rule-edit-overlay{
+    background-color: rgba(64, 64, 64, 0.9);
+}
+
+
+
+
+/*  fancy checkboxes  */
+
+.extension-matter-adapter-checkbox-container{
+    margin:1.5rem 0;
+}
+
+#extension-matter-adapter-view input[type=checkbox] {
+    position: absolute;
+    left: -1000em;
+}
+
+#extension-matter-adapter-view input[type=checkbox] + label::before {
+    content: '';
+    display: inline-block;
+    width: 3rem;
+    height: 3rem;
+    margin-top: -0.25rem;
+    background: url(/images/checkbox-sprite.png) no-repeat 0 0;
+    background-size: 3rem auto;
+    cursor: pointer;
+    vertical-align: middle;
+    margin-right: 1rem;
+}
+
+#extension-matter-adapter-view input[type=checkbox]:checked + label::before, :root .transition-checkbox:checked + label::before {
+    background-position: 0 -3rem;
+}
 
 /*  loading spinner  */
 

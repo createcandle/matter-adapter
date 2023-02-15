@@ -32,7 +32,7 @@ import subprocess
 #import datetime
 #import requests  # noqa
 #import threading
-#import subprocess
+import subprocess
 
 # This loads the parts of the addon.
 from gateway_addon import Database, Adapter, Device, Property
@@ -67,12 +67,12 @@ from sys import path
 
 #import aiohttp
 import asyncio
-from aiorun import run
+#from aiorun import run
 import coloredlogs
 
 path.insert(1, dirname(dirname(abspath(__file__))))
 #from matter_server.client.client import MatterClient  # noqa: E402
-from matter_server.server.server import MatterServer  # noqa: E402
+#from matter_server.server.server import MatterServer  # noqa: E402
 
 # DEV
 from chip.clusters import Objects as clusters
@@ -82,6 +82,8 @@ from chip.clusters import ClusterCommand
 import threading
 import websocket
 import _thread
+
+from threading import Lock
 
 #import rel
 
@@ -95,7 +97,7 @@ DEFAULT_VENDOR_ID = 0xFFF1
 DEFAULT_FABRIC_ID = 1
 DEFAULT_PORT = 5580
 DEFAULT_URL = f"http://127.0.0.1:{DEFAULT_PORT}/ws"
-DEFAULT_STORAGE_PATH = '/home/pi/.webthings/data/matter-adapter/matter_server'#os.path.join(Path.home(), ".matter_server")
+DEFAULT_STORAGE_PATH = '/home/pi/.webthings/data/matter-adapter' #os.path.join(Path.home(), ".matter_server")
 
 print("Path.home(): " + str(Path.home()))
 
@@ -134,6 +136,7 @@ class MatterAdapter(Adapter):
         
         self.running = True
         self.server = None
+        self.server_process = None
         #self.client = None
         #self.unsubscribe = None
         
@@ -148,6 +151,7 @@ class MatterAdapter(Adapter):
         
         self.certificates_updated = False
         self.last_certificates_download_time = 0
+        self.time_between_certificate_downloads = 21600
         
         self.busy_discovering = False
         self.pairing_failed = False
@@ -157,10 +161,7 @@ class MatterAdapter(Adapter):
         self.share_node_code = "" # used with open window
         self.device_was_deleted = False # set to True is a device is deleted from the Matter fabric
         
-        pwd = run_command('pwd')
-        print("PWD:" + str(pwd))
-        
-        
+        self.s_print_lock = Lock()
         
         
         # Hotspot
@@ -215,13 +216,17 @@ class MatterAdapter(Adapter):
         
         # Create some path strings. These point to locations on the drive.
         self.addon_path = os.path.join(self.user_profile['addonsDir'], self.addon_id) # addonsDir points to the directory that holds all the addons (/home/pi/.webthings/addons).
+        self.lib_path = os.path.join(self.addon_path, 'lib')
         self.data_path = os.path.join(self.user_profile['dataDir'], self.addon_id)
         self.persistence_file_path = os.path.join(self.data_path, 'persistence.json') # dataDir points to the directory where the addons are allowed to store their data (/home/pi/.webthings/data)
         self.chip_factory_ini_file_path = os.path.join(self.user_profile['baseDir'],'hasdata','chip_factory.ini')
         #self.certs_dir_path = os.path.join(self.data_path, 'paa-root-certs')
+        
+        os.chdir(self.data_path)
+        
         pwd = run_command('pwd')
         pwd = pwd.rstrip()
-        
+        print("PWD:" + str(pwd))
         self.certs_dir_path = pwd + '/credentials/development/paa-root-certs'
         print("self.certs_dir_path: " + str(self.certs_dir_path))
         
@@ -233,7 +238,7 @@ class MatterAdapter(Adapter):
         # Create the data directory if it doesn't exist yet
         if not os.path.isdir(self.data_path):
             print("making missing data directory")
-            os.mkdir(self.data_path)
+            os.system('mkdir -p ' + str(self.data_path))
         
         self.persistent_data = {}
         
@@ -385,20 +390,42 @@ class MatterAdapter(Adapter):
         
 
         # Init matter server
-        self.server = MatterServer(
-            self.data_path, DEFAULT_VENDOR_ID, DEFAULT_FABRIC_ID, int(self.port)
-        )
+        #self.server = MatterServer(
+        #    self.data_path, DEFAULT_VENDOR_ID, DEFAULT_FABRIC_ID, int(self.port)
+        #)
+
+        
+        
+        pwd = run_command('pwd')
+        print("PWD after chdir: " + str(pwd))
+        
+        
+        """
+		while self.running:
+            output = self.server_process.stdout.readline()
+            print("self.server_process.poll(): " + str(self.server_process.poll()))
+            #if output == '' and self.server_process.poll() is not None:
+            #    break
+            if output:
+                print("STD OUT CAPTURED: " + str( output.strip() ))
+            time.sleep(0.01)
+		"""
+        if self.DEBUG:
+            print("run_process: beyond the while loop")
+        #rc = self.server_process.poll()
+        #if self.DEBUG:
+        #    print("rc: " + str(rc))
+
+        print("BEYOND SERVER START WITH SUBPROCESS")
 
         # Run the server. This is blocking.
+        """
         run(self.run_matter(), shutdown_callback=self.handle_stop)
         
         
         if self.server != None:
             #print("\nself.server DIR: " + str(dir(self.server)))
             self.server.stop()
-        
-        
-        
         
         # Just in case any new values were created in the persistent data store, let's save it to disk
         #self.save_persistent_data()
@@ -407,10 +434,17 @@ class MatterAdapter(Adapter):
         
         if self.DEBUG:
             print("Matter adapter init end. Calling exit.")
+        time.sleep(5)
+        os.system("pkill -f 'python3 /home/pi/.webthings/addons/matter-adapter/main.py' --signal SIGKILL")
         exit()
+        """
 
 
-
+    def s_print(self, *a, **b):
+        """Thread safe print function"""
+        with self.s_print_lock:
+            print(*a, **b)
+        
     def add_from_config(self):
         """ This retrieves the addon settings from the controller """
         print("in add_from_config")
@@ -462,6 +496,21 @@ class MatterAdapter(Adapter):
             print("Error in add_from_config: " + str(ex))
 
 
+    """
+    def run_process(self,command):
+        process = subprocess.Popen(command.split(command), stdout=subprocess.PIPE)
+        while self.running:
+            output = process.stdout.readline()
+            if output == '' and process.poll() is not None:
+                break
+            if output:
+                print("STD OUT CAPTURED: " + str( output.strip() ))
+        if self.DEBUG:
+            print("run_process: beyond the while loop")
+        rc = process.poll()
+        return rc
+    """
+
 
     # Check the Hotspot addon's settings for the SSID and Password
     def load_hotspot_config(self):
@@ -512,12 +561,12 @@ class MatterAdapter(Adapter):
 
     def client_thread(self):
         if self.DEBUG:
-            print("in client_thread. zzz to wait for matter server")
+            self.s_print("in client_thread. zzz to wait for matter server")
         
         try:
-            time.sleep(3)
+            time.sleep(4)
             if self.DEBUG:
-                print("client thread: zzz done, starting client")
+                self.s_print("client thread: zzz done, starting client")
             #rel.set_sleep(0.1)
             #rel.set_turbo(0.0001)
         
@@ -534,7 +583,7 @@ class MatterAdapter(Adapter):
             #ws.run_forever(dispatcher=rel, reconnect=5)  # Set dispatcher to automatic reconnection, 5 second reconnect delay if connection closed unexpectedly
             #rel.signal(2, rel.abort)  # Keyboard Interrupt
             #rel.dispatch()
-            print(":::\n:::\n:::\nCLIENT THREAD: BEYOND RUN FOREVER")
+            self.s_print(":::\n:::\n:::\nCLIENT THREAD: BEYOND RUN FOREVER")
             """
             
             """
@@ -545,7 +594,7 @@ class MatterAdapter(Adapter):
         
     def on_message(self, ws, message="{}"):
         if self.DEBUG:
-            print("\n.\nclient: on_message: " + str(message) + "\n\n")
+            self.s_print("\n.\nclient: on_message: " + str(message) + "\n\n")
         try:
             
             # matter_server.common.models.message.SuccessResultMessage
@@ -556,12 +605,12 @@ class MatterAdapter(Adapter):
             if '_type' in message:
                 if message['_type'] == "matter_server.common.models.server_information.ServerInfo":
                     if self.DEBUG:
-                        print("\n\nRECEIVED MATTER SERVER INFO\n\n")
+                        self.s_print("\n\nRECEIVED MATTER SERVER INFO\n\n")
                     self.client_connected = True
                     
                     # Start listening
                     if self.DEBUG:
-                        print("Sending start_listening command")
+                        self.s_print("Sending start_listening command")
                     self.ws.send(
                             json.dumps({
                                 "message_id": "start_listening",
@@ -574,7 +623,7 @@ class MatterAdapter(Adapter):
                     
                     # Get diagnostic data
                     if self.DEBUG:
-                        print("Sending start_listening command")
+                        self.s_print("Sending start_listening command")
                     self.ws.send(
                             json.dumps({
                                 "message_id": "diagnostics",
@@ -584,54 +633,56 @@ class MatterAdapter(Adapter):
                     
                     # Request Matter nodes list
                     if self.DEBUG:
-                        print("Asking for nodes list")
+                        self.s_print("Asking for nodes list")
                     self.get_nodes()
                     
                 
                 # Handle success messages
                 elif message['_type'].endswith("message.SuccessResultMessage"):
                     if self.DEBUG:
-                        print("\n\nOK message.SuccessResultMessage\n\n")
+                        self.s_print("\n\nOK message.SuccessResultMessage\n\n")
                     
                     if message['message_id'] == 'start_listening':
                         if self.DEBUG:
-                            print("OK LISTENING")
+                            self.s_print("OK LISTENING")
                     
                     elif message['message_id'] == 'set_wifi_credentials':
                         if self.DEBUG:
-                            print("OK WIFI CREDENTIALS SET")
+                            self.s_print("OK WIFI CREDENTIALS SET")
                     
                     elif message['message_id'] == 'discover' and 'result' in message.keys():
                         if self.DEBUG:
-                            print("OK DISCOVER RESPONSE")
+                            self.s_print("OK DISCOVER RESPONSE")
                         self.discovered = message['result']
                         self.busy_discovering = False
                 
                     elif message['message_id'] == 'commission_with_code':
                         if self.DEBUG:
-                            print("\n\nNew device paired succesfully\n\n")
+                            self.s_print("\n\nNew device paired succesfully\n\n")
                         self.send_pairing_prompt("New device paired succesfully")
                         self.get_nodes()
                     
                     elif message['message_id'] == 'node_added':
                         if self.DEBUG:
-                            print("\n\nNew device paired succesfully\n\n")
+                            self.s_print("\n\nNew device paired succesfully\n\n")
                     
                     elif message['message_id'] == 'get_nodes':
                         if self.DEBUG:
-                            print("\n\nGET NODES succesfull\n\n")
+                            self.s_print("\n\nGET NODES succesfull\n\n")
                         self.nodes = message['result']
                         self.parse_nodes()
                         self.ready = True # the addon should now have recreated the things
+                        
                     elif message['message_id'].startswith('get_node_'):
                         if self.DEBUG:
-                            print("\n\nGET NODE succesfull\n\n")
+                            self.s_print("\n\nGET NODE succesfull\n\n")
                         device_info = message['result']
                         if self.DEBUG:
-                            print("DEVICE INFO: " + str(json.dumps(device_info)))
+                            self.s_print("DEVICE INFO: " + str(json.dumps(device_info)))
+                            
                     elif message['message_id'] == 'remove_node':
                         if self.DEBUG:
-                            print("\n\nremove_node was succesfull\n\n")
+                            self.s_print("\n\nremove_node was succesfull\n\n")
                         self.device_was_deleted = True
                         #self.nodes = message['result']
                         #self.parse_nodes()
@@ -639,11 +690,11 @@ class MatterAdapter(Adapter):
                         
                     elif message['message_id'] == 'open_commissioning_window':
                         if self.DEBUG:
-                            print("\n\nopen_commissioning_window was succesfull\n\n")
+                            self.s_print("\n\nopen_commissioning_window was succesfull\n\n")
                         try:
                             self.share_node_code = message['result']
                         except Exception as ex:
-                            print("Error in open_commissioning_window -> getting pairing code")
+                            self.s_print("Error in open_commissioning_window -> getting pairing code")
                 
                 
                 # Handle event messages
@@ -652,18 +703,18 @@ class MatterAdapter(Adapter):
                     if 'event' in message.keys():
                         if message['event'] == 'node_added':
                             if self.DEBUG:
-                                print("\nRECEIVED NODE ADDED MESSAGE\n")
+                                self.s_print("\nRECEIVED NODE ADDED MESSAGE\n")
                 
                         if message['event'] == 'attribute_updated':
                             if self.DEBUG:
-                                print("\nADAPTER: INCOMING PROPERTY CHANGE\n")
+                                self.s_print("\nADAPTER: INCOMING PROPERTY CHANGE\n")
                             self.route_property_change(message['data'])
                 
                 
                 # Handle error messages
                 elif message['_type'].endswith("message.ErrorResultMessage"):
                     if self.DEBUG:
-                        print("\nRECEIVED ERROR MESSAGE\n")
+                        self.s_print("\nRECEIVED ERROR MESSAGE\n")
                         
                     """
                         INVALID_COMMAND = 1
@@ -674,40 +725,41 @@ class MatterAdapter(Adapter):
                         
                     if message['message_id'] == 'commission_with_code':
                         if self.DEBUG:
-                            print("commission_with_code failed")
+                            self.s_print("commission_with_code failed")
                         self.pairing_failed = True
                         
-                    elif message['message_id'] == 'open_commissioning_window':
+                    elif message['message_id'] == 'open_commissioning_window' or message['message_id'] =='commission_on_network':
                         if self.DEBUG:
-                            print("open_commissioning_window failed")
+                            self.s_print("open_commissioning_window failed")
                         self.share_node_code = ""
+                        self.pairing_failed = True
                     else:
                         if self.DEBUG:
-                            print("unhandled error message, message_id: " + str(message['message_id']))
+                            self.s_print("unhandled error message, message_id: " + str(message['message_id']))
                         
             else:
                 if self.DEBUG:
-                    print("Warning, there was no _type in the message")
+                    self.s_print("Warning, there was no _type in the message")
         
                 #self.should_save = True
         
         except Exception as ex:
             if self.DEBUG:
-                print("client: error in on_message: " + str(ex))
+                self.s_print("client: error in on_message: " + str(ex))
         
         
 
     def on_error(self, ws, error):
         if self.DEBUG:
-            print("\n.\nclient: on_error: " + str(error))
+            self.s_print("\n.\nclient: on_error: " + str(error))
 
     def on_close(self, ws, close_status_code, close_msg):
         if self.DEBUG:
-            print("\n.\nclient: on_close. Status code: " + str(close_status_code) +  ", message: "+ str(close_msg))
+            self.s_print("\n.\nclient: on_close. Status code: " + str(close_status_code) +  ", message: "+ str(close_msg))
 
     def on_open(self, ws):
         if self.DEBUG:
-            print("\n.\nclient: opened connection")
+            self.s_print("\n.\nclient: opened connection")
         #print("ws: " + str(ws))
         
         
@@ -716,7 +768,7 @@ class MatterAdapter(Adapter):
             if self.client_connected:
                 
                 if self.DEBUG:
-                    print("get_nodes: Client is connected, so asking for latest node list")
+                    self.s_print("get_nodes: Client is connected, so asking for latest node list")
                 
                 message = {
                         "message_id": "get_nodes",
@@ -726,6 +778,9 @@ class MatterAdapter(Adapter):
                 self.ws.send(json_message)
                 
                 return True
+            else:
+                if self.DEBUG:
+                    self.s_print("Error in get_nodes: client was not connected yet")
                 
         except Exception as ex:
             print("Error in get_nodes: " + str(ex))
@@ -738,7 +793,7 @@ class MatterAdapter(Adapter):
             if self.client_connected:
                 
                 if self.DEBUG:
-                    print("get-node: Client is connected, so asking for info on single node")
+                    self.s_print("get-node: Client is connected, so asking for info on single node")
                 
                 message = {
                         "message_id": "get_node",
@@ -754,7 +809,7 @@ class MatterAdapter(Adapter):
                 return True
                 
         except Exception as ex:
-            print("Error in get_node: " + str(ex))
+            self.s_print("Error in get_node: " + str(ex))
         
         return False
 
@@ -766,7 +821,7 @@ class MatterAdapter(Adapter):
             if self.client_connected:
                 
                 if self.DEBUG:
-                    print("share-node: Client is connected, so asking to open commissioning window")
+                    self.s_print("share-node: Client is connected, so asking to open commissioning window")
                 
                 message = {
                         "message_id": "open_commissioning_window",
@@ -782,7 +837,7 @@ class MatterAdapter(Adapter):
                 return True
                 
         except Exception as ex:
-            print("Error in share_node: " + str(ex))
+            self.s_print("Error in share_node: " + str(ex))
         
         return False
         
@@ -832,7 +887,7 @@ class MatterAdapter(Adapter):
                 self.busy_discovering = True
                 
                 if self.DEBUG:
-                    print("discover: Client is connected, so sending discover command to Matter server")
+                    self.s_print("discover: Client is connected, so sending discover command to Matter server")
                 
                 
                 message = {
@@ -847,7 +902,7 @@ class MatterAdapter(Adapter):
                 return True
                 
         except Exception as ex:
-            print("Error in start_pairing: " + str(ex))
+            self.s_print("Error in discover: " + str(ex))
         
         return False
 
@@ -856,17 +911,17 @@ class MatterAdapter(Adapter):
     # Download the latest certificates
     def download_certs(self):
         if self.DEBUG:
-            print("in download_certs")
-        if time.time() - 21600 > self.persistent_data['last_certificates_download_time']:
+            self.s_print("in download_certs")
+        if time.time() - self.time_between_certificate_downloads > self.persistent_data['last_certificates_download_time']:
             if self.DEBUG:
-                print("downloading latest certificates")
+                self.s_print("downloading latest certificates")
             self.certificates_updated = False
             certificates_download_command = "python3 " + str(self.certs_downloader_path) + " --use-main-net-http --paa-trust-store-path " + str(self.certs_dir_path)
             if self.DEBUG:
-                print("certificates download command: " + str(certificates_download_command))
+                self.s_print("certificates download command: " + str(certificates_download_command))
             download_certs_output = run_command(certificates_download_command,120)
             if self.DEBUG:
-                print("download_certs_output: " + str(download_certs_output))
+                self.s_print("download_certs_output: " + str(download_certs_output))
             
             self.certificates_updated = True
             
@@ -887,67 +942,65 @@ class MatterAdapter(Adapter):
     # Pass WiFi credentials to Matter
     def set_wifi_credentials(self):
         if self.DEBUG:
-            print("in set_wifi_credentials. self.wifi_ssid: " + str(self.wifi_ssid))
-            print("in set_wifi_credentials. self.wifi_password: " + str(self.wifi_password))
+            self.s_print("in set_wifi_credentials. self.wifi_ssid: " + str(self.wifi_ssid))
+            self.s_print("in set_wifi_credentials. self.wifi_password: " + str(self.wifi_password))
         try:
             if self.client_connected == False:
                 if self.DEBUG:
-                    print("Cannot set wifi credentials, client is not connected to Matter server")
+                    self.s_print("Cannot set wifi credentials, client is not connected to Matter server")
                 
             elif self.wifi_ssid != "" and self.wifi_password != "":
-                    #if self.wifi_ssid != "" and self.wifi_password != "":
+                if self.DEBUG:
+                    self.s_print("Sharing wifi credentials with Matter server")
+
+                """
+                if self.candle_wifi_ssid != "" and self.candle_wifi_password != "":
                     if self.DEBUG:
-                        print("Sharing wifi credentials with Matter server")
-                
-                    """
-                    if self.candle_wifi_ssid != "" and self.candle_wifi_password != "":
-                        if self.DEBUG:
-                            print("SHARING CANDLE'S WIFI CREDENTIALS")
-                        wifi_message = {
-                                "message_id": "set_wifi_credentials",
-                                "command": "set_wifi_credentials",
-                                "args": {
-                                    "ssid": str(self.candle_wifi_ssid),
-                                    "credentials": str(self.candle_wifi_password)
-                                }
-                              }
-                    else:
-                
-                    if self.DEBUG:
-                        print("SHARING WIFI CREDENTIALS")
-                    """
+                        print("SHARING CANDLE'S WIFI CREDENTIALS")
                     wifi_message = {
                             "message_id": "set_wifi_credentials",
                             "command": "set_wifi_credentials",
                             "args": {
-                                "ssid": str(self.wifi_ssid),
-                                "credentials": str(self.wifi_password)
+                                "ssid": str(self.candle_wifi_ssid),
+                                "credentials": str(self.candle_wifi_password)
                             }
                           }
-                
-                    # send wifi credentials
-                    if self.DEBUG:
-                        print("\n.\n) ) )\n.\nsending wifi credentials: " + str(wifi_message))
-                    json_wifi_message = json.dumps(wifi_message)
-        
-                    self.ws.send(json_wifi_message)
-                    return True
+                else:
+
+                if self.DEBUG:
+                    print("SHARING WIFI CREDENTIALS")
+                """
+                wifi_message = {
+                        "message_id": "set_wifi_credentials",
+                        "command": "set_wifi_credentials",
+                        "args": {
+                            "ssid": str(self.wifi_ssid),
+                            "credentials": str(self.wifi_password)
+                        }
+                      }
+
+                # send wifi credentials
+                if self.DEBUG:
+                    self.s_print("\n.\n) ) )\n.\nsending wifi credentials: " + str(wifi_message))
+                json_wifi_message = json.dumps(wifi_message)
+
+                self.ws.send(json_wifi_message)
+                return True
                 
             else:
                 if self.DEBUG:
-                    print("Cannot set wifi credentials, as there are no credentials to set yet")
+                    self.s_print("Cannot set wifi credentials, as there are no credentials to set yet")
         except Exception as ex:
             if self.DEBUG:
-                print("Error in set wifi credentials: " + str(ex))
+                self.s_print("Error in set wifi credentials: " + str(ex))
         
         return False
 
 
     def start_matter_pairing(self,pairing_type,code):
         if self.DEBUG:
-            print("\n\n\n\nin start_matter_pairing. Pairing type: " + str(pairing_type) + ", Code: " + str(code))
+            self.s_print("\n\n\n\nin start_matter_pairing. Pairing type: " + str(pairing_type) + ", Code: " + str(code))
         self.pairing_failed = False
-        
         # Download the latest certificates if they haven't been updated in a while
         self.download_certs()
         
@@ -958,8 +1011,9 @@ class MatterAdapter(Adapter):
                     print("start_pairing: Client is connected, so sending commissioning code to Matter server.")
         
                 # Set the wifi credentials
-                if self.set_wifi_credentials():
-                    time.sleep(5) # TODO: Dodgy
+                self.set_wifi_credentials()
+                
+                time.sleep(6) # TODO: Dodgy
         
                 # create pairing message
                 message = None
@@ -989,7 +1043,7 @@ class MatterAdapter(Adapter):
                     return True
             
         except Exception as ex:
-            print("Error in start_pairing: " + str(ex))
+            self.s_print("Error in start_pairing: " + str(ex))
         
         return False
 
@@ -998,15 +1052,95 @@ class MatterAdapter(Adapter):
 
     def clock(self):
         if self.DEBUG:
-            print("in clock")
-        while self.running:
-            time.sleep(1)
+            self.s_print("in clock")
+        
+        python3_path = run_command('readlink $(which python3)')
+        python3_path = "/usr/bin/" + python3_path.rstrip()
+        # /home/pi/.webthings/addons/matter-adapter/lib/
+        matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.data_path)
+        if self.vendor_id != "":
+            matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
+        
+        
+        if not os.path.exists(self.data_path):
+            self.s_print("ERROR DATA PATH DOES NOT EXIST")
             
+        if not os.path.exists(self.lib_path):
+            self.s_print("ERROR LIB PATH DOES NOT EXIST")
+            
+        matter_server_command_shell = "PYTHONPATH=" + str(self.lib_path) + " " +  str(matter_server_command)
+        
+        self.s_print("")
+        self.s_print("full matter server start command: " + str(matter_server_command_shell))
+        self.s_print("")
+        matter_server_command_array = matter_server_command.split()
+        self.s_print("full matter server start command array: " + str(matter_server_command_array))
+        #self.run_process(matter_server_command)
+        
+        
+        my_env = os.environ.copy()
+        my_env["PYTHONPATH"] = str(self.lib_path) + ":" # + my_env["PYTHONPATH"]
+        self.s_print("my_env[PYTHONPATH]: " + str(my_env["PYTHONPATH"]))
+        
+        #'PYTHONPATH=/home/pi/.webthings/addons/matter-adapter/lib /usr/bin/python3.9 -m matter_server.server --storage-path /home/pi/.webthings/data/matter-adapter'
+        
+        #self.server_process = subprocess.Popen("/usr/bin/python3.9 bla.py", stdout=subprocess.PIPE, env=my_env, shell=True)
+        #self.server_process = subprocess.Popen(matter_server_command_shell, stdout=subprocess.PIPE, env=my_env, shell=True)
+        self.server_process = subprocess.Popen(matter_server_command_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env)
+        os.set_blocking(self.server_process.stdout.fileno(), False)
+        os.set_blocking(self.server_process.stderr.fileno(), False)
+        
+        print("clock: self.running: " + str(self.running))
+        dd = 1
+        while self.running:
+            time.sleep(0.01)
+            #self.s_print("clock tick")
+            # Check if there is output from the server process
+            
+            if self.DEBUG2:
+                dd += 1
+                if dd == 100:
+                    dd = 0
+                    self.s_print("tick tock")
+            
+            #if self.server_process != None:
+            #if self.DEBUG:
+            #    self.s_print("clock: server_process exists")
+                #self.s_print("poll: " + str(self.server_process.poll()))
+
+            try:
+                for line in iter(self.server_process.stdout.readline,b''):
+                    if self.DEBUG:
+                        self.s_print("CAPTURED STDOUT: " + str(line.decode().rstrip()))
+                
+                for line in iter(self.server_process.stderr.readline,b''):
+                    line = line.decode()
+                    if self.DEBUG:
+                        self.s_print("CAPTURED STDERR: " + str(line.rstrip()))
+                    
+                    if 'address already in use' in line:
+                        self.s_print("ERROR, THERE ALREADY IS A MATTER SERVER RUNNING")
+                    #output = self.server_process.stdout.readline()
+                    #error_line = self.server_process.stderr.readline()
+
+
+                #for x in range(60):
+                #    self.s_print(x)
+
+                #if self.DEBUG:
+                #    self.s_print("clock run_process: beyond the for loop")
+            except Exception as ex:
+                self.s_print("Error in clock try: " + str(ex))
+            #else:
+            #    self.s_print("self.server_process is None")
+              
+            # Save persistent data
             if self.should_save:
                 if self.DEBUG:
-                    print("Should save persistent was True. Saving data to persistent file.")
+                    self.s_print("Should save persistent was True. Saving data to persistent file.")
                 self.should_save = False
                 self.save_persistent_data()
+
 
     
     #def something_happened(self, message):
@@ -1017,12 +1151,14 @@ class MatterAdapter(Adapter):
     
 
     async def run_matter(self):
-        """Run the Matter server and client."""
+        """Run the Matter server."""
         if self.DEBUG:
             print("\nin run_matter")
         
         # Start Matter Server
         await self.server.start()
+        # print("------------------when do I run?--------------------------------------------------")
+        # loop.stop()
         
         
         
@@ -1083,7 +1219,7 @@ class MatterAdapter(Adapter):
     # Create new devices from Matter nodes
     def parse_nodes(self):
         if self.DEBUG:
-            print("in parse_nodes")
+            print("in parse_nodes. self.nodes length: " + str(len(self.nodes)))
         for node in self.nodes:
             try:
                 #if self.DEBUG:
@@ -1104,7 +1240,7 @@ class MatterAdapter(Adapter):
                 if target_device == None:
                     if self.DEBUG:
                         print("This device does not exist yet. It must be created.")
-            
+                    
                     new_device = MatterDevice(self, device_id, node)
                     self.handle_device_added(new_device)
                 
@@ -1225,6 +1361,13 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             print("Stopping matter addon")
         
+        self.running = False
+        
+        try:
+            run_loop = asyncio.get_running_loop()
+            run_loop.stop()
+        except Exception as ex:
+            print("Error getting asyncio loop: " + str(ex))
         
         #if self.client != None:
         #    self.client.stop()
@@ -1246,16 +1389,17 @@ class MatterAdapter(Adapter):
         # A final chance to save the data.
         self.save_persistent_data()
         
-            
-        if self.server != None:
-            self.server.stop()
-            time.sleep(5)
-            exit()
+        time.sleep(4)
+        if self.server_process != None:
+            #self.server.stop()
+            time.sleep(1)
+            os.system("pkill -f 'matter_server.server' --signal SIGKILL")
+            os.system("pkill -f 'matter_server.server' --signal SIGKILL")
         
         # does it reach this?
         if self.DEBUG:
             print("goodbye")
-        return
+        return True
 
 
 
@@ -1312,15 +1456,28 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             print("in remove_node. node_id: " + str(node_id))
         
-        message = {
-                "message_id": "remove_node",
-                "command": "remove_node",
-                "args": {
-                    "node_id": node_id
-                }
-              }
-        json_message = json.dumps(message)
-        self.ws.send(json_message)
+        self.get_nodes()
+        time.sleep(3)
+        
+        matter_id = 'matter-' + str(node_id)
+        if matter_id in self.nodes:
+            if self.DEBUG:
+                print("remove_node: Node seems to exist, will delete it")
+            message = {
+                    "message_id": "remove_node",
+                    "command": "remove_node",
+                    "args": {
+                        "node_id": node_id
+                    }
+                  }
+            json_message = json.dumps(message)
+            self.ws.send(json_message)
+        
+        else:
+            if self.DEBUG:
+                print("remove_node: node doesn't seem to exist (already deleted?). Skipping delete")
+            self.device_was_deleted = True # pretend it was just deleted
+            
         return True
         
               
@@ -1348,10 +1505,10 @@ def run_command(cmd, timeout_seconds=30):
         p = subprocess.run(cmd, timeout=timeout_seconds, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
 
         if p.returncode == 0:
-            return str(p.stdout)
+            return str(p.stdout).rstrip()
         else:
             if p.stderr:
-                return str(p.stderr)
+                return str(p.stderr).rstrip()
 
     except Exception as e:
         print("Error running command: "  + str(e))

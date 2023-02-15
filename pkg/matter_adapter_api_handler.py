@@ -99,7 +99,7 @@ class MatterAPIHandler(APIHandler):
                             print("API: in init")
                         
                         self.adapter.get_nodes()
-                        time.sleep(2)
+                        time.sleep(5)
                         
                         wifi_credentials_available = False
                         if self.adapter.wifi_ssid != "" and self.adapter.wifi_password != "":
@@ -165,16 +165,16 @@ class MatterAPIHandler(APIHandler):
                                       'debug': self.adapter.DEBUG,
                                       'certificates_updated': self.adapter.certificates_updated,
                                       'client_connected': self.adapter.client_connected,
-                                      'discovered': self.adapter.discovered,
+                                      'discovered': self.adapter.discovered, # deprecated, but might be interesting to see if it's every populated
                                       'busy_discovering':self.adapter.busy_discovering,
                                       'pairing_code': code,
                                       'pairing_failed':self.adapter.pairing_failed,
-                                      'nodes': self.adapter.nodes
+                                      #'nodes': self.adapter.nodes,
+                                      'nodez': self.adapter.persistent_data['nodez']
                                       }),
                         )
                         
                         
-                    
                     # DISCOVER
                     # does a scan for pairable devices. Currently not used.
                     elif action == 'discover':
@@ -197,12 +197,12 @@ class MatterAPIHandler(APIHandler):
                         )
                     
                     
-                    # START PAIRING
+                    # START NORMAL PAIRING
                     elif action == 'start_pairing':
                         if self.DEBUG:
                             print("\n\nAPI: in start_pairing. request.body: " + str(request.body))
                         state = False
-                        
+                        self.adapter.pairing_failed = False
                         code = ""
                         
                         try:
@@ -252,51 +252,95 @@ class MatterAPIHandler(APIHandler):
                         )
                     
                     
+                    
+                    # Reset pairing
+                    elif action == 'reset_pairing':
+                        if self.DEBUG:
+                            print("\n\nAPI: in reset_pairing")
+                        
+                        self.adapter.pairing_failed = False
+                        self.adapter.pairing_code = ""
+                        
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':True}),
+                        )
+                    
+                    
+                    
                     # DELETE
                     elif action == 'delete':
                         if self.DEBUG:
                             print("API: in delete")
                         
                         state = False
-                        message = "An unknown error has occured"
+                        message = "An unknown error has occured."
                         self.adapter.device_was_deleted = False
                         try:
                             node_id = str(request.body['node_id'])
                             device_id = 'matter-' + str(node_id)
                             #state = self.delete_item(name) # This method returns True if deletion was succesful
                             
+                            
+                            # Remove Device object from the adapter
+                            old_device = self.adapter.get_device(device_id)
+                            if old_device != None:
+                                if self.DEBUG:
+                                    print("removing thing from adapter")
+                                self.adapter.remove_thing(device_id)
+                            else:
+                                if self.DEBUG:
+                                    print("Warning, thing was not present on adapter? Cannot delete thing.")
+                            
+                            # Remove the device from the nodez dictionary
+                            if device_id in self.adapter.persistent_data['nodez']:
+                                if self.DEBUG:
+                                    print("removing thing from nodez")
+                                del self.adapter.persistent_data['nodez'][device_id]
+                                message += " Also deleted from nodez"
+                                #state = True
+                            else:
+                                if self.DEBUG:
+                                    print("device_id was not found in nodez. Already deleted?: " + str(device_id))
+                                message = "Device was not present in data - already deleted?"
+                                if self.DEBUG:
+                                    print("Error: " + message)
+                        except Exception as ex:
+                            if self.DEBUG:
+                                print("Error deleting from nodez of things: " + str(ex))
+                            
+                        try:
+                            #if node_id in self.adapter.nodes:
                             state = self.adapter.remove_node(node_id)
+                            
                             # TODO: check how long this actually takes
-                            time.sleep(3)
                             if self.adapter.device_was_deleted == False:
                                 time.sleep(3)
                             if self.adapter.device_was_deleted == False:
                                 time.sleep(3)
+                            if self.adapter.device_was_deleted == False:
+                                time.sleep(3)
+                                
                             if self.adapter.device_was_deleted == False:
                                 message = "Deletion may have failed; it took longer than 9 seconds."
                             else:
-                                message = "Device was succesfully removed"
+                                message = "Device was succesfully removed."
                                 state = True
                                 if self.DEBUG:
                                     print("OK: " + message)
-                                    
-                            if device_id in self.adapter.persistent_data['nodez']:
-                                del self.adapter.persistent_data['nodez'][device_id]
-                                state = True
-                            else:
-                                message = "Device was not present in data; already deleted?"
-                                if self.DEBUG:
-                                    print("Error: " + message)
+                                
                             
                         except Exception as ex:
                             if self.DEBUG:
-                                print("Error deleting: " + str(ex))
+                                print("Error deleting from Matter: " + str(ex))
                         
                         return APIResponse(
                           status=200,
                           content_type='application/json',
                           content=json.dumps({'state' : state, 
-                                              'mesage':message, 
+                                              'message':message, 
+                                              'device_was_deleted':self.adapter.device_was_deleted,
                                               'nodez':self.adapter.persistent_data['nodez']
                                           }),
                         )
@@ -306,6 +350,7 @@ class MatterAPIHandler(APIHandler):
                         if self.DEBUG:
                             print("API: in share_node")
                         
+                        self.adapter.pairing_failed = False
                         self.adapter.share_node_code = ""
                         message = "Failed to share the device"
                         state = False
@@ -336,9 +381,6 @@ class MatterAPIHandler(APIHandler):
                                               'pairing_code':self.adapter.share_node_code
                                           }),
                         )
-                    
-                    
-                    
                     
                     else:
                         print("Error, that action is not possible")

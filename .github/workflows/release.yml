@@ -35,10 +35,6 @@ jobs:
       run: echo "UPLOAD_URL=$(cat upload_url/upload_url)" >> $GITHUB_ENV
     - name: Set release version
       run: echo "RELEASE_VERSION=${GITHUB_REF:10}" >> $GITHUB_ENV
-    #- name: Make build script executable
-    #  run: chmod +x ./build/build.sh
-    #- name: Make packaging script executable
-    #  run: chmod +x ./package.sh
       
     - uses: actions/checkout@v3
       with:
@@ -54,11 +50,8 @@ jobs:
         distro: ubuntu_latest
         setup: |
           mkdir -p "${PWD}/build"
-        
-        # Caches the image. Make sure there are no secrets in the disk image!
-        githubToken: ${{ github.token }}
-        
-        # Mount the artifacts directory as /artifacts in the container
+
+        # Mount the build directory as /build in the container
         dockerRunArgs: |
           --volume "${PWD}/build:/build"
           #--volume "${PWD}/package:/package"
@@ -66,18 +59,16 @@ jobs:
         # Pass some environment variables to the container
         #env: | # YAML, but pipe character is necessary
           #artifact_name: git-${{ matrix.distro }}_${{ matrix.arch }}
+        
         # Not required, but speeds up builds by storing container images in
-        # a GitHub package registry.
-        #githubToken: ${{ github.token }}
+        # a GitHub package registry. Make sure there are no secrets in the disk image!
+        githubToken: ${{ github.token }}
 
         install: |
           apt update -q -y
           apt install software-properties-common -y
           add-apt-repository ppa:deadsnakes/ppa
           apt-get update -q -y
-          #apt-get install -q -y --no-install-recommends cmake make gcc libc6-dev
-          
-          #apt-get install python3.9 python3-pip -y
           apt install -y \
                 autoconf \
                 automake \
@@ -117,53 +108,24 @@ jobs:
           apt-get install --reinstall python3.9-distutils python3.9-dev -y
           python3.9 -m pip install setuptools wheel
         run: |
-          echo ::set-output name=ls::$(ls)
           cd build
-          echo ::set-output name=ls2::$(ls2)
           chmod +x package.sh
-          # "linux-arm64" "python" "3.9"
           ADDON_ARCH=linux-arm64 ./package.sh
-         
-    
-    - name: Get the output
-      # Echo the `uname` output parameter from the `runcmd` step
-      run: |
-        echo "The ls output was: ${{ steps.runcmd.outputs.ls }}"
-        echo "The ls2 output was: ${{ steps.runcmd.outputs.ls2 }}"
-    
-    
+     
     - name: List after container
       run: |
         ls -lh
       shell: bash
-    
-    #- uses: actions/checkout@v3
-    #- name: Use Python 3.9
-    #  uses: actions/setup-python@v4
-    #  with:
-    #    python-version: 3.9
-    #- name: update pip
-    #  run: python3 -m pip install --upgrade pip
-    #- name: Make build script executable
-    #  run: chmod +x ./build.sh
-    #- name: Make packaging script executable
-    #  run: chmod +x ./package.sh
-    #- name: Build adapter
-    #  run: |
-    #    ADDON_ARCH="linux-arm64" ./package.sh "linux-arm64" "python" "3.9"
-    #  shell: bash
       
     - name: Upload Release Asset tgz
       uses: shogo82148/actions-upload-release-asset@v1
       with:
-        #upload_url: ${{ github.event.release.upload_url }}
         upload_url: ${{ env.UPLOAD_URL }}
         asset_path: build/matter-adapter-${{ env.RELEASE_VERSION }}-linux-arm64-v3.9.tgz
       
     - name: Upload Release Asset shasum
       uses: shogo82148/actions-upload-release-asset@v1
       with:
-        #upload_url: ${{ github.event.release.upload_url }}
         upload_url: ${{ env.UPLOAD_URL }}
         asset_path: build/matter-adapter-${{ env.RELEASE_VERSION }}-linux-arm64-v3.9.tgz.sha256sum
 

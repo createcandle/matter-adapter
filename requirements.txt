@@ -1,9 +1,8 @@
 coloredlogs
 aiorun
-home-assistant-chip-core
+aiohttp
 home-assistant-chip-repl
-home-assistant-chip-clusters
 python-matter-server[server]
 requests
 click
-click_option_group
+click-option-group

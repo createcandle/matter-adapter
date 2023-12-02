@@ -127,7 +127,7 @@ class MatterAdapter(Adapter):
 
         # set up some variables
         self.DEBUG = True
-        self.DEBUG2 = True
+        self.DEBUG2 = False
         
         self.should_save = False
         
@@ -923,14 +923,20 @@ class MatterAdapter(Adapter):
             if self.DEBUG:
                 self.s_print("download_certs_output: " + str(download_certs_output))
             
-            self.certificates_updated = True
-            
-            if len(download_certs_output) < 5:
+            if download_certs_output != None:
                 self.certificates_updated = True
-                #self.last_certificates_download_time = time.time()
-                self.persistent_data['last_certificates_download_time'] = int(time.time())
-                self.should_save = True
-                return True
+            
+                if len(download_certs_output) < 5:
+                    self.certificates_updated = True
+                    #self.last_certificates_download_time = time.time()
+                    self.persistent_data['last_certificates_download_time'] = int(time.time())
+                    self.should_save = True
+                    return True
+                else:
+                    if self.DEBUG:
+                        self.s_print("Error, certificates didn't seem to download (output was None)")
+                    return False
+            
             else:
                 return False
         else:

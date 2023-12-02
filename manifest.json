@@ -30,7 +30,7 @@
 	  "Brightness transition duration":0,
 	  "Use Hotspot addon as WiFi network for devices": false,
 	  "Vendor ID":"",
-          "Debugging": false
+      "Debugging": false
     },
     "schema": {
       "properties": {
@@ -58,7 +58,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

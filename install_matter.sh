@@ -5,9 +5,13 @@
 # IT USES A LOT OF SPACE, SO CANNOT BE RUN ON A CANDLE CONTROLLER, OR YOU WILL RUN OUT OF SPACE
 
 sudo apt-get update
-sudo apt-get install -y libcairo2-dev pkg-config python3-dev
-sudo apt-get install -y git gcc g++ python3 pkg-config libssl-dev libdbus-1-dev libglib2.0-dev libavahi-client-dev ninja-build python3-venv python3-dev python3-pip unzip libgirepository1.0-dev libcairo2-dev libreadline-dev
-
+#sudo apt-get install -y libcairo2-dev pkg-config python3-dev
+#sudo apt-get install -y git gcc g++ python3 pkg-config libssl-dev libdbus-1-dev libglib2.0-dev libavahi-client-dev ninja-build python3-venv python3-dev python3-pip unzip libgirepository1.0-dev libcairo2-dev libreadline-dev
+sudo apt-get install git gcc g++ pkg-config libssl-dev libdbus-1-dev \
+     libglib2.0-dev libavahi-client-dev ninja-build python3-venv python3-dev \
+     python3-pip unzip libgirepository1.0-dev libcairo2-dev libreadline-dev \
+     libsdl2-dev pi-bluetooth avahi-utils
+     
 sudo apt-get install -y clang protobuf-compiler llvm
 
 pip install --upgrade pip
@@ -42,11 +46,11 @@ fi
 
 rm -rf connectedhomeip
 
-git clone https://github.com/project-chip/connectedhomeip.git
+git clone --recurse-submodules git@github.com:project-chip/connectedhomeip.git
 
-cd connectedhomeip
-
-./scripts/checkout_submodules.py --shallow --platform linux
+#git clone https://github.com/project-chip/connectedhomeip.git
+#cd connectedhomeip
+#./scripts/checkout_submodules.py --shallow --platform linux
 
 ./scripts/build/gn_bootstrap.sh
 

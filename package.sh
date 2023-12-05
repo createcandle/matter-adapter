@@ -10,7 +10,6 @@ uname -a
 lsb_release -a
 ldd --version
 python3 --version
-python3.9 --version
 echo ""
 echo ""
 version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
@@ -28,7 +27,7 @@ if [ -z "${ADDON_ARCH}" ]; then
   TARFILE_SUFFIX=
 else
   #PYTHON_VERSION="$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d. -f 1-2)"
-  PYTHON_VERSION="3.9"
+  PYTHON_VERSION="3.11"
   TARFILE_SUFFIX="-${ADDON_ARCH}-v${PYTHON_VERSION}"
 fi
 
@@ -126,16 +125,16 @@ ls
 
 echo ""
 echo "PIP OPTIONS BEFORE:"
-python3.9 -m pip debug --verbose
+python3.11 -m pip debug --verbose
 echo ""
 
 echo "UPGRADING PIP"
-python3.9 -m pip install --upgrade pip
-python3.9 -m pip install --upgrade pip setuptools wheel
+python3.11 -m pip install --upgrade pip
+#python3.11 -m pip install --upgrade pip setuptools wheel
 
 #echo ""
 #echo "PIP OPTIONS AFTER:"
-#python3.9 -m pip debug --verbose
+#python3.11 -m pip debug --verbose
 #echo ""
 
 #PYTHON3PATH=$(which python3.10)
@@ -152,7 +151,7 @@ python3.9 -m pip install --upgrade pip setuptools wheel
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
     #home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
     
-python3.9 -m pip install \
+python3.11 -m pip install \
     python-matter-server[server] \
     home_assistant_chip_clusters \
     home_assistant_chip_core \
@@ -171,7 +170,7 @@ echo ""
 echo ""
 echo ""
 
-python3.9 -m pip install coloredlogs aiorun requests click click_option_group \
+python3.11 -m pip install coloredlogs aiorun requests click click_option_group \
     -t lib --prefix "" --no-binary :all: --no-cache-dir
     
     

@@ -69,6 +69,8 @@ jobs:
           apt install software-properties-common -y
           add-apt-repository ppa:deadsnakes/ppa
           apt-get update -q -y
+          apt install -y sudo wget openssl python3.11 python3-pip python3-dev python3-dbus python3-wheel 
+          
           apt install -y \
                 autoconf \
                 automake \
@@ -91,21 +93,14 @@ jobs:
                 libsqlite3-dev \
                 libssl-dev \
                 libudev-dev \
-                python3.11 \
-                python3-pip \
-                openssl \
                 pkg-config \
-                sudo \
-                wget \
                 zlib1g-dev \
                 libcairo2-dev \
                 libjpeg-dev \
                 libpango1.0-dev \
                 libgif-dev \
                 software-properties-common \
-                python3-dev \
-                python3-dbus \
-                python3-wheel
+                
 
         run: |
           cd build

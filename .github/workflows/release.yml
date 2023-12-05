@@ -69,8 +69,6 @@ jobs:
           apt install software-properties-common -y
           add-apt-repository ppa:deadsnakes/ppa
           apt-get update -q -y
-          apt install -y 
-          
           
           apt install -y \
                 wget \

@@ -19,6 +19,8 @@ version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
 # Setup environment for building inside Dockerized toolchain
 [ $(id -u) = 0 ] && umask 0
 
+apt install libcairo2-dev pkg-config python3-dev
+
 # Clean up from previous releases
 echo "removing old files"
 rm -rf *.tgz *.sha256sum package SHA256SUMS lib

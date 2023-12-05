@@ -27,9 +27,9 @@
   "name": "Matter adapter",
   "options": {
     "default": {
-	  "Brightness transition duration":0,
-	  "Use Hotspot addon as WiFi network for devices": false,
-	  "Vendor ID":"",
+      "Brightness transition duration":0,
+      "Use Hotspot addon as WiFi network for devices": false,
+      "Vendor ID":"",
       "Debugging": false
     },
     "schema": {
@@ -58,7 +58,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

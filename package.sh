@@ -130,7 +130,7 @@ echo ""
 
 echo "UPGRADING PIP"
 python3.11 -m pip install --upgrade pip
-#python3.11 -m pip install --upgrade pip setuptools wheel
+python3.11 -m pip install --upgrade pip setuptools wheel
 
 #echo ""
 #echo "PIP OPTIONS AFTER:"

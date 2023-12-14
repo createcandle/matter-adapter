@@ -125,6 +125,8 @@ ls
 
 # Upgrade pip
 
+apt install build-essential libpython3-dev libdbus-1-dev
+
 echo ""
 echo "PIP OPTIONS BEFORE:"
 python3.11 -m pip debug --verbose

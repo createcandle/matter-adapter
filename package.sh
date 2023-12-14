@@ -145,7 +145,8 @@ python3.11 -m pip install --upgrade pip setuptools wheel
 #echo "PYTHON VERSION"
 #file $PYTHON3PATH
 
-
+echo
+echo "PACKAGE.SH HALFWAY THERE FOR PYTHON LIBS"
     
 
 
@@ -159,7 +160,7 @@ python3.11 -m pip install \
     home_assistant_chip_core \
     home_assistant_chip_repl \
     cryptography \
-    -t lib --prefix ""
+    -t lib --prefix "" --no-cache-dir
 
 echo ""
 echo ""
@@ -171,6 +172,11 @@ ls lib
 echo ""
 echo ""
 echo ""
+
+
+echo
+echo "PACKAGE.SH ALMOST THERE FOR PYTHON LIBS"
+
 
 python3.11 -m pip install coloredlogs aiorun requests click click_option_group \
     -t lib --prefix "" --no-binary :all: --no-cache-dir

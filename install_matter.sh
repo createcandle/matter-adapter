@@ -5,7 +5,10 @@
 # IT USES A LOT OF SPACE, SO CANNOT BE RUN ON A CANDLE CONTROLLER, OR YOU WILL RUN OUT OF SPACE
 
 echo
-echo "in install_matter.sh"
+echo "_"
+echo "__"
+echo "____in install_matter.sh___"
+echo
 
 sudo apt-get update
 #sudo apt-get install -y libcairo2-dev pkg-config python3-dev

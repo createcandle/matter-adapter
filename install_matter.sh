@@ -4,6 +4,9 @@
 # BASED ON: https://community.arm.com/arm-community-blogs/b/internet-of-things-blog/posts/build-a-matter-home-automation-service-using-raspberry-pi-arm-virtual-hardware-and-python
 # IT USES A LOT OF SPACE, SO CANNOT BE RUN ON A CANDLE CONTROLLER, OR YOU WILL RUN OUT OF SPACE
 
+echo
+echo "in install_matter.sh"
+
 sudo apt-get update
 #sudo apt-get install -y libcairo2-dev pkg-config python3-dev
 #sudo apt-get install -y git gcc g++ python3 pkg-config libssl-dev libdbus-1-dev libglib2.0-dev libavahi-client-dev ninja-build python3-venv python3-dev python3-pip unzip libgirepository1.0-dev libcairo2-dev libreadline-dev

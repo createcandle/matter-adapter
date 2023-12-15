@@ -130,12 +130,12 @@ apt install build-essential libpython3-dev libdbus-1-dev
 
 echo ""
 echo "PIP OPTIONS BEFORE:"
-python3.11 -m pip debug --verbose
+python3 -m pip debug --verbose
 echo ""
 
 echo "UPGRADING PIP"
-python3.11 -m pip install --upgrade pip
-python3.11 -m pip install --upgrade pip setuptools wheel
+python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade pip setuptools wheel
 
 #echo ""
 #echo "PIP OPTIONS AFTER:"

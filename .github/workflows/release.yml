@@ -50,7 +50,8 @@ jobs:
         distro: ubuntu20.04
         setup: |
           mkdir -p "${PWD}/build"
-
+          python3 --version
+          
         # Mount the build directory as /build in the container
         dockerRunArgs: |
           --volume "${PWD}/build:/build"
@@ -69,16 +70,16 @@ jobs:
           add-apt-repository universe
           add-apt-repository 'ppa:deadsnakes/ppa'
           apt update -q
-
+          echo ""
+          echo "Python3 version:"
+          python3 --version
           apt install -y python3-distutils-extra
-          
-          
-          apt-get update -q -y
+          apt-get update -q
           echo "."
           echo ".."
           echo "..."
           echo "Installing lots of stuff"
-          apt install -y \
+          apt install -y -v \
                 wget \
                 autoconf \
                 automake \
@@ -109,18 +110,19 @@ jobs:
                 software-properties-common \
                 sudo \
                 openssl \
-                python3.11 \
                 python3-pip \
                 python3-dbus \
                 python3-wheel \
-                python3.11-dev \
-                libpython3.11-dev
           echo ""
           echo "."
           echo "Attempting libcairo install"
-          apt install -y libcairo2-dev pkg-config python3.11-dev libpython3.11-dev
+          apt install -y pkg-config python3.9-dev libpython3.9-dev libcairo2-dev
 
         run: |
+          echo ""
+          echo "RUN"
+          echo "Python3 version:"
+          python3 --version
           cd build
           chmod +x package.sh
           ADDON_ARCH=linux-arm64 ./package.sh

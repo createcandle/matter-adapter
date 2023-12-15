@@ -69,7 +69,6 @@ jobs:
           apt install software-properties-common -y
           add-apt-repository ppa:deadsnakes/ppa
           apt-get update -q -y
-          
           apt install -y \
                 wget \
                 autoconf \
@@ -106,7 +105,6 @@ jobs:
                 python3-dbus \
                 python3-wheel \
                 python3-dev
-
           apt install libcairo2-dev pkg-config python3-dev
 
         run: |

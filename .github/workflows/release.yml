@@ -73,8 +73,20 @@ jobs:
           add-apt-repository 'ppa:deadsnakes/ppa'
           apt update -q
           echo ""
-          echo "Python3 version:"
+          echo "Python3 version before:"
           python3 --version
+
+          apt install -y -v \
+                python3.11 \
+                python3-pip \
+                python3-dbus \
+                python3-wheel \
+                python3.11-dev \
+                libpython3.11-dev
+
+          echo "Python3 version after:"
+          python3 --version
+          
           apt install -y python3-distutils-extra
           apt-get update -q
           echo "."
@@ -111,14 +123,12 @@ jobs:
                 libgif-dev \
                 software-properties-common \
                 sudo \
-                openssl \
-                python3-pip \
-                python3-dbus \
-                python3-wheel \
+                openssl
+                
           echo ""
           echo "."
           echo "Attempting libcairo install"
-          apt install -y pkg-config python3.9-dev libpython3.9-dev libcairo2-dev
+          apt install -y pkg-config python3.11-dev libpython3.11-dev libcairo2-dev
 
         run: |
           echo ""

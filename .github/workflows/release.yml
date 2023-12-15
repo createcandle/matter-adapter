@@ -65,10 +65,15 @@ jobs:
         githubToken: ${{ github.token }}
 
         install: |
+          add-apt-repository universe
+          add-apt-repository ppa:deadsnakes/ppa
           apt update -q -y
           apt install software-properties-common -y
-          add-apt-repository ppa:deadsnakes/ppa
           apt-get update -q -y
+          echo "."
+          echo ".."
+          echo "..."
+          echo "Installing lots of stuff"
           apt install -y \
                 wget \
                 autoconf \
@@ -105,7 +110,10 @@ jobs:
                 python3-dbus \
                 python3-wheel \
                 python3-dev
-          apt install libcairo2-dev pkg-config python3-dev
+          echo ""
+          echo "."
+          echo "Attempting libcairo install"
+          apt install -y libcairo2-dev pkg-config python3-dev 
 
         run: |
           cd build

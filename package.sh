@@ -20,7 +20,7 @@ version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
 # Setup environment for building inside Dockerized toolchain
 [ $(id -u) = 0 ] && umask 0
 
-apt install libcairo2-dev pkg-config python3-dev
+#apt install libcairo2-dev pkg-config python3-dev
 
 # Clean up from previous releases
 echo "removing old files"
@@ -133,8 +133,8 @@ echo "PIP OPTIONS BEFORE:"
 python3 -m pip debug --verbose
 echo ""
 
-echo "UPGRADING PIP"
-python3 -m pip install --upgrade pip
+#echo "UPGRADING PIP"
+#python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade setuptools wheel
 
 #echo ""

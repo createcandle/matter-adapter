@@ -6,7 +6,7 @@ on:
 
 jobs:
   get-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04
     steps:
     - name: Get Release
       id: get_release
@@ -23,7 +23,7 @@ jobs:
 
   build:
     needs: get-release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04
     steps:
     
     - name: Download upload_url
@@ -47,7 +47,7 @@ jobs:
       id: runcmd
       with:
         arch: aarch64
-        distro: ubuntu_latest
+        distro: ubuntu20.04
         setup: |
           mkdir -p "${PWD}/build"
 

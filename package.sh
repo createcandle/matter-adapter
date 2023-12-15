@@ -15,6 +15,8 @@ echo ""
 echo ""
 version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
 
+
+
 #set -x
 
 # Setup environment for building inside Dockerized toolchain
@@ -42,6 +44,9 @@ echo ""
 #echo ""
 #echo "GLIBC VERSION AFTER UPDATE:"
 #ldd --version
+
+#apt install build-essential libpython3-dev libdbus-1-dev
+
 
 # g++ -
 #sudo apt-get install cairo pkgconf gobject-introspection gtk3 \
@@ -126,7 +131,7 @@ ls
 
 # Upgrade pip
 
-apt install build-essential libpython3-dev libdbus-1-dev
+
 
 echo ""
 echo "PIP OPTIONS BEFORE:"

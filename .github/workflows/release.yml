@@ -65,10 +65,14 @@ jobs:
         githubToken: ${{ github.token }}
 
         install: |
-          add-apt-repository universe
-          add-apt-repository ppa:deadsnakes/ppa
-          apt update -q -y
           apt install software-properties-common -y
+          add-apt-repository universe
+          add-apt-repository 'ppa:deadsnakes/ppa'
+          apt update -q
+
+          apt install -y python3-distutils-extra
+          
+          
           apt-get update -q -y
           echo "."
           echo ".."

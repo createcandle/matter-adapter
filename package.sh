@@ -5,15 +5,93 @@ set -x # echo commands too
 
 echo ""
 echo ""
-echo "PLATFORM:"
+echo "package.sh: PLATFORM:"
 uname -a
 lsb_release -a
 ldd --version
+echo "pythonb before:"
 python3 --version
 pip3 --version
 echo ""
 echo ""
 version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
+
+echo "."
+echo ".."
+echo "RUN"
+uname -a
+echo
+pwd
+echo
+ls
+echo
+ls /
+cd build
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt update
+apt install software-properties-common -y
+add-apt-repository universe -y
+add-apt-repository 'ppa:deadsnakes/ppa' -y
+apt update
+echo ""
+
+apt install -y -v \
+      python3.11 \
+      python3-pip \
+      python3-dbus \
+      python3-wheel \
+      python3.11-dev \
+      libpython3.11-dev
+
+echo "Python3 version after install:"
+python3 --version
+
+apt install -y python3-distutils-extra
+apt-get update -q
+echo "."
+echo ".."
+echo "..."
+echo "Installing lots of stuff"
+apt install -y -v \
+      wget \
+      autoconf \
+      automake \
+      build-essential \
+      ca-certificates \
+      curl \
+      git \
+      libbz2-dev \
+      libc6-dev \
+      libffi-dev \
+      libgdbm-dev \
+      libjpeg-dev \
+      libgirepository1.0-dev \
+      libglib2.0-dev \
+      libjpeg-dev \
+      liblzma-dev \
+      libncurses5-dev \
+      libncursesw5-dev \
+      libreadline-dev \
+      libsqlite3-dev \
+      libssl-dev \
+      libudev-dev \
+      pkg-config \
+      zlib1g-dev \
+      libjpeg-dev \
+      libpango1.0-dev \
+      libgif-dev \
+      software-properties-common \
+      sudo \
+      openssl
+      
+echo ""
+echo "."
+echo "Attempting libcairo install"
+apt install -y pkg-config python3.11-dev libpython3.11-dev
+apt install -y libcairo2-dev
+
 
 
 
@@ -25,7 +103,7 @@ version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
 #apt install libcairo2-dev pkg-config python3-dev
 
 # Clean up from previous releases
-echo "removing old files"
+echo "package.sh: removing old files"
 rm -rf *.tgz *.sha256sum package SHA256SUMS lib
 
 if [ -z "${ADDON_ARCH}" ]; then
@@ -61,7 +139,7 @@ echo ""
 #echo "I SHOULD NOT BE SEEN"
 
 # Prep new package
-echo "creating package"
+echo "package.sh: creating package"
 mkdir -p lib package
 
 #PY11="no"
@@ -134,7 +212,7 @@ ls
 
 
 echo ""
-echo "PIP OPTIONS BEFORE:"
+echo "package.sh: PIP OPTIONS BEFORE:"
 python3 -m pip debug --verbose
 echo ""
 

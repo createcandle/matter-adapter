@@ -86,10 +86,12 @@ jobs:
           ls /
           cd build
 
+          export DEBIAN_FRONTEND=noninteractive
+
           apt update
           apt install software-properties-common -y
-          add-apt-repository universe
-          add-apt-repository 'ppa:deadsnakes/ppa'
+          add-apt-repository universe -y
+          add-apt-repository 'ppa:deadsnakes/ppa' -y
           apt update
           echo ""
 

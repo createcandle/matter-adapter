@@ -129,8 +129,8 @@ jobs:
           echo ""
           echo "."
           echo "Attempting libcairo install"
-          apt install -y pkg-config python3.11-dev libpython3.11-dev libcairo2-dev
-
+          apt install -y pkg-config python3.11-dev libpython3.11-dev
+          apt install -y libcairo2-dev
         run: |
           echo ""
           echo "RUN"

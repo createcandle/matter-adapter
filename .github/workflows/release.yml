@@ -69,10 +69,11 @@ jobs:
         install: |
           echo "."
           echo "INSTALL"
+          apt update
           apt install software-properties-common -y
           add-apt-repository universe
           add-apt-repository 'ppa:deadsnakes/ppa'
-          apt update -q
+          apt update
           echo ""
           echo "Python3 version before:"
           python3 --version

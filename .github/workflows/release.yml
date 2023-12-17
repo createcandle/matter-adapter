@@ -52,7 +52,6 @@ jobs:
           echo ".."
           echo "run-on-arch setup"
           mkdir -p "${PWD}/build"
-          python3 --version
           
         # Mount the build directory as /build in the container
         dockerRunArgs: |
@@ -74,82 +73,6 @@ jobs:
           echo "INSTALL"
           
         run: |
-          echo "."
-          echo ".."
-          echo "RUN"
-          uname -a
-          echo
-          pwd
-          echo
-          ls
-          echo
-          ls /
-          cd build
-
-          export DEBIAN_FRONTEND=noninteractive
-
-          apt update
-          apt install software-properties-common -y
-          add-apt-repository universe -y
-          add-apt-repository 'ppa:deadsnakes/ppa' -y
-          apt update
-          echo ""
-
-          apt install -y -v \
-                python3.11 \
-                python3-pip \
-                python3-dbus \
-                python3-wheel \
-                python3.11-dev \
-                libpython3.11-dev
-
-          echo "Python3 version after install:"
-          python3 --version
-          
-          apt install -y python3-distutils-extra
-          apt-get update -q
-          echo "."
-          echo ".."
-          echo "..."
-          echo "Installing lots of stuff"
-          apt install -y -v \
-                wget \
-                autoconf \
-                automake \
-                build-essential \
-                ca-certificates \
-                curl \
-                git \
-                libbz2-dev \
-                libc6-dev \
-                libffi-dev \
-                libgdbm-dev \
-                libjpeg-dev \
-                libgirepository1.0-dev \
-                libglib2.0-dev \
-                libjpeg-dev \
-                liblzma-dev \
-                libncurses5-dev \
-                libncursesw5-dev \
-                libreadline-dev \
-                libsqlite3-dev \
-                libssl-dev \
-                libudev-dev \
-                pkg-config \
-                zlib1g-dev \
-                libjpeg-dev \
-                libpango1.0-dev \
-                libgif-dev \
-                software-properties-common \
-                sudo \
-                openssl
-                
-          echo ""
-          echo "."
-          echo "Attempting libcairo install"
-          apt install -y pkg-config python3.11-dev libpython3.11-dev
-          apt install -y libcairo2-dev
-          
           chmod +x package.sh
           ADDON_ARCH=linux-arm64 ./package.sh
      

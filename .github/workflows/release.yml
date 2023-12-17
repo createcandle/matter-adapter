@@ -62,7 +62,7 @@ jobs:
         
         # Not required, but speeds up builds by storing container images in
         # a GitHub package registry. Make sure there are no secrets in the disk image!
-        githubToken: ${{ github.token }}
+        #githubToken: ${{ github.token }}
 
         shell: /bin/bash
 

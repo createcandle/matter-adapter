@@ -73,6 +73,7 @@ jobs:
           echo "INSTALL"
           
         run: |
+          cd build
           chmod +x package.sh
           ADDON_ARCH=linux-arm64 ./package.sh
      

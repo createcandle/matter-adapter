@@ -139,7 +139,7 @@ python3 -m pip debug --verbose
 echo ""
 
 #echo "UPGRADING PIP"
-#python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade setuptools wheel
 
 #echo ""

@@ -48,6 +48,9 @@ jobs:
         arch: aarch64
         distro: ubuntu20.04
         setup: |
+          echo "."
+          echo ".."
+          echo "run-on-arch setup"
           mkdir -p "${PWD}/build"
           python3 --version
           
@@ -69,6 +72,14 @@ jobs:
         install: |
           echo "."
           echo "INSTALL"
+          
+        run: |
+          echo "."
+          echo "RUN"
+          echo "Python3 version very early:"
+          python3 --version
+          cd build
+
           apt update
           apt install software-properties-common -y
           add-apt-repository universe
@@ -132,12 +143,7 @@ jobs:
           echo "Attempting libcairo install"
           apt install -y pkg-config python3.11-dev libpython3.11-dev
           apt install -y libcairo2-dev
-        run: |
-          echo ""
-          echo "RUN"
-          echo "Python3 version:"
-          python3 --version
-          cd build
+          
           chmod +x package.sh
           ADDON_ARCH=linux-arm64 ./package.sh
      

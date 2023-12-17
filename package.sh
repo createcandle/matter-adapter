@@ -26,7 +26,6 @@ echo
 ls
 echo
 ls /
-cd build
 
 export DEBIAN_FRONTEND=noninteractive
 

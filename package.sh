@@ -7,11 +7,11 @@ echo ""
 echo ""
 echo "package.sh: PLATFORM:"
 uname -a
-lsb_release -a
-ldd --version
-echo "pythonb before:"
-python3 --version
-pip3 --version
+#lsb_release -a
+#ldd --version
+#echo "python before:"
+#python3 --version
+#pip3 --version
 echo ""
 echo ""
 version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
@@ -19,7 +19,7 @@ version=$(grep '"version"' manifest.json | cut -d: -f2 | cut -d\" -f2)
 echo "."
 echo ".."
 echo "RUN"
-uname -a
+#uname -a
 echo
 pwd
 echo

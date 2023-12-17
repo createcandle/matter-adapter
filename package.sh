@@ -212,12 +212,21 @@ ls
 
 echo ""
 echo "package.sh: PIP OPTIONS BEFORE:"
-python3 -m pip debug --verbose
+python3 -m ensurepip --upgrade
+python3.11 -m ensurepip --upgrade
+#python3.11 -m pip debug --verbose
 echo ""
 
 #echo "UPGRADING PIP"
 python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade setuptools wheel
+
+#python3.11 -m pip install --upgrade pip
+#python3.11 -m pip install --upgrade setuptools wheel
+
+apt install python3.11-distutils
+curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
+python3.11 -m pip install --upgrade setuptools wheel
 
 #echo ""
 #echo "PIP OPTIONS AFTER:"
@@ -232,8 +241,6 @@ python3 -m pip install --upgrade setuptools wheel
 
 echo
 echo "PACKAGE.SH HALFWAY THERE FOR PYTHON LIBS"
-    
-
 
     #home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \

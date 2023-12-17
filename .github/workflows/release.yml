@@ -75,9 +75,15 @@ jobs:
           
         run: |
           echo "."
+          echo ".."
           echo "RUN"
-          echo "Python3 version very early:"
-          python3 --version
+          uname -a
+          echo
+          pwd
+          echo
+          ls
+          echo
+          ls /
           cd build
 
           apt update
@@ -86,8 +92,6 @@ jobs:
           add-apt-repository 'ppa:deadsnakes/ppa'
           apt update
           echo ""
-          echo "Python3 version before:"
-          python3 --version
 
           apt install -y -v \
                 python3.11 \
@@ -97,7 +101,7 @@ jobs:
                 python3.11-dev \
                 libpython3.11-dev
 
-          echo "Python3 version after:"
+          echo "Python3 version after install:"
           python3 --version
           
           apt install -y python3-distutils-extra

@@ -212,8 +212,8 @@ ls
 
 echo ""
 echo "package.sh: PIP OPTIONS BEFORE:"
-python3 -m ensurepip --upgrade
-python3.11 -m ensurepip --upgrade
+#python3 -m ensurepip --upgrade
+#python3.11 -m ensurepip --upgrade
 #python3.11 -m pip debug --verbose
 echo ""
 

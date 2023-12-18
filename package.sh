@@ -46,6 +46,7 @@ apt install -y -v \
 
 echo "Python3 version after install:"
 python3 --version
+ls /usr/bin/python*
 
 apt install -y python3-distutils-extra
 apt-get update -q
@@ -218,8 +219,8 @@ echo "package.sh: PIP OPTIONS BEFORE:"
 echo ""
 
 #echo "UPGRADING PIP"
-python3 -m pip install --upgrade pip
-python3 -m pip install --upgrade setuptools wheel
+#python3 -m pip install --upgrade pip
+#python3 -m pip install --upgrade setuptools wheel
 
 #python3.11 -m pip install --upgrade pip
 #python3.11 -m pip install --upgrade setuptools wheel

@@ -4,7 +4,7 @@ import json
 #from aiorun import run
 from gateway_addon import Property
 from chip.clusters import Objects as clusters # also loaded as dependency from matter_server, see below
-from chip.clusters import ClusterCommand
+#from chip.clusters import ClusterCommand
 
 #from dataclasses import dataclass, asdict, field, InitVar
 #from dataclasses import MISSING, asdict, fields, is_dataclass

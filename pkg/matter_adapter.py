@@ -76,7 +76,7 @@ path.insert(1, dirname(dirname(abspath(__file__))))
 
 # DEV
 from chip.clusters import Objects as clusters
-from chip.clusters import ClusterCommand
+#from chip.clusters import ClusterCommand
 
 # client
 import threading

@@ -53,12 +53,12 @@ update-alternatives --install /usr/bin/python python /usr/bin/python3.11 2
 
 apt install -y python3-distutils-extra
 apt-get update -q
-apt install -y gcc-aarch64-linux-gnu
+apt install -y gcc-aarch64-linux-gnu libgirepository1.0-dev
 echo "."
 echo ".."
 echo "..."
 echo "Installing lots of stuff"
-apt install -y -v \
+apt install -y \
       wget \
       autoconf \
       automake \

@@ -53,6 +53,7 @@ update-alternatives --install /usr/bin/python python /usr/bin/python3.11 2
 
 apt install -y python3-distutils-extra
 apt-get update -q
+apt install -y gcc-aarch64-linux-gnu
 echo "."
 echo ".."
 echo "..."
@@ -86,7 +87,6 @@ apt install -y -v \
       libpango1.0-dev \
       libgif-dev \
       software-properties-common \
-      gcc-aarch64-linux-gnu \
       sudo \
       openssl
       

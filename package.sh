@@ -246,7 +246,8 @@ python3.11 -m pip install --upgrade setuptools wheel
 
 echo
 echo "PACKAGE.SH HALFWAY THERE FOR PYTHON LIBS"
-apt install -y libgirepository1.0-dev
+apt install -y build-essential libdbus-glib-1-dev libgirepository1.0-dev
+python3.11 -m pip install dbus-python
 
     #home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \

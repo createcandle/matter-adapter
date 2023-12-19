@@ -59,7 +59,7 @@
                 
                 <div class="extension-matter-adapter-centered-page">
                 
-        		<h2>Pair a new Matter device</h2>
+        		<h2 style="text-align:center">Pairing</h2>
                  
                 <div id="extension-matter-adapter-pairing-network-question-container" class="extension-matter-adapter-area">
                     <p style="text-align:center">Is the Matter device already connected to your network?</p>
@@ -86,7 +86,7 @@
                     
 					<div id="extension-matter-adapter-pairing-step-wifi" class="extension-matter-adapter-area">
 						<h4>Provide WiFi credentials</h4>
-						<p>If it's a WiFi based device you will also need to provide the WiFi name and password.</p>
+						<p id="extension-matter-adapter-pairing-step-wifi-explanation">If it's a WiFi based device you will also need to provide the WiFi name and password.</p>
 						<div id="extension-matter-adapter-current-wifi-ssid-container" class="extension-matter-adapter-hidden">
 							<p>WiFi credentials will be shared for: <span id="extension-matter-adapter-current-wifi-ssid">...</span><p>
 							<div class="extension-matter-adapter-align-right">
@@ -100,7 +100,7 @@
                                 <input type="checkbox" id="extension-matter-adapter-wifi-show-password-checkbox" name="extension-matter-adapter-wifi-show-password-checkbox" data-val="true" and value="true"/><label for="extension-matter-adapter-wifi-show-password-checkbox">Show password</label>
                             </div>
                             <div class="extension-matter-adapter-checkbox-container">
-                                <input type="checkbox" id="extension-matter-adapter-wifi-remember-checkbox" name="extension-matter-adapter-wifi-remember-checkbox" data-val="true" and value="true"/><label for="extension-matter-adapter-wifi-remember-checkbox">Remember WiFi name and password</label>
+                                <input type="checkbox" id="extension-matter-adapter-wifi-remember-checkbox" name="extension-matter-adapter-wifi-remember-checkbox" data-val="true" and value="true"/><label for="extension-matter-adapter-wifi-remember-checkbox">Remember</label>
                             </div>
 						</div>
 
@@ -126,8 +126,47 @@
 					<div id="extension-matter-adapter-pairing-step-qr" class="extension-matter-adapter-area">
 						<h4>Getting the pairing code</h4>
 
-						<p>Your device should have a QR code on it which we need to scan.</p>
-
+						<p>Your device or its packaging should have a Matter QR code on it.</p>
+						
+					
+						<div id="extension-matter-adapter-pairing-qr-choose-scanner-area">
+							<a id="extension-matter-adapter-pairing-qr-choose-scanner-camera" href="#" target="_blank">
+								<h3>Scan with this device</h3>
+								<div class="extension-matter-adapter-pairing-qr-choose-scanner-icon extension-matter-adapter-pairing-qr-choose-scanner-icon-camera"></div>
+							</a>
+							<div id="extension-matter-adapter-pairing-qr-choose-scanner-phone">
+								<h3>Scan with a phone</h3>
+								<div class="extension-matter-adapter-pairing-qr-choose-scanner-icon extension-matter-adapter-pairing-qr-choose-scanner-icon-phone"></div>
+							</div>
+						</div>
+						
+						
+						
+						<!--
+						<div id="extension-matter-adapter-pairing-qr-camera-area" class="extension-matter-adapter-hidden">
+						    <div id="extension-matter-adapter-scanner-container">
+						        <div id="extension-matter-adapter-video-container">
+						            <video id="extension-matter-adapter-qr-video"></video>
+						        </div>
+						        
+						        <div id="extension-matter-adapter-camera-options-container">
+						            <div class="extension-matter-adapter-flex-center">
+						                <img id="extension-matter-adapter-camera-icon" class="extension-matter-adapter-qr-video-icon" src="/extensions/matter-adapter/images/camera.svg" alt="camera icon" style="width:3rem;height:3rem">
+						                <select id="extension-matter-adapter-cam-list">
+						                    <option value="environment" selected>Main camera</option>
+						                    <option value="user">Secondary camera</option>
+						                </select>
+						            </div>
+						            <div>&nbsp;</div>
+									
+						            <div id="extension-matter-adapter-flash-toggle" class="extension-matter-adapter-flex-center">
+						                <img id="extension-matter-adapter-flash-icon" class="extension-matter-adapter-qr-video-icon" src="/extensions/matter-adapter/images/lightbulb.svg" alt="Flash button" style="height:2rem">
+						            </div>
+						        </div>
+						    </div>
+						</div>
+						// -->
+							
 						<div id="extension-matter-adapter-pairing-qr-area">
 							<div id="extension-matter-adapter-desktop-qr">
                                 <p>Scan this QR code with your phone to get started:</p>
@@ -199,7 +238,14 @@
 							</div>
 							<p style="text-align:center">Updating certificates... please wait</p>
 						</div>
-                        
+                        <div id="extension-matter-adapter-certificates-need-update" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+    						<p>The previously downloaded Matter certificates are a bit old. To enable support for brand new devices it's recommended to download the latest ones.</p>
+							<div class="extension-matter-adapter-align-right">
+                                <button id="extension-matter-adapter-update-certificates-button" class="text-button">Download latest certificates</button>
+                            </div>
+                        </div>
+						
+						
                         <div id="extension-matter-adapter-pairing-bluetooth-hint">
     						<ul>
     							<li>The device must be within Bluetooth range of the Candle Controller</li>

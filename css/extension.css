@@ -117,10 +117,22 @@ extension-matter-adapter-
 
 
 .extension-matter-adapter-hidden{ /* It's best to add this class to something you want to hide instead of doing .style.display = 'none' though javascript */
-    display:none;
+    display:none!important;
 }
 
 
+.extension-matter-adapter-flex-center{
+    display:flex;
+    justify-content:center;
+    align-items: center;
+}
+
+
+
+.extension-matter-adapter-qr-video-icon{
+	max-width:4rem;
+	max-height:4rem;
+}
 
 
 /*  MAIN PAGE  */
@@ -272,6 +284,10 @@ extension-matter-adapter-
 /*  SECOND PAGE  */
 
 
+#extension-matter-adapter-second-page h4{
+	font-size:2.2rem;
+}
+
 /* back button */
 
 #extension-matter-adapter-back-button-container {
@@ -333,6 +349,13 @@ extension-matter-adapter-
 	display:none;
 }
 
+#extension-matter-adapter-view #extension-matter-adapter-pairing-network-question-normal-button,
+#extension-matter-adapter-view #extension-matter-adapter-pairing-network-question-network-button{
+	font-size:2.2rem;
+	padding:1rem 2rem;
+}
+
+
 .extension-matter-adapter-pairing-network #extension-matter-adapter-pairing-bluetooth-hint,
 .extension-matter-adapter-pairing-network #extension-matter-adapter-pairing-step-wifi,
 .extension-matter-adapter-pairing-network #extension-matter-adapter-pairing-step-qr{
@@ -348,6 +371,87 @@ extension-matter-adapter-
 }
 
 
+
+/*  Choose QR scanning method  */
+
+#extension-matter-adapter-pairing-qr-choose-scanner-area{
+	display:flex;
+	justify-content:space-between;
+	margin:2rem 0;
+}
+#extension-matter-adapter-pairing-qr-choose-scanner-area > *{
+	position:relative;
+	width:calc(50% - 1rem);
+	background-color:rgba(0,0,0,.1);
+	border-radius:1rem;
+	min-height:50vh;
+	display:flex;
+	align-items:center;
+	padding:2rem 25% 2rem 2rem;
+	box-sizing:border-box;
+	overflow:hidden;
+	cursor:pointer;
+	transition: background .6s ease-in-out;
+	text-decoration:none;
+}
+#extension-matter-adapter-pairing-qr-choose-scanner-area > *:hover{
+	background-color:rgba(255,255,255,.3);
+}
+#extension-matter-adapter-pairing-qr-choose-scanner-area > *:hover .extension-matter-adapter-pairing-qr-choose-scanner-icon{
+	opacity:.5;
+}
+
+#extension-matter-adapter-pairing-qr-choose-scanner-area h3{
+	font-size:4rem;
+	color:white;
+	text-decoration:none;
+}
+.extension-matter-adapter-pairing-qr-choose-scanner-icon{
+	opacity:.15;
+	position:absolute;
+	top:4rem;
+	right:-6rem;
+	height:25rem;
+	width:20rem;
+	background-size:contain;
+	background-repeat:no-repeat;
+	transition: opacity .3s ease-in-out;
+}
+
+.extension-matter-adapter-pairing-qr-choose-scanner-icon-camera{
+	background-image: url('../images/lens.svg');
+}
+.extension-matter-adapter-pairing-qr-choose-scanner-icon-phone{
+	background-image: url('../images/phone.svg');
+}
+
+
+#extension-matter-adapter-pairing-qr-camera-area:not(.extension-matter-adapter-hidden) ~ #extension-matter-adapter-pairing-qr-area,
+#extension-matter-adapter-pairing-qr-choose-scanner-area:not(.extension-matter-adapter-hidden) + #extension-matter-adapter-pairing-qr-area{
+	display:none;
+}
+
+
+
+
+#extension-matter-adapter-qr-video{
+	width:100%;
+	border:1px solid #888;
+	box-sizing:border-box;
+}
+
+#extension-matter-adapter-camera-options-container{
+	display:flex;
+	width:100%;
+	height:3rem;
+	justify-content:space-between;
+	align-items:center;
+	background-color:rgba(0,0,0,.1);
+}
+
+
+
+
 /*  pairing on mobile  */
 
 #extension-matter-adapter-mobile-qr{
@@ -358,6 +462,10 @@ extension-matter-adapter-
 }
 .extension-matter-adapter-is-mobile #extension-matter-adapter-desktop-qr{
     display:none;
+}
+
+.extension-matter-adapter-is-mobile #extension-matter-adapter-pairing-qr-choose-scanner-area{
+	display:none;
 }
 
 #extension-matter-adapter-mobile-qr-button{
@@ -423,6 +531,7 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
 #extension-matter-adapter-qr-code{
     background-color:white;
     border:4rem solid white;
+	border-top-width:8rem;
     text-align:center;
     margin: 2rem auto 0 auto;
 }
@@ -582,7 +691,9 @@ body:not(.developer) .extension-matter-adapter-developer-only{
 
 
 @media screen and (max-width: 760px) {
-    
+    #extension-matter-adapter-pairing-qr-choose-scanner-area h3{
+    	font-size:2.7rem;
+    }
 }
 
 @media screen and (min-width: 760px) {
@@ -603,7 +714,9 @@ body:not(.developer) .extension-matter-adapter-developer-only{
 
 
 @media screen and (min-width: 1025px) {
-	
+	.extension-matter-adapter-area{
+		padding:4rem;
+	}
 }
 
 

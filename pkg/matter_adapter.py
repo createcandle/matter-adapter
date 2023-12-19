@@ -150,6 +150,7 @@ class MatterAdapter(Adapter):
         self.nodes = []
         
         self.certificates_updated = False
+        self.busy_updating_certificates = False
         self.last_certificates_download_time = 0
         self.time_between_certificate_downloads = 21600
         
@@ -174,6 +175,15 @@ class MatterAdapter(Adapter):
         self.wifi_ssid = ""
         self.wifi_password = ""
         self.wifi_set = False
+        
+        # not recommended  https://github.com/home-assistant-libs/python-matter-server
+        #os.system('sudo sysctl -w net.ipv6.conf.all.forwarding=1')
+        #os.system('sudo sysctl -w net.ipv6.conf.wlan0.accept_ra=2')
+        #os.system('sudo sysctl -w net.ipv6.conf.wlan0.accept_ra_rt_info_max_plen=64')
+        
+        # prefered for thread support:
+        #os.system('sudo sysctl -w net.ipv6.conf.wlan0.accept_ra=1')
+        #os.system('sudo sysctl -w net.ipv6.conf.wlan0.accept_ra_rt_info_max_plen=64')
         
         """
         #self.candle_wifi_ssid = ""
@@ -210,7 +220,7 @@ class MatterAdapter(Adapter):
         print("Candle's WiFi password: " + str(self.candle_wifi_password))
         """
         
-        print("user profile: " + str(self.user_profile))
+        #print("user profile: " + str(self.user_profile))
         
         
         
@@ -226,9 +236,9 @@ class MatterAdapter(Adapter):
         
         pwd = run_command('pwd')
         pwd = pwd.rstrip()
-        print("PWD:" + str(pwd))
+        #print("PWD:" + str(pwd))
         self.certs_dir_path = pwd + '/credentials/development/paa-root-certs'
-        print("self.certs_dir_path: " + str(self.certs_dir_path))
+        #print("self.certs_dir_path: " + str(self.certs_dir_path))
         
         self.certs_downloader_path = os.path.join(self.addon_path, 'download_certificates.py')
         self.hotspot_addon_path = os.path.join(self.user_profile['addonsDir'], 'hotspot')
@@ -271,7 +281,8 @@ class MatterAdapter(Adapter):
                 os.system("sed -i 's/.*vendor-id=*.*/vendor-id=" + str(self.vendor_id) + "/' chip_factory.ini")
                 
         if os.path.exists(self.chip_factory_ini_file_path):
-            print("OK, CHIP FACTORY FILE EXISTS")
+            if self.DEBUG:
+                print("OK, CHIP FACTORY FILE EXISTS")
                 
 
         # Now we check if all the values that should exist actually do
@@ -285,9 +296,9 @@ class MatterAdapter(Adapter):
         if 'nodez' not in self.persistent_data:
             self.persistent_data['nodez'] = {}
 
-        print("PERSISTENT DATA")
+        #print("PERSISTENT DATA")
         #print(json.dumps(self.persistent_data, None,4))
-        print(json.dumps(self.persistent_data))
+        #print(json.dumps(self.persistent_data))
 
         if self.persistent_data['wifi_ssid'] != "" and self.persistent_data['wifi_password'] != "":
             self.wifi_ssid = self.persistent_data['wifi_ssid']
@@ -915,14 +926,16 @@ class MatterAdapter(Adapter):
         if time.time() - self.time_between_certificate_downloads > self.persistent_data['last_certificates_download_time']:
             if self.DEBUG:
                 self.s_print("downloading latest certificates")
+            self.busy_updating_certificates = True
             self.certificates_updated = False
             certificates_download_command = "python3 " + str(self.certs_downloader_path) + " --use-main-net-http --paa-trust-store-path " + str(self.certs_dir_path)
             if self.DEBUG:
                 self.s_print("certificates download command: " + str(certificates_download_command))
-            download_certs_output = run_command(certificates_download_command,120)
+            download_certs_output = run_command(certificates_download_command,300)
             if self.DEBUG:
                 self.s_print("download_certs_output: " + str(download_certs_output))
             
+            self.busy_updating_certificates = False
             if download_certs_output != None:
                 self.certificates_updated = True
             

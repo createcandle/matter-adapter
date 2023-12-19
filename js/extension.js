@@ -37,7 +37,9 @@
             // We'll try and get this data from the addon backend
             //this.items = [];
             
-            
+			//console.log("QrScanner: ", QrScanner);
+			
+			
             this.is_narrow = window.matchMedia("only screen and (max-width: 760px)").matches;
             this.is_touch = ('ontouchstart' in document.documentElement && navigator.userAgent.match(/Mobi/));
             
@@ -218,8 +220,6 @@
                     
                     document.getElementById('extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
                     
-                    
-                    
                     if(code.length < 4){
                         console.log("code was too short");
                         alert("That code is too short");
@@ -270,19 +270,116 @@
                 });
 
 
-                // reveal wifi change button
+                // Reveal wifi change button
     			document.getElementById('extension-matter-adapter-reveal-wifi-setup-button').addEventListener('click', (event) => {
                     document.getElementById('extension-matter-adapter-current-wifi-ssid-container').classList.add('extension-matter-adapter-hidden');
                     document.getElementById('extension-matter-adapter-provide-wifi-container').classList.remove('extension-matter-adapter-hidden');
     			});
                 
+				
+				// Choose to scan with camera
+				/*
+    			document.getElementById('extension-matter-adapter-pairing-qr-choose-scanner-camera').addEventListener('click', (event) => {
+					console.log("clicked on big camera button");
+    				document.getElementById('extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
+					document.getElementById('extension-matter-adapter-pairing-qr-camera-area').classList.remove('extension-matter-adapter-hidden');
+					
+					const qr_scan_video_el = document.getElementById('extension-matter-adapter-qr-video');
+					
+			        //const videoContainer = document.getElementById('extension-matter-adapter-video-container');
+			        //const camHasCamera = document.getElementById('extension-matter-adapter-cam-has-camera');
+			        const camList = document.getElementById('extension-matter-adapter-cam-list');
+			        const camHasFlash = document.getElementById('extension-matter-adapter-cam-has-flash');
+			        const flashToggle = document.getElementById('extension-matter-adapter-flash-toggle');
+			        
+					const flashState = document.getElementById('extension-matter-adapter-flash-state');
+			        const camQrResult = document.getElementById('extension-matter-adapter-cam-qr-result');
+					
+					
+					const scanner = new QrScanner(
+					    qr_scan_video_el,
+					    result => {
+					    	console.log('decoded qr code:', result);
+							scanner.stop();
+					    },
+						{
+							onDecodeError: error => {
+								//console.error("There was a decode error?: ", error);
+								//camQrResult.textContent = error;
+								//camQrResult.style.color = 'inherit';
+							},
+							highlightScanRegion: true,
+							highlightCodeOutline: true,
+						},
+					);
+					console.log("\n\nscanner: ", scanner);
+					scanner.setInversionMode('both');
+					
+			        // for debugging
+			        window.scanner = scanner;
+					
+			        camList.addEventListener('change', event => {
+			            scanner.setCamera(event.target.value).then(updateFlashAvailability);
+			        });
+					
+			        flashToggle.addEventListener('click', () => {
+			            scanner.toggleFlash() //.then(() => {
+			                //flashState.textContent = scanner.isFlashOn() ? 'Flash on' : 'Flash off');
+			        });
+					
+			        const updateFlashAvailability = () => {
+			            scanner.hasFlash().then(hasFlash => {
+			                console.log("does the selected camera have a flash?", hasFlash);
+			                //camHasFlash.textContent = hasFlash;
+			                flashToggle.style.display = hasFlash ? 'inline-block' : 'none';
+			            });
+			        };
+					
+			        scanner.start().then(() => {
+						//console.log("scnr: ", scnr);
+			            updateFlashAvailability();
+			            // List cameras after the scanner started to avoid listCamera's stream and the scanner's stream being requested
+			            // at the same time which can result in listCamera's unconstrained stream also being offered to the scanner.
+			            // Note that we can also start the scanner after listCameras, we just have it this way around in the demo to
+			            // start the scanner earlier.
+			            QrScanner.listCameras(true).then(cameras => cameras.forEach(camera => {
+			                const option = document.createElement('option');
+			                option.value = camera.id;
+			                option.text = camera.label;
+			                camList.add(option);
+			            }));
+			        });
+					
+			        QrScanner.hasCamera().then(hasCamera => {
+			            console.log("camera exists? ", hasCamera);
+			            //camHasCamera.textContent = hasCamera
+			        });
+					
+    			});
+				
+				*/
+				
+				// Choose to scan with phone
+    			document.getElementById('extension-matter-adapter-pairing-qr-choose-scanner-phone').addEventListener('click', (event) => {
+					console.log("clicked on big phone button");
+    				document.getElementById('extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
+    			});
+				
+				
+				
                 // Pairing failed, try again button
-                
     			document.getElementById('extension-matter-adapter-pairing-failed-try-again-button').addEventListener('click', (event) => {
     				this.show_pairing_page();
     			});
                 
-            
+    			document.getElementById('extension-matter-adapter-update-certificates-button').addEventListener('click', (event) => {
+    				document.getElementById('extension-matter-adapter-certificates-need-update').classList.add('extension-matter-adapter-hidden');
+					document.getElementById('extension-matter-adapter-busy-updating-certificates').classList.remove('extension-matter-adapter-hidden');
+    			});
+				
+            	
+			
+			
                 // DEV
     			document.getElementById('extension-matter-adapter-stop-poll-button').addEventListener('click', (event) => {
                     console.log("stopping poll?");
@@ -518,7 +615,7 @@
         // Gets called after the things have first been requested from the webthings API. Which is needed to get the thing title.
         get_init_data2(){
             if(this.debug){
-                console.log("Matter adapter debug: in get_init_data2");
+                console.log("Matter adapter debug: in get_init_data2 (getting init from addon api)");
             }
             
 	  		// Init
@@ -580,6 +677,7 @@
                             document.getElementById('extension-matter-adapter-current-wifi-ssid').innerText = body.wifi_ssid;
                             document.getElementById('extension-matter-adapter-current-wifi-ssid-container').classList.remove('extension-matter-adapter-hidden');
                             document.getElementById('extension-matter-adapter-provide-wifi-container').classList.add('extension-matter-adapter-hidden');
+							document.getElementById('extension-matter-adapter-pairing-step-wifi-explanation').classList.add('extension-matter-adapter-hidden');
                         }
                     }
                     
@@ -703,6 +801,7 @@
                     }
                 }
                 */
+				
                 if(typeof body.busy_pairing != 'undefined'){
                     this.busy_pairing = body.busy_pairing;
                     if(this.busy_pairing){
@@ -713,18 +812,32 @@
                     }
                 }
                 
-                if(typeof body.certificates_updated != 'undefined'){
-                    if(body.certificates_updated){
-                        document.getElementById('extension-matter-adapter-busy-updating-certificates').classList.add('extension-matter-adapter-hidden');
-                    }
-                    else{
+				
+                if(typeof body.busy_updating_certificates != 'undefined'){
+                    if(body.busy_updating_certificates){
                         document.getElementById('extension-matter-adapter-busy-updating-certificates').classList.remove('extension-matter-adapter-hidden');
+						document.getElementById('extension-matter-adapter-certificates-need-update').classList.add('extension-matter-adapter-hidden');
                         if(this.debug){
                             console.log("matter adapter: busy updating certificates");
                         }
+					}
+                    else{
+                        document.getElementById('extension-matter-adapter-busy-updating-certificates').classList.add('extension-matter-adapter-hidden');
+		                
+						if(typeof body.certificates_updated != 'undefined'){
+		                    if(body.certificates_updated){
+		                        document.getElementById('extension-matter-adapter-certificates-need-update').classList.add('extension-matter-adapter-hidden');
+		                    }
+		                    else{
+		                        document.getElementById('extension-matter-adapter-certificates-need-update').classList.remove('extension-matter-adapter-hidden');
+		                    }
+                
+		                }
                     }
                 
                 }
+				
+                
                 /*
                 if(typeof body.discovered != 'undefined' && this.busy_discovering == false){
                     this.discovered = body.discovered;
@@ -1375,7 +1488,7 @@
                }
                return result;
             }
-
+			
             
             // This ID is used only once, here, to exchange the matter pairing code via the Candle web server.
             this.uuid = make_id(8); //Math.round(Math.random() * 10000000);
@@ -1385,12 +1498,13 @@
             document.getElementById('extension-matter-adapter-short-qr-scan-url').innerText = short_url;
             document.getElementById('extension-matter-adapter-mobile-short-qr-scan-url').innerText = short_url;
             
-            document.getElementById('extension-matter-adapter-qr-scan-link').href = long_url;
+			document.getElementById('extension-matter-adapter-qr-scan-link').href = long_url;
+            document.getElementById('extension-matter-adapter-pairing-qr-choose-scanner-camera').href = long_url;
             document.getElementById('extension-matter-adapter-mobile-qr-scan-link').href = long_url;
             
             const target_element = document.getElementById('extension-matter-adapter-qr-code');
 	        target_element.innerHTML = "";
-    
+    		
     	    var qrcode = new QRCode(target_element, {
     		    width : 300,
     		    height : 300

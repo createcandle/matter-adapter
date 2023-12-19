@@ -164,6 +164,7 @@ class MatterAPIHandler(APIHandler):
                           content=json.dumps({
                                       'debug': self.adapter.DEBUG,
                                       'certificates_updated': self.adapter.certificates_updated,
+                                      'busy_updating_certificates':self.adapter.busy_updating_certificates,
                                       'client_connected': self.adapter.client_connected,
                                       'discovered': self.adapter.discovered, # deprecated, but might be interesting to see if it's every populated
                                       'busy_discovering':self.adapter.busy_discovering,

@@ -86,6 +86,7 @@ apt install -y -v \
       libpango1.0-dev \
       libgif-dev \
       software-properties-common \
+      gcc-aarch64-linux-gnu \
       sudo \
       openssl
       

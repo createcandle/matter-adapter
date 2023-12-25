@@ -105,6 +105,9 @@ logging.basicConfig(level=logging.DEBUG)
 #logging.basicConfig(handlers=None, level="DEBUG")
 #coloredlogs.install(level="DEBUG")
 
+# matter BLE discriminator is maybe 3840
+# https://github.com/project-chip/connectedhomeip/issues/26968
+
 
 class MatterAdapter(Adapter):
     """Adapter for addon """
@@ -1168,15 +1171,19 @@ class MatterAdapter(Adapter):
                         self.s_print("CAPTURED STDERR: " + str(line.rstrip()))
                     if 'Traceback' in line:
                         self.pairing_failed = True
+                        self.busy_pairing = False
                         self.send_pairing_prompt("Error, Matter server crashed")
                     if 'over BLE failed' in line:
                         self.pairing_failed = True
+                        self.busy_pairing = False
                         self.send_pairing_prompt("Bluetooth commissioning failed")
                     if 'error.NodeInterviewFailed' in line:
                         self.pairing_failed = True
+                        self.busy_pairing = False
                         self.send_pairing_prompt("Interviewing Matter device failed")
                     if 'Commission with code failed for node' in line:
                         self.pairing_failed = True
+                        self.busy_pairing = False
                         self.send_pairing_prompt("Interviewing Matter device just failed")
                     
                     

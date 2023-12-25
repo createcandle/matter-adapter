@@ -379,6 +379,7 @@ extension-matter-adapter-
 	justify-content:space-between;
 	margin:2rem 0;
 }
+
 #extension-matter-adapter-pairing-qr-choose-scanner-area > *{
 	position:relative;
 	width:calc(50% - 1rem);
@@ -400,7 +401,10 @@ extension-matter-adapter-
 #extension-matter-adapter-pairing-qr-choose-scanner-area > *:hover .extension-matter-adapter-pairing-qr-choose-scanner-icon{
 	opacity:.5;
 }
-
+#extension-matter-adapter-pairing-qr-choose-scanner-camera > *,
+#extension-matter-adapter-pairing-qr-choose-scanner-phone > *{
+	pointer-events:none;
+}
 #extension-matter-adapter-pairing-qr-choose-scanner-area h3{
 	font-size:4rem;
 	color:white;
@@ -492,7 +496,7 @@ extension-matter-adapter-
     display:inline-block;
 }
 
-
+#extension-matter-adapter-busy-pairing-indicator,
 .extension-matter-adapter-busy-pairing-hint{
     display:none;
 }

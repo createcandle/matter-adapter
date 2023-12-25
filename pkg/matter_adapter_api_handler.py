@@ -138,20 +138,21 @@ class MatterAPIHandler(APIHandler):
                        
                             if self.adapter.DEBUG2:
                                 print("poll: doing request to candle webserver. parameters: " + str(parameters))
-                            q = requests.post( "https://www.candlesmarthome.com/qr/ajax.php", data = parameters )
-                            if self.adapter.DEBUG2:
-                                print("q.content = " + str(q.content))
-                                print("q.json = " + str(q.json))
-                            if len(str(q.content)) > 4:
-                                qr_json = q.json()
-                                if 'code' in qr_json:
-                                    code = qr_json['code']
-                                else:
-                                    if self.adapter.DEBUG2:
-                                        print('no code in post json')
-                            else: 
+                            if not self.adapter.busy_pairing:
+                                q = requests.post( "https://www.candlesmarthome.com/qr/ajax.php", data = parameters )
                                 if self.adapter.DEBUG2:
-                                    print('Matter adapter debug: poll: response not long enough')
+                                    print("q.content = " + str(q.content))
+                                    print("q.json = " + str(q.json))
+                                    if len(str(q.content)) > 4:
+                                        qr_json = q.json()
+                                        if 'code' in qr_json:
+                                            code = qr_json['code']
+                                        else:
+                                            if self.adapter.DEBUG2:
+                                                print('no code in post json')
+                                    else: 
+                                        if self.adapter.DEBUG2:
+                                            print('Matter adapter debug: poll: response not long enough')
                         
                         except Exception as ex:
                             if self.DEBUG:
@@ -169,6 +170,7 @@ class MatterAPIHandler(APIHandler):
                                       'discovered': self.adapter.discovered, # deprecated, but might be interesting to see if it's every populated
                                       'busy_discovering':self.adapter.busy_discovering,
                                       'pairing_code': code,
+                                      'busy_pairing':self.adapter.busy_pairing,
                                       'pairing_failed':self.adapter.pairing_failed,
                                       #'nodes': self.adapter.nodes,
                                       'nodez': self.adapter.persistent_data['nodez']
@@ -259,6 +261,7 @@ class MatterAPIHandler(APIHandler):
                         if self.DEBUG:
                             print("\n\nAPI: in reset_pairing")
                         
+                        self.adapter.busy_pairing = False
                         self.adapter.pairing_failed = False
                         self.adapter.pairing_code = ""
                         

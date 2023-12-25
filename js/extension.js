@@ -32,6 +32,8 @@
             this.uuid == null; // used with qr scanner
             
             this.retried_init = false;
+			
+			this.scan_window = null;
             
             window.matter_adapter_poll_interval = null;
             // We'll try and get this data from the addon backend
@@ -200,6 +202,15 @@
 						if(this.debug){
                             console.log("pair device via commission_with_code response: ", body);
                         }
+						if(typeof body.state != 'undefined'){
+							if(body.state == false){
+								document.getElementById('extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
+								document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
+							}
+							else if(body.state == true){
+								console.log("Matter server pairing process seems to have started succesfully");
+							}
+						}
                         
                         
 					}).catch((e) => {
@@ -276,6 +287,13 @@
                     document.getElementById('extension-matter-adapter-provide-wifi-container').classList.remove('extension-matter-adapter-hidden');
     			});
                 
+				document.getElementById('extension-matter-adapter-pairing-qr-choose-scanner-camera').addEventListener('click', (event) => {
+					event.preventDefault();
+					console.log("opening in new window: event.target: ",  event.target);
+					console.log("opening in new window: url:", event.target.href);
+					this.scan_window = window.open(event.target.href,'_blank');
+				});
+				
 				
 				// Choose to scan with camera
 				/*
@@ -412,6 +430,13 @@
                             document.getElementById('extension-matter-adapter-save-manual-input-pairing-code-button').classList.remove('extension-matter-adapter-hidden');
                         }, 4000);
                         this.show_pairing_start_area();
+						
+						if(this.scan_window){
+							console.log("closing previously opened scan window");
+							this.scan_window.close();
+							this.scan_window = null;
+						}
+						
                     }
                     
     				//document.getElementById('extension-matter-adapter-other-pairing-options-container').classList.remove('extension-matter-adapter-hidden');
@@ -869,15 +894,21 @@
                         
                         document.getElementById('extension-matter-adapter-pairing-code-input').value = this.pairing_code;
                         
+						if(this.scan_window){
+							console.log("closing previously opened scan window");
+							this.scan_window.close();
+							this.scan_window = null;
+						}
+						
                         this.show_pairing_start_area();
                     }
-                    /*
+                    
                     else{
                         if(this.debug){
-                            console.log("pairing code did not start with MT: yet: ", body.pairing_code);
+                            //console.log("pairing code did not start with MT: yet: ", this.pairing_code);
                         }
                     }
-                    */
+                    
                     //this.regenenerate_items();
                 }
                 
@@ -903,9 +934,11 @@
                         
                     }
                     else{
-                        if(this.debug){
-                            console.log("pairing code did not start with MT: yet: ", body.pairing_code);
-                        }
+						if(body.pairing_failed){
+                        	if(this.debug){
+                            	console.log("User has not yet started pairing process. Pairing failed state: ", body.pairing_failed);
+                        	}
+						}
                     }
                     //this.regenenerate_items();
                 }

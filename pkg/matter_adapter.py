@@ -127,7 +127,7 @@ class MatterAdapter(Adapter):
 
         # set up some variables
         self.DEBUG = True
-        self.DEBUG2 = False
+        self.DEBUG2 = True
         
         self.should_save = False
         
@@ -156,6 +156,7 @@ class MatterAdapter(Adapter):
         
         self.busy_discovering = False
         self.pairing_failed = False
+        self.busy_pairing = False
         
         self.brightness_transition_time = 0
         
@@ -583,6 +584,9 @@ class MatterAdapter(Adapter):
         
             #url = f"http://127.0.0.1:{self.port}/ws"
             url = "ws://127.0.0.1:" + str(self.port) + "/ws"
+            if self.DEBUG:
+                print("attempting to open websocked connection to matter server. URL: " + str(url))
+                
             websocket.enableTrace(False)
             self.ws = websocket.WebSocketApp(url, #"wss://127.0.0.1",
                                       on_open=self.on_open,
@@ -605,7 +609,7 @@ class MatterAdapter(Adapter):
         
     def on_message(self, ws, message="{}"):
         if self.DEBUG:
-            self.s_print("\n.\nclient: on_message: " + str(message) + "\n\n")
+            self.s_print("\n.\nclient: in on_message.  Message: " + str(message)[:100] + "...etc" + "\n\n")
         try:
             
             # matter_server.common.models.message.SuccessResultMessage
@@ -751,6 +755,15 @@ class MatterAdapter(Adapter):
             else:
                 if self.DEBUG:
                     self.s_print("Warning, there was no _type in the message")
+        
+        
+            if 'error_code' in message:
+                if self.DEBUG:
+                    print("message contained an error code.")
+                
+                if 'details' in message:
+                    if self.DEBUG:
+                        print("Error details: " + str(message['details']))
         
                 #self.should_save = True
         
@@ -939,7 +952,7 @@ class MatterAdapter(Adapter):
             if download_certs_output != None:
                 self.certificates_updated = True
             
-                if len(download_certs_output) < 5:
+                if len(str(download_certs_output)) > 5:
                     self.certificates_updated = True
                     #self.last_certificates_download_time = time.time()
                     self.persistent_data['last_certificates_download_time'] = int(time.time())
@@ -951,6 +964,8 @@ class MatterAdapter(Adapter):
                     return False
             
             else:
+                if self.DEBUG:
+                    self.s_print("Error, certificates didn't seem to download (download_certs_output was None)")
                 return False
         else:
             self.certificates_updated = True
@@ -1021,7 +1036,7 @@ class MatterAdapter(Adapter):
             self.s_print("\n\n\n\nin start_matter_pairing. Pairing type: " + str(pairing_type) + ", Code: " + str(code))
         self.pairing_failed = False
         # Download the latest certificates if they haven't been updated in a while
-        self.download_certs()
+        #self.download_certs()
         
         
         try:
@@ -1029,11 +1044,22 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     print("start_pairing: Client is connected, so sending commissioning code to Matter server.")
         
+                self.busy_pairing = True
+        
+        
+        
                 # Set the wifi credentials
                 self.set_wifi_credentials()
                 
                 time.sleep(6) # TODO: Dodgy
         
+        
+                os.system('sudo btmgmt -i hci0 power off')
+                os.system('sudo btmgmt -i hci0 bredr off')
+                os.system('sudo btmgmt -i hci0 power on')
+        
+                
+                
                 # create pairing message
                 message = None
                 if pairing_type == 'commission_with_code':
@@ -1060,6 +1086,10 @@ class MatterAdapter(Adapter):
                     self.ws.send(json_message)
         
                     return True
+            
+            else:
+                if self.DEBUG:
+                     self.s_print("start_matter_pairing: error, client is not connected")
             
         except Exception as ex:
             self.s_print("Error in start_pairing: " + str(ex))
@@ -1136,6 +1166,19 @@ class MatterAdapter(Adapter):
                     line = line.decode()
                     if self.DEBUG:
                         self.s_print("CAPTURED STDERR: " + str(line.rstrip()))
+                    if 'Traceback' in line:
+                        self.pairing_failed = True
+                        self.send_pairing_prompt("Error, Matter server crashed")
+                    if 'over BLE failed' in line:
+                        self.pairing_failed = True
+                        self.send_pairing_prompt("Bluetooth commissioning failed")
+                    if 'error.NodeInterviewFailed' in line:
+                        self.pairing_failed = True
+                        self.send_pairing_prompt("Interviewing Matter device failed")
+                    if 'Commission with code failed for node' in line:
+                        self.pairing_failed = True
+                        self.send_pairing_prompt("Interviewing Matter device just failed")
+                    
                     
                     if 'address already in use' in line:
                         self.s_print("ERROR, THERE ALREADY IS A MATTER SERVER RUNNING")

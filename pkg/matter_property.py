@@ -15,8 +15,10 @@ from chip.clusters import Objects as clusters # also loaded as dependency from m
 
 try:
     from matter_server.common.helpers.util import dataclass_from_dict,dataclass_to_dict
-    from matter_server.common.models.api_command import APICommand
-    from matter_server.common.models.message import CommandMessage
+    #from matter_server.common.models.api_command import APICommand
+    from matter_server.common.models import APICommand
+    #from matter_server.common.models.message import CommandMessage
+    from matter_server.common.models import CommandMessage
     #from matter_server.common.json_utils import CHIPJSONDecoder, CHIPJSONEncoder
     #from matter_server.vendor.chip.clusters import Objects as clusters
 except Exception as ex:

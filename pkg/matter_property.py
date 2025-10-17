@@ -1,3 +1,6 @@
+import sys
+# This helps the addon find python libraries it comes with, which are stored in the "lib" folder. The "package.sh" file will download Python libraries that are mentioned in requirements.txt and place them there.
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')) 
 
 import json
 #import asyncio

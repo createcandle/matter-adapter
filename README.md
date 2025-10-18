@@ -24,6 +24,9 @@ There are currently some limitations:
 - Only runs on the 64 bit version of Candle (2.0.2 onwards).
 - Currently does not yet run an Openthread border router, although that is on the wishlist.
 
+### FAQ
+- What is a vendor ID? It's an officially assigned number. Example: https://github.com/home-assistant/core/issues/84454
+
 
 ### More
 

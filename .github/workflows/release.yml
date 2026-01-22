@@ -6,7 +6,7 @@ on:
 
 jobs:
   get-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Get Release
       id: get_release

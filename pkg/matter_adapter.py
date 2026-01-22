@@ -129,8 +129,8 @@ class MatterAdapter(Adapter):
         Adapter.__init__(self, self.addon_id, self.addon_id, verbose=verbose)
 
         # set up some variables
-        self.DEBUG = True
-        self.DEBUG2 = True
+        self.DEBUG = False
+        self.DEBUG2 = False
         
         self.should_save = False
         

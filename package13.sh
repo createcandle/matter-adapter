@@ -3,6 +3,8 @@
 #-e
 set -x # echo commands too
 
+export DEBIAN_FRONTEND=noninteractive
+
 echo ""
 echo ""
 echo "package.sh: PLATFORM:"
@@ -20,23 +22,24 @@ echo "."
 echo ".."
 echo "RUN"
 #uname -a
-echo
+echo "pwd:"
 pwd
-echo
+echp
+echo "ls:"
 ls
 echo
+echo "ls /:"
 ls /
+echo
 
-export DEBIAN_FRONTEND=noninteractive
-
-apt update
-apt install software-properties-common -y
-add-apt-repository universe -y
-add-apt-repository 'ppa:deadsnakes/ppa' -y
-apt update
+sudo apt update
+sudo apt install software-properties-common -y
+sudo add-apt-repository universe -y
+sudo add-apt-repository 'ppa:deadsnakes/ppa' -y
+sudo apt update
 echo ""
 
-apt install -y -v \
+sudo apt install -y -v \
       python3-pip \
       python3-dbus \
       python3-wheel \
@@ -50,14 +53,14 @@ ls /usr/bin/python*
 #update-alternatives --install /usr/bin/python python /usr/bin/python3.13 2
 
 
-apt install -y python3-distutils-extra
-apt-get update -q
-apt install -y gcc-aarch64-linux-gnu libgirepository1.0-dev
+sudo apt install -y python3-distutils-extra
+sudo apt-get update -q
+sudo apt install -y gcc-aarch64-linux-gnu libgirepository1.0-dev
 echo "."
 echo ".."
 echo "..."
 echo "Installing lots of stuff"
-apt install -y \
+sudo apt install -y \
       wget \
       autoconf \
       automake \
@@ -92,8 +95,8 @@ apt install -y \
 echo ""
 echo "."
 echo "Attempting libcairo install"
-apt install -y pkg-config python3.13-dev libpython3.13-dev
-apt install -y libcairo2-dev
+sudo apt install -y pkg-config python3.13-dev libpython3.13-dev
+sudo apt install -y libcairo2-dev
 
 
 
@@ -245,7 +248,7 @@ echo ""
 
 echo
 echo "PACKAGE.SH HALFWAY THERE FOR PYTHON LIBS"
-apt install -y build-essential libdbus-glib-1-dev libgirepository1.0-dev
+sudo apt install -y build-essential libdbus-glib-1-dev libgirepository1.0-dev
 python3.13 -m pip install dbus-python
 
     #home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
@@ -302,7 +305,7 @@ else
 fi
 
 # Put package together
-cp -r lib pkg LICENSE manifest.json *.py README.md  css images js views  package/
+cp -r lib pkg LICENSE manifest.json *.py README.md css images js views  package/
 find package -type f -name '*.pyc' -delete
 find package -type f -name '._*' -delete
 find package -type d -empty -delete

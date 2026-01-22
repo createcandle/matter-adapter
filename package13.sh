@@ -231,9 +231,9 @@ echo ""
 #python3.11 -m pip install --upgrade pip
 #python3.11 -m pip install --upgrade setuptools wheel
 
-#apt install -y python3.13-distutils
+sudo apt install -y python3.13-distutils
 #curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13
-#python3.13 -m pip install --upgrade setuptools wheel
+python3.13 -m pip install --upgrade setuptools wheel
 
 #echo ""
 #echo "PIP OPTIONS AFTER:"

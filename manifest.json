@@ -58,7 +58,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.2.25",
+  "version": "0.3.0",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

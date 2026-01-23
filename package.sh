@@ -48,7 +48,7 @@ echo "Python3 version after install:"
 python3 --version
 ls /usr/bin/python*
 
-sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.13 2
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.11 2
 
 
 apt install -y python3-distutils-extra

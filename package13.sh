@@ -10,17 +10,17 @@ echo ""
 echo "package.sh: PLATFORM:"
 uname -a
 
-sudo apt-get update -q
+#sudo apt-get update -q
 
 
-sudo apt-get install python3.13 -y
+sudo apt install python3.13 -y
+
+echo "which python3.13:"
+which python3.13
 
 python3.13 -m pip install setuptools
 
-sudo apt install -y -v \
-      python3.13-pip \
-      python3.13-dbus \
-      python3.13-wheel \
+sudo apt install -y \
       python3.13-dev \
       libpython3.13-dev
 

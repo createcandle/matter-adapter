@@ -48,21 +48,28 @@ echo ""
 
 sudo apt install python3.13  -y -v 
 
+update-alternatives --install /usr/bin/python python /usr/bin/python3 2
+
 sudo apt install -y -v \
-      python3-pip \
-      python3-dbus \
-      python3-wheel \
+      python3.13-pip \
+      python3.13-dbus \
+      python3.13-wheel \
       python3.13-dev \
       libpython3.13-dev
+      
+
+
+
+
+
+sudo apt install -y python3-distutils-extra
 
 echo "Python3 version after install:"
 python3 --version
 ls /usr/bin/python*
 
-#update-alternatives --install /usr/bin/python python /usr/bin/python3 2
 
 
-sudo apt install -y python3-distutils-extra
 sudo apt-get update -q
 sudo apt install -y gcc-aarch64-linux-gnu libgirepository1.0-dev
 echo "."

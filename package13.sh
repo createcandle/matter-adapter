@@ -19,10 +19,18 @@ sudo add-apt-repository 'ppa:deadsnakes/ppa' -y
 sudo apt update
 echo ""
 
-sudo apt install python3.13 -y
+sudo apt install python3.13 python3.13-venv -y
 
 echo "which python3.13:"
 which python3.13
+
+python3.13 -m venv .venv
+
+echo "Activating virtual environment and updating pip..."
+source .venv/bin/activate
+
+echo "python3 version inside the virtual environment:"
+python3 --version
 
 python3.13 -m ensurepip --upgrade
 

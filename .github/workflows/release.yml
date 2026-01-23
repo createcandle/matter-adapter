@@ -57,7 +57,7 @@ jobs:
         asset_path: matter-adapter-${{ env.RELEASE_VERSION }}-linux-arm64-v3.13.tgz.sha256sum
 
 
-build11:
+  build11:
     needs: get-release
     runs-on: ubuntu-24.04-arm
     steps:

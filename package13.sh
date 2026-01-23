@@ -230,8 +230,8 @@ echo ""
 #python3 -m pip install --upgrade pip
 #python3 -m pip install --upgrade setuptools wheel
 
-export SETUPTOOLS_USE_DISTUTILS=stdlib
-SETUPTOOLS_USE_DISTUTILS=stdlib
+#export SETUPTOOLS_USE_DISTUTILS=stdlib
+#SETUPTOOLS_USE_DISTUTILS=stdlib
 
 python3.13 -m pip install --upgrade pip
 #python3.13 -m pip install --upgrade setuptools wheel
@@ -286,8 +286,9 @@ echo
 echo "PACKAGE.SH ALMOST THERE FOR PYTHON LIBS"
 
 
-python3.13 -m pip install coloredlogs aiorun requests click click_option_group \
-    -t lib --prefix "" --no-binary :all: --no-cache-dir
+#python3.13 -m pip install coloredlogs aiorun requests click click_option_group -t lib --prefix "" --no-binary :all: --no-cache-dir
+python3.13 -m pip install coloredlogs aiorun requests click click_option_group -t lib --prefix "" --no-cache-dir
+    
     
     
     #home_assistant_chip_clusters \

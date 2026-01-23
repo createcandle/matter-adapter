@@ -29,6 +29,7 @@ python3.13 -m ensurepip
 echo "python3.13 pip version:"
 python3 -m pip --version
 
+#python3.13 -m pip install setuptools=80
 python3.13 -m pip install setuptools
 
 sudo apt install -y \

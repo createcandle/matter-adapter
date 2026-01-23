@@ -96,6 +96,7 @@ echo ""
 echo "."
 echo "Attempting libcairo install"
 sudo apt install -y pkg-config python3.13-dev libpython3.13-dev
+sudo apt install build-essential libpython3-dev libdbus-1-dev
 sudo apt install -y libcairo2-dev
 
 
@@ -129,7 +130,7 @@ echo ""
 #echo "GLIBC VERSION AFTER UPDATE:"
 #ldd --version
 
-#apt install build-essential libpython3-dev libdbus-1-dev
+#sudo apt install build-essential libpython3-dev libdbus-1-dev
 
 
 # g++ -
@@ -224,6 +225,8 @@ echo "package.sh: PIP OPTIONS BEFORE:"
 #python3.11 -m pip debug --verbose
 echo ""
 
+pip install --upgrade pip
+
 #echo "UPGRADING PIP"
 #python3 -m pip install --upgrade pip
 #python3 -m pip install --upgrade setuptools wheel
@@ -236,7 +239,7 @@ echo ""
 #python3.13 -m pip install --upgrade setuptools==58.2.0 wheel
 
 #echo ""
-#echo "PIP OPTIONS AFTER:"
+echo "PIP OPTIONS AFTER:"
 #python3.11 -m pip debug --verbose
 #echo ""
 

@@ -137,6 +137,12 @@ class MatterAdapter(Adapter):
         # There is a very useful variable called "user_profile" that has useful values from the controller.
         #print("self.user_profile: " + str(self.user_profile))
         
+        self.nmcli_installed = False
+        nmcli_check = run_command('which nmcli')
+        if nmcli_check != None:
+            if str(nmcli_check).startswith('/'):
+                self.nmcli_installed = True
+        
         self.running = True
         self.server = None
         self.server_process = None
@@ -868,7 +874,7 @@ class MatterAdapter(Adapter):
         
         return False
         
-        
+        """
         {
           "message_id": "open_commissioning_window",
           "command": "open_commissioning_window",
@@ -877,7 +883,7 @@ class MatterAdapter(Adapter):
           }
         }
         
-        """
+        
         async def open_commissioning_window(
                 self,
                 node_id: int,
@@ -1112,6 +1118,8 @@ class MatterAdapter(Adapter):
         matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.data_path)
         if self.vendor_id != "":
             matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
+        if self.nmcli_installed == True:
+            matter_server_command = matter_server_command + " --primary-interface uap0"
         
         
         if not os.path.exists(self.data_path):

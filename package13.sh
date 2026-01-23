@@ -96,6 +96,7 @@ else
   TARFILE_SUFFIX="-${ADDON_ARCH}-v${PYTHON_VERSION}"
 fi
 
+mkdir -p package
 
 # Put package together
 cp -r lib pkg LICENSE manifest.json *.py README.md css images js views  package/

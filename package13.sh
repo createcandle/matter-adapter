@@ -24,13 +24,15 @@ sudo apt install python3.13 -y
 echo "which python3.13:"
 which python3.13
 
-python3.13 -m ensurepip
+python3.13 -m ensurepip --upgrade
 
 echo "python3.13 pip version:"
-python3 -m pip --version
+python3.13 -m pip --version
+
+python3.13 -m pip install pip==25.3 --upgrade
 
 #python3.13 -m pip install setuptools=80
-python3.13 -m pip install setuptools
+python3.13 -m pip install setuptools=80 --upgrade
 
 sudo apt install -y \
       python3.13-dev \

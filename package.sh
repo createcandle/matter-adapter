@@ -263,7 +263,7 @@ python3.11 -m pip install home-assistant-chip-core -t lib --prefix "" --no-cache
 #python3.11 -m pip install home_assistant_chip_core -t lib --prefix "" --no-cache-dir --upgrade
 
 python3.11 -m pip install home-assistant-chip-clusters -t lib --prefix "" --no-cache-dir --upgrade
-    
+
 python3.11 -m pip install zeroconf -t lib --prefix "" --no-cache-dir --upgrade
 python3.11 -m pip install atomicwrites -t lib --prefix "" --no-cache-dir --upgrade
 python3.11 -m pip install orjson -t lib --prefix "" --no-cache-dir --upgrade

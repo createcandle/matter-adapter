@@ -232,8 +232,10 @@ echo ""
 #python3 -m pip install --upgrade pip
 #python3 -m pip install --upgrade setuptools wheel
 
-python3.11 -m pip install --upgrade pip
-python3.11 -m pip install --upgrade setuptools wheel
+export SETUPTOOLS_USE_DISTUTILS=stdlib
+
+python3.13 -m pip install --upgrade pip
+python3.13 -m pip install --upgrade setuptools wheel
 
 #sudo apt install -y python3.13-distutils
 #curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13

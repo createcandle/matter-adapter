@@ -49,9 +49,9 @@ jobs:
       uses: shogo82148/actions-upload-release-asset@v1
       with:
         upload_url: ${{ env.UPLOAD_URL }}
-        asset_path: build/matter-adapter-${{ env.RELEASE_VERSION }}-linux-arm64-v3.13.tgz
+        asset_path: matter-adapter-${{ env.RELEASE_VERSION }}-linux-arm64-v3.13.tgz
     - name: Upload Release Asset shasum
       uses: shogo82148/actions-upload-release-asset@v1
       with:
         upload_url: ${{ env.UPLOAD_URL }}
-        asset_path: build/matter-adapter-${{ env.RELEASE_VERSION }}-linux-arm64-v3.13.tgz.sha256sum
+        asset_path: matter-adapter-${{ env.RELEASE_VERSION }}-linux-arm64-v3.13.tgz.sha256sum

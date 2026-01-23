@@ -12,6 +12,12 @@ uname -a
 
 #sudo apt-get update -q
 
+sudo apt update
+sudo apt install software-properties-common -y
+sudo add-apt-repository universe -y
+sudo add-apt-repository 'ppa:deadsnakes/ppa' -y
+sudo apt update
+echo ""
 
 sudo apt install python3.13 -y
 

@@ -9,6 +9,10 @@ echo ""
 echo ""
 echo "package.sh: PLATFORM:"
 uname -a
+
+echo "package.sh: Python version:"
+python3 --version
+
 #lsb_release -a
 #ldd --version
 #echo "python before:"

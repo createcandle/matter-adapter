@@ -31,7 +31,7 @@ echo "RUN"
 #uname -a
 echo "pwd:"
 pwd
-echp
+echo
 echo "ls:"
 ls
 echo

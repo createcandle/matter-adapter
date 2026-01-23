@@ -217,6 +217,7 @@ ls
 # Upgrade pip
 
 
+export SETUPTOOLS_USE_DISTUTILS=stdlib
 
 echo ""
 echo "package.sh: PIP OPTIONS BEFORE:"

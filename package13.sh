@@ -225,14 +225,14 @@ echo "package.sh: PIP OPTIONS BEFORE:"
 #python3.11 -m pip debug --verbose
 echo ""
 
-pip install --upgrade pip
+#pip install --upgrade pip
 
 #echo "UPGRADING PIP"
 #python3 -m pip install --upgrade pip
 #python3 -m pip install --upgrade setuptools wheel
 
-#python3.11 -m pip install --upgrade pip
-#python3.11 -m pip install --upgrade setuptools wheel
+python3.11 -m pip install --upgrade pip
+python3.11 -m pip install --upgrade setuptools wheel
 
 #sudo apt install -y python3.13-distutils
 #curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13

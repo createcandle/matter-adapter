@@ -86,6 +86,8 @@ python3.13 -m pip install \
     -t lib --prefix "" --no-cache-dir
 
 
+python3.13 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
+
 
 echo ""
 echo ""

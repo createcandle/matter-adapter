@@ -288,7 +288,9 @@ class MatterAdapter(Adapter):
             if os.path.exists(self.chip_factory_ini_file_path):
                 if self.DEBUG:
                     print("replacing vendor-id in chip_factory.ini with: " + str(self.vendor_id))
-                os.system("sed -i 's/.*vendor-id=*.*/vendor-id=" + str(self.vendor_id) + "/' chip_factory.ini")
+                #os.system("sed -i 's/.*vendor-id=*.*/vendor-id=" + str(self.vendor_id) + "/' chip_factory.ini")
+				os.system("sed -i 's/.*vendor-id=*.*/vendor-id=" + str(self.vendor_id) + "/' " + str(self.chip_factory_ini_file_path))
+				
                 
         if os.path.exists(self.chip_factory_ini_file_path):
             if self.DEBUG:
@@ -1120,7 +1122,9 @@ class MatterAdapter(Adapter):
             matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
         if self.nmcli_installed == True:
             matter_server_command = matter_server_command + " --primary-interface uap0"
-        
+
+		# could also run it via a container, e.g:
+		# nerdctl run --net host --privileged=false ghcr.io/home-assistant-libs/python-matter-server:stable  --primary-interface uap0
         
         if not os.path.exists(self.data_path):
             self.s_print("ERROR DATA PATH DOES NOT EXIST")

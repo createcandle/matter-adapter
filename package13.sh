@@ -10,12 +10,25 @@ echo ""
 echo "package.sh: PLATFORM:"
 uname -a
 
-pip install setuptools
+sudo apt-get update -q
+
+
+sudo apt-get install python3.13 -y
+
+python3.13 -m pip install setuptools
+
+sudo apt install -y -v \
+      python3.13-pip \
+      python3.13-dbus \
+      python3.13-wheel \
+      python3.13-dev \
+      libpython3.13-dev
+
 
 echo "package.sh: Python version before:"
-python3 --version
-echo "package.sh: Python Setuptools version before:"
-pip show setuptools
+python3.13 --version
+echo "package.sh: Python 3.13 Setuptools version before:"
+python3.13 -m pip show setuptools
 
 
 #lsb_release -a
@@ -41,24 +54,26 @@ echo "ls /:"
 ls /
 echo
 
-sudo apt-get update -q
 
-python3 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir
+python3.13 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir
 
 #python3 -m pip install home-assistant-chip-core --force-reinstall -t lib --prefix "" --no-cache-dir --upgrade
-python3 -m pip install home-assistant-chip-core -t lib --prefix "" --no-cache-dir --upgrade
+python3.13 -m pip install home-assistant-chip-core -t lib --prefix "" --no-cache-dir --upgrade
 
-python3 -m pip install home_assistant_chip_clusters -t lib --prefix "" --no-cache-dir
+python3.13 -m pip install home_assistant_chip_clusters -t lib --prefix "" --no-cache-dir
 
 #python3 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
 
 
-python3 -m pip install \
+
+
+
+python3.13 -m pip install \
     zeroconf \
     -t lib --prefix "" --no-cache-dir
 
 
-python3 -m pip install \
+python3.13 -m pip install \
     atomicwrites \
     -t lib --prefix "" --no-cache-dir
 
@@ -81,7 +96,7 @@ echo "PACKAGE.SH ALMOST THERE FOR PYTHON LIBS"
 
 
 #python3 -m pip install coloredlogs aiorun requests click click_option_group -t lib --prefix "" --no-binary :all: --no-cache-dir
-python3 -m pip install coloredlogs aiorun requests click click_option_group -t lib --prefix "" --no-cache-dir
+python3.13 -m pip install coloredlogs aiorun requests click click_option_group -t lib --prefix "" --no-cache-dir
     
     
     

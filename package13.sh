@@ -43,6 +43,8 @@ sudo add-apt-repository 'ppa:deadsnakes/ppa' -y
 sudo apt update
 echo ""
 
+sudo apt install python3.13  -y -v 
+
 sudo apt install -y -v \
       python3-pip \
       python3-dbus \
@@ -54,7 +56,7 @@ echo "Python3 version after install:"
 python3 --version
 ls /usr/bin/python*
 
-#update-alternatives --install /usr/bin/python python /usr/bin/python3.13 2
+#update-alternatives --install /usr/bin/python python /usr/bin/python3 2
 
 
 sudo apt install -y python3-distutils-extra
@@ -99,7 +101,7 @@ sudo apt install -y \
 echo ""
 echo "."
 echo "Attempting libcairo install"
-sudo apt install -y pkg-config python3.13-dev libpython3.13-dev
+sudo apt install -y pkg-config python3-dev libpython3-dev
 sudo apt install build-essential libpython3-dev libdbus-1-dev
 sudo apt install -y libcairo2-dev
 
@@ -121,7 +123,7 @@ if [ -z "${ADDON_ARCH}" ]; then
   TARFILE_SUFFIX=
 else
   #PYTHON_VERSION="$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d. -f 1-2)"
-  PYTHON_VERSION="3.13"
+  PYTHON_VERSION="3"
   TARFILE_SUFFIX="-${ADDON_ARCH}-v${PYTHON_VERSION}"
 fi
 
@@ -237,14 +239,15 @@ echo ""
 #export SETUPTOOLS_USE_DISTUTILS=stdlib
 #SETUPTOOLS_USE_DISTUTILS=stdlib
 
-python3.13 -m pip install --upgrade pip
-#python3.13 -m pip install --upgrade setuptools wheel
+python3 -m pip install --upgrade pip
+#python3 -m pip install --upgrade setuptools wheel
 
-#sudo apt install -y python3.13-distutils
-#curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13
-#python3.13 -m pip install --upgrade --force-reinstall setuptools==58.2.0 wheel
-#python3.13 -m pip install --upgrade --force-reinstall  --use-pep517 --no-cache setuptools wheel
-python3.13 -m pip install --upgrade --force-reinstall --use-pep517 --no-cache wheel
+#sudo apt install -y python3-distutils
+#curl -sS https://bootstrap.pypa.io/get-pip.py | python3
+#python3 -m pip install --upgrade --force-reinstall setuptools==58.2.0 wheel
+#python3 -m pip install --upgrade --force-reinstall  --use-pep517 --no-cache setuptools wheel
+#python3 -m pip install --upgrade --force-reinstall --use-pep517 --no-cache wheel
+python3 -m pip install --upgrade --force-reinstall --no-cache wheel
 
 #echo ""
 echo "PIP OPTIONS AFTER:"
@@ -260,13 +263,13 @@ echo "PIP OPTIONS AFTER:"
 echo
 echo "PACKAGE.SH HALFWAY THERE FOR PYTHON LIBS"
 sudo apt install -y build-essential libdbus-glib-1-dev libgirepository1.0-dev
-#python3.13 -m pip install dbus-python
+#python3 -m pip install dbus-python
 
     #home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
     #home_assistant_chip_repl-2023.1.0-py3-none-any.whl \
     
-python3.13 -m pip install \
+python3 -m pip install \
     python-matter-server[server] \
     home_assistant_chip_clusters \
     home_assistant_chip_core \
@@ -290,8 +293,8 @@ echo
 echo "PACKAGE.SH ALMOST THERE FOR PYTHON LIBS"
 
 
-#python3.13 -m pip install coloredlogs aiorun requests click click_option_group -t lib --prefix "" --no-binary :all: --no-cache-dir
-python3.13 -m pip install coloredlogs aiorun requests click click_option_group -t lib --prefix "" --no-cache-dir
+#python3 -m pip install coloredlogs aiorun requests click click_option_group -t lib --prefix "" --no-binary :all: --no-cache-dir
+python3 -m pip install coloredlogs aiorun requests click click_option_group -t lib --prefix "" --no-cache-dir
     
     
     

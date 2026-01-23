@@ -232,8 +232,8 @@ echo ""
 #python3.11 -m pip install --upgrade setuptools wheel
 
 sudo apt install -y python3.13-distutils
-#curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13
-python3.13 -m pip install --upgrade setuptools wheel
+curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13
+python3.13 -m pip install --upgrade setuptools==58.2.0 wheel
 
 #echo ""
 #echo "PIP OPTIONS AFTER:"
@@ -249,7 +249,7 @@ python3.13 -m pip install --upgrade setuptools wheel
 echo
 echo "PACKAGE.SH HALFWAY THERE FOR PYTHON LIBS"
 sudo apt install -y build-essential libdbus-glib-1-dev libgirepository1.0-dev
-python3.13 -m pip install dbus-python
+#python3.13 -m pip install dbus-python
 
     #home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \

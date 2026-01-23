@@ -217,8 +217,6 @@ ls
 # Upgrade pip
 
 
-export SETUPTOOLS_USE_DISTUTILS=stdlib
-
 echo ""
 echo "package.sh: PIP OPTIONS BEFORE:"
 #python3 -m ensurepip --upgrade
@@ -233,13 +231,14 @@ echo ""
 #python3 -m pip install --upgrade setuptools wheel
 
 export SETUPTOOLS_USE_DISTUTILS=stdlib
+SETUPTOOLS_USE_DISTUTILS=stdlib
 
 python3.13 -m pip install --upgrade pip
-python3.13 -m pip install --upgrade setuptools wheel
+#python3.13 -m pip install --upgrade setuptools wheel
 
 #sudo apt install -y python3.13-distutils
 #curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13
-#python3.13 -m pip install --upgrade setuptools==58.2.0 wheel
+python3.13 -m pip install --upgrade setuptools==58.2.0 wheel
 
 #echo ""
 echo "PIP OPTIONS AFTER:"

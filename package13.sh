@@ -45,6 +45,21 @@ python3 -m pip install \
     python-matter-server[server] \
     -t lib --prefix "" --no-cache-dir
 
+python3 -m pip install \
+    home-assistant-chip-core \
+    -t lib --prefix "" --no-cache-dir
+
+python3 -m pip install \
+    zeroconf \
+    -t lib --prefix "" --no-cache-dir
+
+
+python3 -m pip install \
+    atomicwrites \
+    -t lib --prefix "" --no-cache-dir
+
+
+
 echo ""
 echo ""
 echo ""

@@ -238,7 +238,8 @@ python3.13 -m pip install --upgrade pip
 
 #sudo apt install -y python3.13-distutils
 #curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13
-python3.13 -m pip install --upgrade setuptools==58.2.0 wheel
+#python3.13 -m pip install --upgrade --force-reinstall setuptools==58.2.0 wheel
+python3.13 -m pip install --upgrade --force-reinstall setuptools wheel
 
 #echo ""
 echo "PIP OPTIONS AFTER:"

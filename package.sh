@@ -29,14 +29,14 @@ ls /
 
 export DEBIAN_FRONTEND=noninteractive
 
-apt update
-apt install software-properties-common -y
-add-apt-repository universe -y
-add-apt-repository 'ppa:deadsnakes/ppa' -y
-apt update
+sudo apt update
+sudo apt install software-properties-common -y
+sudo add-apt-repository universe -y
+sudo add-apt-repository 'ppa:deadsnakes/ppa' -y
+sudo apt update
 echo ""
 
-apt install -y -v \
+sudo apt install -y -v \
       python3.11 \
       python3-pip \
       python3-dbus \
@@ -53,14 +53,16 @@ sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.11 2
 echo "Python3 version after update-alternatives:"
 python3 --version
 
-apt install -y python3-distutils-extra
-apt-get update -q
-apt install -y gcc-aarch64-linux-gnu libgirepository1.0-dev
+
+sudo apt install -y build-essential gcc-aarch64-linux-gnu libdbus-glib-1-dev libgirepository1.0-dev
+
+sudo apt install -y python3-distutils-extra
+sudo apt-get update -q
 echo "."
 echo ".."
 echo "..."
 echo "Installing lots of stuff"
-apt install -y \
+sudo apt install -y \
       wget \
       autoconf \
       automake \
@@ -95,8 +97,8 @@ apt install -y \
 echo ""
 echo "."
 echo "Attempting libcairo install"
-apt install -y pkg-config python3.11-dev libpython3.11-dev
-apt install -y libcairo2-dev
+sudo apt install -y pkg-config python3.11-dev libpython3.11-dev
+sudo apt install -y libcairo2-dev
 
 
 
@@ -231,7 +233,7 @@ echo ""
 #python3.11 -m pip install --upgrade pip
 #python3.11 -m pip install --upgrade setuptools wheel
 
-apt install -y python3.11-distutils
+sudo apt install -y python3.11-distutils
 curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
 python3.11 -m pip install --upgrade setuptools wheel
 
@@ -248,8 +250,7 @@ python3.11 -m pip install --upgrade setuptools wheel
 
 echo
 echo "PACKAGE.SH HALFWAY THERE FOR PYTHON LIBS"
-apt install -y build-essential libdbus-glib-1-dev libgirepository1.0-dev
-python3.11 -m pip install dbus-python
+python3.11 -m pip install dbus-python --prefix "" --no-cache-dir
 
     #home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
@@ -257,7 +258,7 @@ python3.11 -m pip install dbus-python
 
 
     
-python3.11 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir
+python3.11 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
 
 python3.11 -m pip install home_assistant_chip_core -t lib --prefix "" --no-cache-dir --upgrade
 python3.11 -m pip install home_assistant_chip_clusters -t lib --prefix "" --no-cache-dir --upgrade
@@ -285,8 +286,8 @@ echo
 echo "PACKAGE.SH ALMOST THERE FOR PYTHON LIBS"
 
 
-python3.11 -m pip install coloredlogs aiorun requests click click_option_group \
-    -t lib --prefix "" --no-binary :all: --no-cache-dir
+python3.11 -m pip install coloredlogs aiorun requests click click_option_group -t lib --prefix "" --no-cache-dir
+#    -t lib --prefix "" --no-binary :all: --no-cache-dir
     
     
     #home_assistant_chip_clusters \

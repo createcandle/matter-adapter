@@ -39,7 +39,7 @@ jobs:
       run: chmod +x ./package13.sh
     - name: Build adapter
       run: |
-        ADDON_ARCH=linux-arm64 ./package13.sh
+        ADDON_ARCH=linux-arm64 SETUPTOOLS_USE_DISTUTILS=stdlib ./package13.sh
       shell: bash
     - name: List after container
       run: |

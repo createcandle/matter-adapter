@@ -88,6 +88,15 @@ else
   ls ./lib/aiorun*
 fi
 
+if [ -z "${ADDON_ARCH}" ]; then
+  TARFILE_SUFFIX=
+else
+  #PYTHON_VERSION="$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d. -f 1-2)"
+  PYTHON_VERSION="3.13"
+  TARFILE_SUFFIX="-${ADDON_ARCH}-v${PYTHON_VERSION}"
+fi
+
+
 # Put package together
 cp -r lib pkg LICENSE manifest.json *.py README.md css images js views  package/
 find package -type f -name '*.pyc' -delete

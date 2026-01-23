@@ -55,3 +55,39 @@ jobs:
       with:
         upload_url: ${{ env.UPLOAD_URL }}
         asset_path: matter-adapter-${{ env.RELEASE_VERSION }}-linux-arm64-v3.13.tgz.sha256sum
+
+
+build11:
+    needs: get-release
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - name: Download upload_url
+      uses: actions/download-artifact@v4
+      with:
+        name: upload_url
+        path: upload_url
+    - name: Set upload_url
+      run: echo "UPLOAD_URL=$(cat upload_url/upload_url)" >> $GITHUB_ENV
+    - name: Set release version
+      run: echo "RELEASE_VERSION=${GITHUB_REF:10}" >> $GITHUB_ENV
+    - uses: actions/checkout@v3
+    - name: Make packaging script executable
+      run: chmod +x ./package.sh
+    - name: Build adapter
+      run: |
+        ADDON_ARCH=linux-arm64 ./package.sh
+      shell: bash
+    - name: List after container
+      run: |
+        ls -lh
+      shell: bash
+    - name: Upload Release Asset tgz
+      uses: shogo82148/actions-upload-release-asset@v1
+      with:
+        upload_url: ${{ env.UPLOAD_URL }}
+        asset_path: matter-adapter-${{ env.RELEASE_VERSION }}-linux-arm64-v3.11.tgz
+    - name: Upload Release Asset shasum
+      uses: shogo82148/actions-upload-release-asset@v1
+      with:
+        upload_url: ${{ env.UPLOAD_URL }}
+        asset_path: matter-adapter-${{ env.RELEASE_VERSION }}-linux-arm64-v3.11.tgz.sha256sum

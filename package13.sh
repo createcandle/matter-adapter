@@ -10,8 +10,11 @@ echo ""
 echo "package.sh: PLATFORM:"
 uname -a
 
-echo "package.sh: Python version:"
+echo "package.sh: Python version before:"
 python3 --version
+echo "package.sh: Python Setuptools version before:"
+pip show setuptools
+
 
 #lsb_release -a
 #ldd --version
@@ -253,6 +256,12 @@ python3 -m pip install --upgrade --force-reinstall --no-cache wheel
 echo "PIP OPTIONS AFTER:"
 #python3.11 -m pip debug --verbose
 #echo ""
+
+echo "package.sh: Python version after:"
+python3 --version
+echo "package.sh: Python Setuptools version after:"
+pip show setuptools
+
 
 #PYTHON3PATH=$(which python3.10)
 #echo ""

@@ -24,6 +24,8 @@ sudo apt install python3.13 -y
 echo "which python3.13:"
 which python3.13
 
+python3.13 -m ensurepip
+
 python3.13 -m pip install setuptools
 
 sudo apt install -y \

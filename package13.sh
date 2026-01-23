@@ -10,6 +10,8 @@ echo ""
 echo "package.sh: PLATFORM:"
 uname -a
 
+pip install setuptools
+
 echo "package.sh: Python version before:"
 python3 --version
 echo "package.sh: Python Setuptools version before:"

@@ -43,11 +43,20 @@ sudo apt-get update -q
 
 python3 -m pip install \
     python-matter-server[server] \
-    -t lib --prefix "" --no-cache-dir
+     --force-reinstall -t lib --prefix "" --no-cache-dir --upgrade
 
 python3 -m pip install \
     home-assistant-chip-core \
-    -t lib --prefix "" --no-cache-dir
+     --force-reinstall -t lib --prefix "" --no-cache-dir --upgrade
+
+python3 -m pip install \
+    home_assistant_chip_clusters \
+     --force-reinstall -t lib --prefix "" --no-cache-dir --upgrade
+
+python3 -m pip install \
+    python-matter-server[server] \
+     --force-reinstall -t lib --prefix "" --no-cache-dir --upgrade
+
 
 python3 -m pip install \
     zeroconf \

@@ -250,7 +250,7 @@ python3.11 -m pip install --upgrade setuptools wheel
 
 echo
 echo "PACKAGE.SH HALFWAY THERE FOR PYTHON LIBS"
-python3.11 -m pip install dbus-python --prefix "" --no-cache-dir
+python3.11 -m pip install dbus-python  -t lib --prefix "" --no-cache-dir
 
     #home_assistant_chip_clusters-2023.1.0-py3-none-any.whl \
     #home_assistant_chip_core-2023.1.0-cp37-abi3-manylinux_2_31_aarch64.whl \
@@ -259,13 +259,16 @@ python3.11 -m pip install dbus-python --prefix "" --no-cache-dir
 
     
 python3.11 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
+python3.11 -m pip install home-assistant-chip-core -t lib --prefix "" --no-cache-dir --upgrade
+#python3.11 -m pip install home_assistant_chip_core -t lib --prefix "" --no-cache-dir --upgrade
 
-python3.11 -m pip install home_assistant_chip_core -t lib --prefix "" --no-cache-dir --upgrade
-python3.11 -m pip install home_assistant_chip_clusters -t lib --prefix "" --no-cache-dir --upgrade
+python3.11 -m pip install home-assistant-chip-clusters -t lib --prefix "" --no-cache-dir --upgrade
     
 python3.11 -m pip install zeroconf -t lib --prefix "" --no-cache-dir --upgrade
 python3.11 -m pip install atomicwrites -t lib --prefix "" --no-cache-dir --upgrade
+python3.11 -m pip install orjson -t lib --prefix "" --no-cache-dir --upgrade
 
+python3.11 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
 
 #    cryptography \
 #    home_assistant_chip_repl \

@@ -163,6 +163,21 @@ find package -type f -name '._*' -delete
 find package -type d -empty -delete
 rm -rf package/pkg/pycache
 
+wget --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 3 http://candlesmarthome.com/tools/chip-tool.zip
+if [ -f chip-tool.zip ]; then
+  mkdir -p ./package/thread
+  unzip chip-tool.zip -d ./package/thread/
+  if [ -f ./package/thread/chip-tool ]; then
+      echo "chip-tool downloaded and extracted succesfully"
+  else
+      echo "ERROR, chip-tool did not extract?"
+      ls ./package/thread
+  fi
+else
+  echo "ERROR, failed to download chip-tool.zip"
+  exit 1
+fi
+
 # Generate checksums
 echo "generating checksums"
 cd package

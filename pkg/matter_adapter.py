@@ -21,6 +21,7 @@ Matter addon for Candle Controller.
 
 
 import os
+import re
 import sys
 # This helps the addon find python libraries it comes with, which are stored in the "lib" folder. The "package.sh" file will download Python libraries that are mentioned in requirements.txt and place them there.
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')) 
@@ -139,9 +140,8 @@ class MatterAdapter(Adapter):
         
         self.nmcli_installed = False
         nmcli_check = run_command('which nmcli')
-        if nmcli_check != None:
-            if str(nmcli_check).startswith('/'):
-                self.nmcli_installed = True
+        if isinstance(nmcli_check,str) and str(nmcli_check).startswith('/'):
+            self.nmcli_installed = True
         
         self.running = True
         self.server = None
@@ -151,7 +151,7 @@ class MatterAdapter(Adapter):
         
         self.port = 5580
         self.message_counter = 0
-        self.client_connected = 0
+        self.client_connected = False
         
         self.vendor_id = ""
         
@@ -170,9 +170,24 @@ class MatterAdapter(Adapter):
         self.brightness_transition_time = 0
         
         self.share_node_code = "" # used with open window
+        self.last_found_pairing_code = ''
         self.device_was_deleted = False # set to True is a device is deleted from the Matter fabric
         
         self.s_print_lock = Lock()
+        
+        
+        
+        # THREAD / OTBR
+        
+        self.found_thread_radio_again = False
+        self.found_new_thread_radio = False
+        self.otbr_started = False # This is the first stage, done by otbr-agent
+        self.thread_set_active = False # This is the second stage, managed by ot-ctl
+        self.thread_running = False # becomes true when Thread is completely up
+        self.thread_error = ''
+        self.otbr_agent_process = None
+        self.otbr_stdout_messages = []
+        self.thread_channel = 15
         
         
         # Hotspot
@@ -242,6 +257,16 @@ class MatterAdapter(Adapter):
         self.chip_factory_ini_file_path = os.path.join(self.user_profile['baseDir'],'hasdata','chip_factory.ini')
         #self.certs_dir_path = os.path.join(self.data_path, 'paa-root-certs')
         
+        self.otbr_agent_path = os.path.join(self.addon_path,'thread','otbr-agent')
+        self.ot_ctl_path = os.path.join(self.addon_path,'thread','ot-ctl')
+        self.otbr_web_path = os.path.join(self.addon_path,'thread','otbr-web')
+        self.chip_tool_path = os.path.join(self.addon_path,'thread','chip-tool')
+        self.addon_thread_dir_path = os.path.join(self.addon_path,'thread')
+        self.data_thread_dir_path = os.path.join(self.data_path,'thread')
+        if not os.path.isdir(str(self.data_thread_dir_path)):
+            print("creating missing data/thread dir: ", self.data_thread_dir_path)
+            os.system('mkdir -p ' + str(self.data_thread_dir_path))
+        
         os.chdir(self.data_path)
         
         pwd = run_command('pwd')
@@ -288,9 +313,7 @@ class MatterAdapter(Adapter):
             if os.path.exists(self.chip_factory_ini_file_path):
                 if self.DEBUG:
                     print("replacing vendor-id in chip_factory.ini with: " + str(self.vendor_id))
-                #os.system("sed -i 's/.*vendor-id=*.*/vendor-id=" + str(self.vendor_id) + "/' chip_factory.ini")
-				os.system("sed -i 's/.*vendor-id=*.*/vendor-id=" + str(self.vendor_id) + "/' " + str(self.chip_factory_ini_file_path))
-				
+                os.system("sed -i 's/.*vendor-id=*.*/vendor-id=" + str(self.vendor_id) + "/' chip_factory.ini")
                 
         if os.path.exists(self.chip_factory_ini_file_path):
             if self.DEBUG:
@@ -325,8 +348,12 @@ class MatterAdapter(Adapter):
         self.hotspot_addon_installed = False
         if os.path.isdir(self.hotspot_addon_path):
             self.hotspot_addon_installed = True
-            
-        if self.use_hotspot and self.hotspot_addon_installed:
+        
+        
+        if not os.path.exists('/boot/firmware/candle_hotspot.txt'):
+            self.use_hotspot = False
+        
+        if self.use_hotspot and (self.nmcli_installed or self.hotspot_addon_installed):
             # Figure out the Hotspot addon's SSID and password
             self.load_hotspot_config()
             
@@ -381,86 +408,55 @@ class MatterAdapter(Adapter):
         # /data
         if not os.path.isdir("/data"):
             print("Error! Could not find /data, which the server will be looking for")
-            time.sleep(30)
-            exit()
+            while self.running:
+                time.sleep(1)
         
-        # Download the latest certificates
-        self.download_certs()
+        if self.running:
+            # Download the latest Matter certificates
+            self.download_certs()
         
-        # Start client thread
-        if self.DEBUG:
-            print("Init: starting the client thread")
-        try:
-            self.t = threading.Thread(target=self.client_thread)
-            self.t.daemon = True
-            self.t.start()
-        except Exception as ex:
+            self.find_thread_radio()
+        
+            # Start client thread
             if self.DEBUG:
-                print("Error starting the client thread: " + str(ex))
-                print(traceback.format_exc())
+                print("Init: starting the client thread")
+            
+            try:
+                self.t = threading.Thread(target=self.client_thread)
+                self.t.daemon = True
+                self.t.start()
+            except Exception as ex:
+                if self.DEBUG:
+                    print("Error starting the client thread: " + str(ex))
+                    print(traceback.format_exc())
         
-        # Start clock thread
-        if self.DEBUG:
-            print("Init: starting the clock thread")
-        try:
-            self.ct = threading.Thread(target=self.clock)
-            self.ct.daemon = True
-            self.ct.start()
-        except Exception as ex:
+            # Start clock thread
             if self.DEBUG:
-                print("Error starting the clock thread: " + str(ex))
+                print("Init: starting the clock thread")
+            try:
+                self.ct = threading.Thread(target=self.clock)
+                self.ct.daemon = True
+                self.ct.start()
+            except Exception as ex:
+                if self.DEBUG:
+                    print("Error starting the clock thread: " + str(ex))
         
         
 
-        # Init matter server
-        #self.server = MatterServer(
-        #    self.data_path, DEFAULT_VENDOR_ID, DEFAULT_FABRIC_ID, int(self.port)
-        #)
+            # Init matter server
+            #self.server = MatterServer(
+            #    self.data_path, DEFAULT_VENDOR_ID, DEFAULT_FABRIC_ID, int(self.port)
+            #)
 
         
         
-        pwd = run_command('pwd')
-        print("PWD after chdir: " + str(pwd))
+            pwd = run_command('pwd')
+            if self.DEBUG:
+                print("PWD after chdir: " + str(pwd))
         
         
-        """
-		while self.running:
-            output = self.server_process.stdout.readline()
-            print("self.server_process.poll(): " + str(self.server_process.poll()))
-            #if output == '' and self.server_process.poll() is not None:
-            #    break
-            if output:
-                print("STD OUT CAPTURED: " + str( output.strip() ))
-            time.sleep(0.01)
-		"""
-        if self.DEBUG:
-            print("run_process: beyond the while loop")
-        #rc = self.server_process.poll()
-        #if self.DEBUG:
-        #    print("rc: " + str(rc))
-
-        print("BEYOND SERVER START WITH SUBPROCESS")
-
-        # Run the server. This is blocking.
-        """
-        run(self.run_matter(), shutdown_callback=self.handle_stop)
-        
-        
-        if self.server != None:
-            #print("\nself.server DIR: " + str(dir(self.server)))
-            self.server.stop()
-        
-        # Just in case any new values were created in the persistent data store, let's save it to disk
-        #self.save_persistent_data()
-        
-        # The addon is now ready
-        
-        if self.DEBUG:
-            print("Matter adapter init end. Calling exit.")
-        time.sleep(5)
-        os.system("pkill -f 'python3 /home/pi/.webthings/addons/matter-adapter/main.py' --signal SIGKILL")
-        exit()
-        """
+            #time.sleep(60)
+            #self.ready = True
 
 
     def s_print(self, *a, **b):
@@ -515,8 +511,24 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     print("Brightness transition preference was in settings: " + str(self.brightness_transition_time))
                     
+            if 'Thread dataset' in config:
+                raw_dataset = str(config["Thread dataset"]).strip().rstrip()
+                if len(raw_dataset) > 10:
+                    self.thread_dataset = raw_dataset
+                    self.persistent_data['thread_dataset'] = raw_dataset
+                if self.DEBUG:
+                    print("Thread dataset preference was in settings: " + str(self.thread_dataset))
+            
+            if 'Thread channel' in config:
+                self.thread_channel = int(config["Thread channel"])
+                if self.DEBUG:
+                    print("Thread channel preference was in settings: " + str(self.thread_channel))
+                    
+            
+            
+                    
         except Exception as ex:
-            print("Error in add_from_config: " + str(ex))
+            print("caught error in add_from_config: " + str(ex))
 
 
     """
@@ -535,49 +547,352 @@ class MatterAdapter(Adapter):
     """
 
 
+
+    # Get real tty port from:
+    # ls -la /dev/serial/by-id/usb-*
+
+    def find_thread_radio(self):
+        found_thread_radio_again = False
+        found_new_thread_radio = False
+        serial_by_id_output = run_command('ls /dev/serial/by-id')
+        if isinstance(serial_by_id_output,str) and len(str(serial_by_id_output)) > 5:
+            
+            if 'thread_radio_serial_port' in self.persistent_data and isinstance(self.persistent_data['thread_radio_serial_port'],str) and len(str(self.persistent_data['thread_radio_serial_port'])) > 3:
+                for line in serial_by_id_output.splitlines():
+                    if str(self.persistent_data['thread_radio_serial_port']) == str(line).strip().rstrip():
+                        if self.DEBUG:
+                            print("Found the thread radio again")
+                        found_thread_radio_again = True
+                        break
+                    
+            if found_thread_radio_again == False:
+                for line in serial_by_id_output.splitlines():
+                    line = str(line).strip().rstrip()
+                    if 'SkyConnect' in line or 'Nabu_Casa' in line:
+                        self.persistent_data['thread_radio_serial_port'] = line
+                        if self.DEBUG:
+                            print("Found a new thread radio: ", line)
+                        found_new_thread_radio = True
+                        self.should_save = True
+                        break
+                        
+        self.found_thread_radio_again = found_thread_radio_again
+        self.found_new_thread_radio = found_new_thread_radio
+
+        if self.found_thread_radio_again or self.found_new_thread_radio:
+            if self.otbr_started == False:
+                self.start_otbr()
+        else:
+            if self.DEBUG:
+                print("\nNO THREAD RADIO FOUND\n")
+
+
+
+    def start_otbr(self):
+        if self.DEBUG:
+            print("in start_otbr")
+        
+        self.really_start_otbr()
+        
+        
+        #sudo /home/pi/thread/otbr-agent --data-path /home/pi/.webthings/data/matter-adapter --syslog-disable --debug-level 7  --thread-ifname  wpan0 -B wlan0  spinel+hdlc+uart:///dev/ttyUSB0?uart-baudrate=460800
+
+
+
+    def really_start_otbr(self):
+
+        try:
+            #if self.shell == None:
+            #    self.shell = subprocess.Popen(['/bin/bash'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            
+            if self.otbr_agent_process == None:
+                #thread_radio_url = "spinel+hdlc+uart:///dev/ttyUSB0?uart-baudrate=460800"
+                
+                thread_radio_url = "spinel+hdlc+uart:///dev/ttyUSB0?uart-baudrate=460800"
+                if 'thread_radio_serial_port' in self.persistent_data and isinstance(self.persistent_data['thread_radio_serial_port'],str) and len(str(self.persistent_data['thread_radio_serial_port'])) > 3:
+                    thread_radio_url = "spinel+hdlc+uart:///dev/serial/by-id/" + str(self.persistent_data['thread_radio_serial_port']) + "?uart-baudrate=460800"
+                    
+                    real_tty_path = str(run_command('ls -la /dev/serial/by-id/' + str(self.persistent_data['thread_radio_serial_port']))).strip().rstrip()
+                    if ' -> ../../' in real_tty_path:
+                        real_tty_path = real_tty_path.split(' -> ../../')[1]
+                        if real_tty_path and str(real_tty_path).startswith('tty') and len(str(real_tty_path)) < 10:
+                            thread_radio_url = "spinel+hdlc+uart:///dev/" + str(real_tty_path) + "?uart-baudrate=460800"
+                        
+                    
+                
+                self.thread_radio_url = thread_radio_url
+                
+                self.thread_backbone_interface = 'wlan0'
+                if os.path.isfile('/boot/firmware/candle_hotspot.txt'):
+                    self.thread_backbone_interface = 'uap0'
+                
+                if self.DEBUG:
+                    print("\n. . . . __really_start_otbr__ . . . . ")
+                    print("self.otbr_agent_path: ", self.otbr_agent_path)
+                    print("really_start_otbr:  thread_radio_url: ", thread_radio_url)
+                    print("self.thread_backbone_interface: ", self.thread_backbone_interface)
+                    print("self.data_thread_dir_path: ", self.data_thread_dir_path)
+                    
+                if not os.path.isfile(str(self.otbr_agent_path)):
+                    if self.DEBUG:
+                        print("\nERORR, self.otbr_agent_path file did not exist: ", self.otbr_agent_path)
+                    return
+                if not os.path.isdir(str(self.data_thread_dir_path)):
+                    if self.DEBUG:
+                        print("\nERORR, self.data_thread_dir_path dir did not exist: ", self.data_thread_dir_path)
+                    return
+                
+                #os.system('sudo sysctl "net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1"')
+                
+                """
+                net.ipv6.conf.all.disable_ipv6=0
+                net.ipv4.conf.all.forwarding=1
+                net.ipv6.conf.all.forwarding=1
+                net.ipv6.conf.all.accept_ra=2
+                net.ipv6.conf.all.accept_ra_rt_info_max_plen=64
+                net.ipv6.conf.eno1.accept_ra=2
+                net.ipv6.conf.wpan0.accept_ra=2
+                """
+                os.system('sudo sysctl "net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1 net.ipv6.conf.all.accept_ra=2 net.ipv6.conf.all.accept_ra_rt_info_max_plen=64 net.ipv6.conf.eno1.accept_ra=2 net.ipv6.conf.wpan0.accept_ra=2"')
+                
+                
+                
+                agent_command_array = ["sudo",str(self.otbr_agent_path),"--data-path",str(self.data_thread_dir_path),"--syslog-disable","--debug-level","7","--thread-ifname","wpan0","-B", str(self.thread_backbone_interface), str(self.thread_radio_url)]
+                
+                print("\n\nOTBR agent_command_array: ", str(agent_command_array), "\n\n")
+                
+                print("\n\nTREAD AGENT COMMAND:\n\n" + str( " ".join(agent_command_array) ) + "\n\n")
+                self.otbr_agent_process = subprocess.Popen(agent_command_array, stderr=subprocess.DEVNULL, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                #self.tcpdump = subprocess.Popen(["sudo","tcpdump","-i","any","'udp port 5353 and (host 224.0.0.251 or host ff02::fb)'","-n"], stderr=subprocess.DEVNULL, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                
+                
+                # sudo tcpdump -i any 'udp port 5353 and (host 224.0.0.251 or host ff02::fb)'
+
+                def read_otbr_stdout():
+                    while self.running:
+                        msg = self.otbr_agent_process.stdout.readline()
+                        decoded_message = str(msg.decode()).strip().rstrip()
+                        if len(decoded_message) > 1:
+                            self.otbr_stdout_messages.append(decoded_message)
+                        time.sleep(0.0001)
+                    if self.DEBUG:
+                        print("otbr read_stdout closed")
+                    
+                    if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
+                         
+                        self.otbr_agent_process.terminate()
+                        time.sleep(0.2)
+                        if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
+                            self.otbr_agent_process.kill()
+                            time.sleep(0.1)
+                        
+                            if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
+                                os.system('sudo pkill -f otbr-agent')
+                    self.otbr_agent_process = None
+                    
+                    self.otbr_stdout_messages = []
+                
+                if self.otbr_agent_process:
+                    self.stdout_thread = threading.Thread(target=read_otbr_stdout)
+                    self.stdout_thread.daemon = True
+                    self.stdout_thread.start()
+                else:
+                    print("error, self.otbr_agent_process subprocess was not created? ", self.otbr_agent_process)
+            
+            
+            else:
+                print("really_start_otbr: self.self.otbr_agent_process was not None?")
+                
+            
+            #self.shell.stdin.write((str(command) + '\n').encode())
+            #self.shell.stdin.flush()
+        except Exception as ex:
+            if self.DEBUG:
+                print("caught error in really_start_otbr: " + str(ex))
+                
+                
+              
+    def start_thread_mesh(self):
+        if self.DEBUG:
+            print("in start_thread_mesh")
+        dataset_loaded = False
+        
+        ip_link_show_output = str(run_command('ip link show'))
+        if os.path.isfile(self.ot_ctl_path) and 'wpan0' in ip_link_show_output:
+            
+            if 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 10:
+                if str(self.run_ot_ctl_command('dataset set active ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
+                    if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
+                        if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
+                            if self.DEBUG:
+                                print("start_thread_mesh: loaded existing thread dataset")
+                            dataset_loaded = True
+            
+            if dataset_loaded == False:
+                if self.run_ot_ctl_command('dataset init new'):
+                    if str(self.run_ot_ctl_command('dataset panid 0xdead')).rstrip() == 'Done':
+                        if str(self.run_ot_ctl_command('dataset extpanid dead1111dead2222')).rstrip() == 'Done':
+                            if str(self.run_ot_ctl_command('dataset networkname CandleThread')).rstrip() == 'Done':
+                                if str(self.run_ot_ctl_command('dataset networkkey 11112233445566778899DEAD1111DEAD')).rstrip() == 'Done':
+                                    if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
+                                        if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
+                                            if self.DEBUG:
+                                                print("start_thread_mesh: called dataset commit active on brand new thread dataset")
+                                            dataset_loaded = True
+                                    
+                                    
+            if dataset_loaded:
+                #self.thread_running = True
+                
+                self.thread_dataset = str(self.run_ot_ctl_command('dataset active -x')).replace('Done','').strip().rstrip()
+                
+                if self.DEBUG:
+                    print("self.thread_dataset: -->" + str(self.thread_dataset) + "<--")
+                self.set_thread_dataset()
+                
+                if not 'thread_dataset' in self.persistent_data:
+                    self.persistent_data['thread_dataset'] = "" + str(self.thread_dataset)
+                    self.should_save = True
+                    
+                elif 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 10:
+                    
+                    if str(self.thread_dataset) == str(self.persistent_data['thread_dataset']):
+                        if self.DEBUG:
+                            print("OK, the thread dataset is still the same")
+                    else:
+                        if self.DEBUG:
+                            print("\nERROR, thread dataset is different from version in persistent data!")
+                            print(str(self.thread_dataset) + " != " + str(self.persistent_data['thread_dataset']) + "\n")
+                            
+                    
+                thread_state = str(self.run_ot_ctl_command('state')).rstrip()
+                if self.DEBUG:
+                    print("thread state: \n" + str(thread_state))
+                
+                if 'leader' in str(self.run_ot_ctl_command('state')):
+                    self.thread_running = True
+                    
+                elif 'isabled' in str(self.run_ot_ctl_command('state')):
+                    if str(self.run_ot_ctl_command('ifconfig up')).rstrip() == 'Done':
+                        if str(self.run_ot_ctl_command('thread start')).rstrip() == 'Done':
+                            self.thread_running = True
+                            if self.DEBUG:
+                                print("\nOK, Thread has fully started: \n")
+            
+            if self.thread_running and self.DEBUG:    
+                print("__THREAD DETAILS__")             
+                print(str(self.run_ot_ctl_command('dataset active -x')))
+                print(str(self.run_ot_ctl_command('netdata show')))
+                print(str(self.run_ot_ctl_command('ipaddr')))
+                print("")
+                print(str(self.run_command('sudo sysctl -a | grep .wpan0.')))
+                print("")
+                
+                
+        else:
+            print("\nERROR, start_thread_mesh: ot-ctl does not exist, or 'wpan0' not in ip link show\nself.ot_ctl_path: " + str(self.ot_ctl_path) + "\n" + str(ip_link_show_output) + "\n\n")
+            
+    
+    def parse_mt_pairing_code(self,code):
+        if self.DEBUG:
+            print("in parse_mt_pairing_code. code: ", code)
+        parsed_output = None
+        if isinstance(code,str) and code.upper().startswith('MT:') and os.path.isfile(self.chip_tool_path):
+            parsed_output = self.run_chip_tool_command('payload parse-setup-payload ' + str(code))
+            if self.DEBUG:
+                print("parse_mt_pairing_code:  parsed_output: ", parsed_output)
+        return parsed_output
+                
+    
+    def really_stop_otbr(self):
+        if self.otbr_agent_process != None:
+            self.run_ot_ctl_command('thread stop')
+            self.run_ot_ctl_command('ifconfig down')
+            self.thread_running = False
+            if self.DEBUG:
+                print("really_stop_otbr: called ot-ctl thread stop and ot-ctl ifconfig down")
+            if self.otbr_agent_process and self.otbr_agent_process != None:
+                self.otbr_agent_process.terminate()
+                time.sleep(0.5)
+                if self.otbr_agent_process and self.otbr_agent_process.poll() == None:
+                    if self.DEBUG:
+                        print("warning, otbr_agent_process is still alive after .terminate()")
+                    self.otbr_agent_process.kill()
+                    time.sleep(0.1)
+                    if self.otbr_agent_process and self.otbr_agent_process.poll() == None:
+                        if self.DEBUG:
+                            print("\nERROR, otbr_agent_process is still alive after .kill(). Calling pkill..")
+                        os.system('sudo pkill -f otbr-agent')
+        self.otbr_agent_process = None
+        self.otbr_started = False
+
+
+
     # Check the Hotspot addon's settings for the SSID and Password
     def load_hotspot_config(self):
         """ This retrieves the HOTSPOT addon settings from the controller """
         if self.DEBUG:
             print("load_hotspot_config")
-        try:
-            database = Database('hotspot')
-            if not database.open():
-                print("Error. Could not open hotspot settings database")
-                return False
-
-            config = database.load_config()
-            database.close()
-
-        except:
-            print("Error. Failed to open Hotspot settings database.")
-            return False
             
-        try:
-            if not config:
-                print("Warning, no hotspot config.")
-                return False
+        
+        if self.nmcli_installed and os.path.isfile('/boot/firmware/candle_hotspot.txt'):
+            
+            hotspot_ssid = run_command("nmcli con show Candle_hotspot | grep 802-11-wireless.ssid | awk '{print $2,$3,$4,$5}'")
+            if isinstance(hotspot_ssid,str) and len(hotspot_ssid) > 4:
+                self.hotspot_ssid = str(hotspot_ssid)
+                
+            if os.path.isfile('/boot/firmware/candle_hotspot_password.txt'):
+                hotspot_password = str(run_command('cat /boot/firmware/candle_hotspot_password.txt')).strip().rstrip()
+                if len(hotspot_password) > 7:
+                    self.hotspot_password = hotspot_password
+                    
+        #elif self.nmcli_installed and not os.path.isfile('/boot/firmware/candle_hotspot.txt'):
+        #    self.hotspot_ssid = None
+        #    self.hotspot_password = None
+        
+        
+        else:
+            self.hotspot_ssid = ""
+            self.hotspot_password = ""
+            
+            try:
+                database = Database('hotspot')
+                if not database.open():
+                    print("Error. Could not open hotspot settings database")
+                    return False
 
-            # Hotspot name
-            try:
-                if 'Hotspot name' in config:
-                    if self.DEBUG:
-                        print("-Hotspot name is present in the config data.")
-                    self.hotspot_ssid = str(config['Hotspot name'])
+                config = database.load_config()
+                database.close()
+
             except Exception as ex:
-                print("Error loading hotspot name from config: " + str(ex))
-        
-            # Hotspot password
+                print("Error. Failed to open Hotspot settings database: ", ex)
+                return False
+            
             try:
-                if 'Hotspot password' in config:
-                    if self.DEBUG:
-                        print("-Hotspot password is present in the config data.")
-                    self.hotspot_password = str(config['Hotspot password'])
-            except Exception as ex:
-                print("Error loading hotspot password from config: " + str(ex))
+                if not config:
+                    print("Warning, no hotspot config.")
+                    return False
+
+                # Hotspot name
+                try:
+                    if 'Hotspot name' in config:
+                        if self.DEBUG:
+                            print("-Hotspot name is present in the config data.")
+                        self.hotspot_ssid = str(config['Hotspot name'])
+                except Exception as ex:
+                    print("Error loading hotspot name from config: " + str(ex))
         
-        except Exception as ex:
-            print("Error in load_hotspot_config: " + str(ex))
+                # Hotspot password
+                try:
+                    if 'Hotspot password' in config:
+                        if self.DEBUG:
+                            print("-Hotspot password is present in the config data.")
+                        self.hotspot_password = str(config['Hotspot password'])
+                except Exception as ex:
+                    print("Error loading hotspot password from config: " + str(ex))
+        
+            except Exception as ex:
+                print("Error in load_hotspot_config: " + str(ex))
 
 
 
@@ -620,14 +935,19 @@ class MatterAdapter(Adapter):
         
     def on_message(self, ws, message="{}"):
         if self.DEBUG:
-            self.s_print("\n.\nclient: in on_message.  Message: " + str(message)[:100] + "...etc" + "\n\n")
+            self.s_print("\n.\nclient: in on_message.  Message: " + str(message)[:300] + " ...etc" + "\n\n")
         try:
             
             # matter_server.common.models.message.SuccessResultMessage
             
             message = json.loads(message)
-            #if self.DEBUG:
-            #    print("parsed message: " + str(message))
+            if self.DEBUG:
+                print("parsed message: " + str(message))
+            
+            
+            if 'fabric_id' in message:
+                self.client_connected = True
+                
             if '_type' in message:
                 if message['_type'] == "matter_server.common.models.server_information.ServerInfo":
                     if self.DEBUG:
@@ -765,10 +1085,11 @@ class MatterAdapter(Adapter):
                         
             else:
                 if self.DEBUG:
-                    self.s_print("Warning, there was no _type in the message")
+                    self.s_print("Warning, there was no _type in the message: " + json.dumps(message,indent=4))
         
         
             if 'error_code' in message:
+                self.pairing_failed = True
                 if self.DEBUG:
                     print("message contained an error code.")
                 
@@ -1042,12 +1363,75 @@ class MatterAdapter(Adapter):
         return False
 
 
+
+    # Pass Thread credentials to Matter
+    def set_thread_dataset(self):
+        if self.DEBUG:
+            self.s_print("in set_thread_dataset. self.thread_dataset: " + str(self.thread_dataset))
+        try:
+            if self.client_connected == False:
+                if self.DEBUG:
+                    self.s_print("Cannot set thread dataset, client is not connected to Matter server")
+                
+            elif self.thread_dataset != "":
+                if self.DEBUG:
+                    self.s_print("Sharing thread dataset with Matter server")
+
+                """
+                if self.candle_wifi_ssid != "" and self.candle_wifi_password != "":
+                    if self.DEBUG:
+                        print("SHARING CANDLE'S WIFI CREDENTIALS")
+                    wifi_message = {
+                            "message_id": "set_wifi_credentials",
+                            "command": "set_wifi_credentials",
+                            "args": {
+                                "ssid": str(self.candle_wifi_ssid),
+                                "credentials": str(self.candle_wifi_password)
+                            }
+                          }
+                else:
+
+                if self.DEBUG:
+                    print("SHARING WIFI CREDENTIALS")
+                """
+                thread_message = {
+                        "message_id": "set_thread_dataset",
+                        "command": "set_thread_dataset",
+                        "args": {
+                            "dataset": str(self.thread_dataset)
+                        }
+                      }
+
+                # send wifi credentials
+                if self.DEBUG:
+                    self.s_print("\n.\n) ) )\n.\nsending thread credentials: " + str(thread_message))
+                json_thread_message = json.dumps(thread_message)
+
+                self.ws.send(json_thread_message)
+                return True
+                
+            else:
+                if self.DEBUG:
+                    self.s_print("Cannot set thread dataset, as there is no dataset to set yet")
+        except Exception as ex:
+            if self.DEBUG:
+                self.s_print("caught error in set thread dataset: " + str(ex))
+        
+        return False
+
+
+
+
     def start_matter_pairing(self,pairing_type,code):
         if self.DEBUG:
             self.s_print("\n\n\n\nin start_matter_pairing. Pairing type: " + str(pairing_type) + ", Code: " + str(code))
         self.pairing_failed = False
         # Download the latest certificates if they haven't been updated in a while
         #self.download_certs()
+        
+        if str(code).upper().startswith('MT:'):
+            expanded_code = self.parse_mt_pairing_code(code)
+            print("start_matter_pairing: expanded_code: ", expanded_code)
         
         
         try:
@@ -1061,13 +1445,14 @@ class MatterAdapter(Adapter):
         
                 # Set the wifi credentials
                 self.set_wifi_credentials()
+                self.set_thread_dataset()
                 
-                time.sleep(6) # TODO: Dodgy
+                #time.sleep(6) # TODO: Dodgy
         
         
-                os.system('sudo btmgmt -i hci0 power off')
-                os.system('sudo btmgmt -i hci0 bredr off')
-                os.system('sudo btmgmt -i hci0 power on')
+                #os.system('sudo btmgmt -i hci0 power off')
+                #os.system('sudo btmgmt -i hci0 bredr off')
+                #os.system('sudo btmgmt -i hci0 power on')
         
                 
                 
@@ -1078,7 +1463,8 @@ class MatterAdapter(Adapter):
                             "message_id": "commission_with_code",
                             "command": "commission_with_code",
                             "args": {
-                                "code": code
+                                "code": code,
+                                "network_only": False # NEW
                             }
                         }
             
@@ -1101,6 +1487,7 @@ class MatterAdapter(Adapter):
             else:
                 if self.DEBUG:
                      self.s_print("start_matter_pairing: error, client is not connected")
+                     self.send_pairing_prompt("Error, Matter client is not connected")
             
         except Exception as ex:
             self.s_print("Error in start_pairing: " + str(ex))
@@ -1119,12 +1506,28 @@ class MatterAdapter(Adapter):
         # /home/pi/.webthings/addons/matter-adapter/lib/
         matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.data_path)
         if self.vendor_id != "":
-            matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
+            decimal_vendor_id = int(self.vendor_id, 16)
+            #matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
+            matter_server_command = matter_server_command + " --vendorid " + str(decimal_vendor_id)
+            
         if self.nmcli_installed == True:
             matter_server_command = matter_server_command + " --primary-interface uap0"
-
-		# could also run it via a container, e.g:
-		# nerdctl run --net host --privileged=false ghcr.io/home-assistant-libs/python-matter-server:stable  --primary-interface uap0
+            
+            
+        if not os.path.isdir('/data/credentials'):
+            os.system('mkdir -p /data/credentials')
+        #matter_server_command = matter_server_command + " --paa-root-cert-dir /data/credentials"
+        
+        #bluetooth_check = str(run_command('hcitool dev'))
+        bluetooth_check = str(run_command('hciconfig -a'))
+        
+        if 'hci0' in bluetooth_check:
+            matter_server_command = matter_server_command + " --bluetooth-adapter 0"
+        elif 'hci1' in bluetooth_check:
+            matter_server_command = matter_server_command + " --bluetooth-adapter 1"
+        
+        #matter_server_command = matter_server_command + " --bypass-attestation-verifier true"
+        
         
         if not os.path.exists(self.data_path):
             self.s_print("ERROR DATA PATH DOES NOT EXIST")
@@ -1154,7 +1557,7 @@ class MatterAdapter(Adapter):
         os.set_blocking(self.server_process.stdout.fileno(), False)
         os.set_blocking(self.server_process.stderr.fileno(), False)
         
-        print("clock: self.running: " + str(self.running))
+        #print("clock: self.running: " + str(self.running))
         dd = 1
         while self.running:
             time.sleep(0.01)
@@ -1171,6 +1574,37 @@ class MatterAdapter(Adapter):
             #if self.DEBUG:
             #    self.s_print("clock: server_process exists")
                 #self.s_print("poll: " + str(self.server_process.poll()))
+
+            if len(self.otbr_stdout_messages):
+                if self.DEBUG:
+                    print("\nclock: total otbr_stdout_messages length: ", len(self.otbr_stdout_messages))
+                    
+                wpan_check = str(run_command('ip link show | grep wpan0'))
+                if 'state ' in wpan_check:
+                    self.otbr_started = True
+                    
+                if 'state DOWN' in wpan_check:
+                    bring_up_wpan0_output = str(run_command('sudo ip link set wpan0 up'))
+                    if self.DEBUG:
+                        print("bring_up_wpan0_output: ", bring_up_wpan0_output)
+                    
+                    
+                while len(self.otbr_stdout_messages):
+                    otbr_message = self.otbr_stdout_messages.pop(0)
+                    print("clock: otbr_message: ", otbr_message)
+                    if 'failed set request 0x12 status: -110' in otbr_message:
+                        if self.DEBUG:
+                            print("the Thread radio may need to use an extension cord")
+                        self.thread_error = 'You may need to use a USB extension cable for your Thread dongle'
+                    elif 'Failed to communicate with RCP' in otbr_message:
+                        if self.DEBUG:
+                            print("\nERROR, spotted message indicating the thread radio isn't responding")
+                        self.thread_error = 'The Thread radio is not responding'
+                    
+                    elif ('SrpAdvProxy---: Started' in otbr_message or 'Evaluating routing policy' in otbr_message) and self.thread_set_active == False:
+                        self.thread_set_active = True
+                        self.start_thread_mesh()
+                
 
             try:
                 for line in iter(self.server_process.stdout.readline,b''):
@@ -1197,6 +1631,10 @@ class MatterAdapter(Adapter):
                         self.pairing_failed = True
                         self.busy_pairing = False
                         self.send_pairing_prompt("Interviewing Matter device just failed")
+                    if 'le-connection-abort-by-local' in line:
+                        self.pairing_failed = True
+                        self.busy_pairing = False
+                        self.send_pairing_prompt("Bluetooth got wireless interference. Try again?")
                     
                     
                     if 'address already in use' in line:
@@ -1444,11 +1882,22 @@ class MatterAdapter(Adapter):
         
         self.running = False
         
+        if self.server_process and self.server_process.poll() == None:
+            self.server_process.terminate()
+            time.sleep(.2)
+        if self.server_process and self.server_process.poll() == None:
+            self.server_process.kill()
+            time.sleep(.2)
+        if self.server_process and self.server_process.poll() == None:
+            os.system('sudo pkill -f ')
+        
         try:
             run_loop = asyncio.get_running_loop()
             run_loop.stop()
         except Exception as ex:
             print("Error getting asyncio loop: " + str(ex))
+        
+        self.really_stop_otbr()
         
         #if self.client != None:
         #    self.client.stop()
@@ -1479,7 +1928,7 @@ class MatterAdapter(Adapter):
         
         # does it reach this?
         if self.DEBUG:
-            print("goodbye")
+            print("matter adapter: goodbye")
         return True
 
 
@@ -1562,8 +2011,67 @@ class MatterAdapter(Adapter):
         return True
         
               
+    def run_chip_tool_command(self, cmd, timeout_seconds=10):
+        try:
+            if not os.path.isfile(self.chip_tool_path):
+                print("\nERROR, run_chip_tool_command: chip_tool is missing: ", self.chip_tool_path)
+                return None
+            my_env = get_env()
+            
+            my_env["LD_LIBRARY_PATH"] = '{}'.format(self.addon_thread_dir_path)
+            
+            data_path = '/data'
+            #my_env["TMPDIR"] = '{}'.format(self.data_thread_dir_path)
+            my_env["TMPDIR"] = '{}'.format(data_path)
+            
+            command = str(self.chip_tool_path) + ' ' + str(cmd) # export LD_LIBRARY_PATH=' + str(self.addon_thread_dir_path) + ' ' +
+            if self.DEBUG:
+                print("run_chip_tool_command: \n" + str(command))
+            #op = subprocess.run('sudo ' + str(self.ot_ctl_path) + ' ' + str(cmd) + ' --storage-directory ' + str(self.data_thread_dir_path), timeout=timeout_seconds, env=my_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
+            op = subprocess.run(command, timeout=timeout_seconds, env=my_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
+
+            if op.returncode == 0:
+                return str(op.stdout).rstrip()
+            else:
+                if op.stderr:
+                    return str(op.stderr).rstrip()
+
+        except Exception as ex:
+            print("caught error in run_chip_tool_command: "  + str(ex))
+            return None
         
         
+    def run_ot_ctl_command(self, cmd, timeout_seconds=10):
+        try:
+            if not os.path.isfile(self.ot_ctl_path):
+                print("\nERROR, run_ot_ctl_command: ot-ctl is missing: ", self.ot_ctl_path)
+                return None
+            my_env = get_env()
+            
+            my_env["LD_LIBRARY_PATH"] = '{}'.format(self.addon_thread_dir_path)
+            
+            data_path = '/data'
+            #my_env["TMPDIR"] = '{}'.format(self.data_thread_dir_path)
+            my_env["TMPDIR"] = '{}'.format(data_path)
+            
+            command = 'sudo ' + str(self.ot_ctl_path) + ' ' + str(cmd) 
+            if 'dataset' in cmd:
+                command = command + ' --storage-directory ' + str(data_path)
+            
+            if self.DEBUG:
+                print("run_ot_ctl_command: \n" + str(command))
+            #op = subprocess.run('sudo ' + str(self.ot_ctl_path) + ' ' + str(cmd) + ' --storage-directory ' + str(self.data_thread_dir_path), timeout=timeout_seconds, env=my_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
+            op = subprocess.run(command, timeout=timeout_seconds, env=my_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
+
+            if op.returncode == 0:
+                return str(op.stdout).rstrip()
+            else:
+                if op.stderr:
+                    return str(op.stderr).rstrip()
+
+        except Exception as ex:
+            print("caught error in run_ot_ctl_command: "  + str(ex))
+            return None
     
     # Loop over all the items in the list, which is stored inside the adapter instance.
     """
@@ -1591,6 +2099,38 @@ def run_command(cmd, timeout_seconds=30):
             if p.stderr:
                 return str(p.stderr).rstrip()
 
-    except Exception as e:
-        print("Error running command: "  + str(e))
+    except Exception as ex:
+        print("caught error in run_command: "  + str(ex))
         return None
+
+
+
+
+
+        
+def get_env():
+    my_env = os.environ.copy()
+    if not "DISPLAY" in my_env:   
+        #print("get_env: adding display variable to environment")
+        my_env["DISPLAY"] = ':0'
+    
+    if not "XDG_RUNTIME_DIR" in my_env:
+        user_index = run_command('id -u')
+        if isinstance(user_index,str):
+            #print("user_index: -->" + str(user_index) + "<--")
+            user_index = str(user_index).strip().rstrip()
+            if user_index.isdigit():
+                my_env["XDG_RUNTIME_DIR"] = "/run/user/" + str(user_index)
+    
+    if os.path.isdir('/home/pi/.dbus/session-bus'):
+        dbus_session_lines = run_command('cat /home/pi/.dbus/session-bus/* | grep -v ^# ')
+        if isinstance(dbus_session_lines,str):
+            for line in dbus_session_lines.splitlines():
+                #print("DBUS line: -->" + str(line) + "<--" )
+                if '=' in line and line.startswith('DBUS_SESSION_BUS'):
+                    dbus_value = re.escape(str(line.split('=', 1)[1]))
+                    #print("dbus_value: -->" + str(dbus_value) + "<--")
+                    dbus_value = dbus_value.replace("'","")
+                    my_env[ str(line.split('=', 1)[0]).strip() ] = dbus_value
+                    
+    return my_env

@@ -82,8 +82,11 @@ extension-matter-adapter-
 
 
 
+#extension-matter-adapter-still-starting-hint{
+	text-align:center;
+}
 
-/* In this example we hide the second page based on a CSS class that is added or removed from the content container div */
+
 #extension-matter-adapter-second-page{
     display:none;
     padding-top:2rem;
@@ -113,6 +116,7 @@ extension-matter-adapter-
 }
 .extension-matter-adapter-error{
     background-color:#500;
+	color:white;
 }
 
 
@@ -120,6 +124,11 @@ extension-matter-adapter-
     display:none!important;
 }
 
+
+.extension-matter-adapter-flex-between{
+    display:flex;
+    justify-content:space-between;
+}
 
 .extension-matter-adapter-flex-center{
     display:flex;
@@ -129,10 +138,40 @@ extension-matter-adapter-
 
 
 
+/*  THREAD RADIO STATE  */
+
+#extension-matter-adapter-thread-radio-container{
+	margin: 4rem auto;
+    background: rgba(0, 0, 0, .1);
+    padding: 2rem;
+    width: auto;
+    border-radius: 1rem;
+}
+
+#extension-matter-adapter-thread-logo-wrapper{
+	width:30%;
+	max-width:5rem;
+	margin-right:1rem;
+}
+
+#extension-matter-adapter-thread-radio-details{
+	font-size:1.6rem;
+	display:flex;
+	flex-direction:column;
+}
+#extension-matter-adapter-thread-radio-details span{
+	display:block;
+}
+
+
+
+
+
 .extension-matter-adapter-qr-video-icon{
 	max-width:4rem;
 	max-height:4rem;
 }
+
 
 
 /*  MAIN PAGE  */
@@ -372,6 +411,12 @@ extension-matter-adapter-
 
 
 
+
+
+
+
+
+
 /*  Choose QR scanning method  */
 
 #extension-matter-adapter-pairing-qr-choose-scanner-area{
@@ -571,7 +616,7 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
 }
 
 
-body:not(.developer) .extension-matter-adapter-developer-only{
+body:not(.developer) .extension-matter-adapter-show-if-developer{
     display:none;
 }
 

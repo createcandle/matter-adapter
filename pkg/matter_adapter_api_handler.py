@@ -121,13 +121,44 @@ class MatterAPIHandler(APIHandler):
                         )
                         
                         
-                    # POLL
-                    if action == 'poll':
+                    
+                    # MAIN POLL
+                    elif action == 'get_main_poll':
+                        if self.DEBUG:
+                            print("API: in get_main_poll")
+                        
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({
+                                      'debug': self.adapter.DEBUG,
+                                      'certificates_updated': self.adapter.certificates_updated,
+                                      'busy_updating_certificates':self.adapter.busy_updating_certificates,
+                                      'client_connected': self.adapter.client_connected,
+                                      'discovered': self.adapter.discovered, # deprecated, but might be interesting to see if it's ever populated
+                                      'busy_discovering':self.adapter.busy_discovering,
+                                      'busy_pairing':self.adapter.busy_pairing,
+                                      'pairing_failed':self.adapter.pairing_failed,
+                                      'nodez': self.adapter.persistent_data['nodez'],
+                                      'found_thread_radio_again': self.adapter.found_thread_radio_again,
+                                      'found_new_thread_radio':self.adapter.found_new_thread_radio,
+                                      'otbr_started': self.adapter.otbr_started,
+                                      'thread_running': self.adapter.thread_running,
+                                      'thread_error':self.adapter.thread_error,
+                                      'last_found_pairing_code':self.adapter.last_found_pairing_code,
+                                      'client_connected':self.adapter.client_connected
+                                      }),
+                        )
+                    
+                        
+                    # POLL used when pairing a new Matter device
+                    elif action == 'poll':
                         if self.DEBUG:
                             print("API: in poll")
                         
                         code = ""
                         qr_json = ""
+                        decoded_pairing_code = ""
                         
                         try:
                             uuid = str(request.body['uuid'])
@@ -136,23 +167,36 @@ class MatterAPIHandler(APIHandler):
                                         "uuid": uuid 
                                     }
                        
-                            if self.adapter.DEBUG2:
+                            if self.adapter.DEBUG:
                                 print("poll: doing request to candle webserver. parameters: " + str(parameters))
-                            if not self.adapter.busy_pairing:
-                                q = requests.post( "https://www.candlesmarthome.com/qr/ajax.php", data = parameters )
-                                if self.adapter.DEBUG2:
-                                    print("q.content = " + str(q.content))
-                                    print("q.json = " + str(q.json))
-                                    if len(str(q.content)) > 4:
-                                        qr_json = q.json()
-                                        if 'code' in qr_json:
-                                            code = qr_json['code']
-                                        else:
-                                            if self.adapter.DEBUG2:
-                                                print('no code in post json')
-                                    else: 
-                                        if self.adapter.DEBUG2:
-                                            print('Matter adapter debug: poll: response not long enough')
+                            
+                            q = requests.post( "https://www.candlesmarthome.com/qr/ajax.php", data = parameters )
+                            if self.adapter.DEBUG:
+                                print("q.content = " + str(q.content))
+                                print("q.json = " + str(q.json))
+                            if len(str(q.content)) > 4:
+                                qr_json = q.json()
+                                print("qr_json: ", qr_json)
+                                
+                                if 'code' in qr_json:
+                                    code = qr_json['code']
+                                    self.adapter.last_found_pairing_code = str(code)
+                                    try:
+                                        decoded_pairing_code = self.adapter.parse_mt_pairing_code(str(code))
+                                        if self.adapter.DEBUG:
+                                            print('decoded_pairing_code: ', decoded_pairing_code)
+                                    except Exception as ex:
+                                        print("caught error trying to unpack matter pairing code: ", ex)
+                                    
+                                    
+                                else:
+                                    if self.adapter.DEBUG:
+                                        print('no code in post json: ', q.content)
+                            else: 
+                                if self.adapter.DEBUG:
+                                    print('Matter adapter debug: poll: response not long enough')
+                            #if not self.adapter.busy_pairing:
+                                
                         
                         except Exception as ex:
                             if self.DEBUG:
@@ -167,12 +211,12 @@ class MatterAPIHandler(APIHandler):
                                       'certificates_updated': self.adapter.certificates_updated,
                                       'busy_updating_certificates':self.adapter.busy_updating_certificates,
                                       'client_connected': self.adapter.client_connected,
-                                      'discovered': self.adapter.discovered, # deprecated, but might be interesting to see if it's every populated
+                                      'discovered': self.adapter.discovered, # deprecated, but might be interesting to see if it's ever populated
                                       'busy_discovering':self.adapter.busy_discovering,
                                       'pairing_code': code,
+                                      'decoded_pairing_code': str(decoded_pairing_code).splitlines(),
                                       'busy_pairing':self.adapter.busy_pairing,
                                       'pairing_failed':self.adapter.pairing_failed,
-                                      #'nodes': self.adapter.nodes,
                                       'nodez': self.adapter.persistent_data['nodez']
                                       }),
                         )

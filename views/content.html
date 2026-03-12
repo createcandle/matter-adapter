@@ -25,9 +25,24 @@
                     </div>
                     -->
 			
-                    <div id="extension-matter-adapter-install-hotspot-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
-                        <p>To protect your privacy it's recommended to also install the Hotspot addon. It can create a WiFi guest network for your devices, and gives you control over which servers devices on that network may connect to. If you install it, this addon will automatically tell new WiFi-based Matter devices to connect to that network.</p>
+                    <div id="extension-matter-adapter-thread-radio-container" class="extension-matter-adapter-flex-center extension-matter-adapter-flex extension-matter-adapter-hiddenX">
+                        <div id="extension-matter-adapter-thread-logo-wrapper"><img src="/extensions/matter-adapter/images/candle_thread_logo.svg" alt="Candle Thread logo"/></div>
+						<div id="extension-matter-adapter-thread-radio-details"><span>Looking for Thread radio...</span></div>
                     </div>
+					
+                    <div id="extension-matter-adapter-still-starting-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
+                        <p>The Matter addon is still starting...</p>
+                    </div>
+					
+                    <div id="extension-matter-adapter-install-hotspot-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+                        <p>To protect your privacy it's recommended to enable the hotspot feature. Think of it as a WiFi guest network for your devices, giving you control over which servers devices on that network may connect to. When enabled, this addon will automatically tell new WiFi-based Matter devices to connect to the Candle Hotspot.</p>
+                    </div>
+					
+                    <div id="extension-matter-adapter-delete-thing-hint" class="extension-matter-adapter-hidden">
+                        <p>You have deleted a Matter device. Now you will also have to manually remove the corresponding <a href="/things" class="text-button">thing</a>.</p>
+                    </div>
+					
+					
                     
     			    <div id="extension-matter-adapter-loading">
     				    <div class="extension-matter-adapter-spinner">
@@ -35,16 +50,15 @@
     				    </div>
     			    </div>
                     
-                    <div id="extension-matter-adapter-delete-thing-hint" class="text-button extension-matter-adapter-hidden">
-                        <p>You have deleted a Matter device. Now you will also have to manually remove the corresponding <a href="/things">thing</a>.
-                    </div>
                     
-                    <div id="extension-matter-adapter-paired-devices-list">
-                    </div>
+					
+                    
+                    
+                    <div id="extension-matter-adapter-paired-devices-list"></div>
                     
                     <button id="extension-matter-adapter-refresh-paired-list-button" class="text-button extension-matter-adapter-hidden">Refresh</button>
                     
-                    <pre id="extension-matter-adapter-paired-devices-list-pre" class="extension-matter-adapter-developer-only">
+                    <pre id="extension-matter-adapter-paired-devices-list-pre" class="extension-matter-adapter-show-if-developer">
                     </pre>
                     
                     <button id="extension-matter-adapter-show-second-page-button" class="icon-button"></button>
@@ -336,7 +350,7 @@
 					-->
 
 
-					<button id="extension-matter-adapter-stop-poll-button" class="extension-matter-adapter-developer-only text-button">Stop polling</button>
+					<button id="extension-matter-adapter-stop-poll-button" class="extension-matter-adapter-show-if-developer text-button">Stop polling</button>
                     
 				</div>
 					

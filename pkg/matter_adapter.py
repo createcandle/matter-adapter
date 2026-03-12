@@ -253,6 +253,12 @@ class MatterAdapter(Adapter):
         self.addon_path = os.path.join(self.user_profile['addonsDir'], self.addon_id) # addonsDir points to the directory that holds all the addons (/home/pi/.webthings/addons).
         self.lib_path = os.path.join(self.addon_path, 'lib')
         self.data_path = os.path.join(self.user_profile['dataDir'], self.addon_id)
+        
+        # Create the data directory if it doesn't exist yet
+        if not os.path.isdir(self.data_path):
+            #print("making missing data directory")
+            os.system('mkdir -p ' + str(self.data_path))
+        
         self.persistence_file_path = os.path.join(self.data_path, 'persistence.json') # dataDir points to the directory where the addons are allowed to store their data (/home/pi/.webthings/data)
         self.chip_factory_ini_file_path = os.path.join(self.user_profile['baseDir'],'hasdata','chip_factory.ini')
         #self.certs_dir_path = os.path.join(self.data_path, 'paa-root-certs')
@@ -261,10 +267,20 @@ class MatterAdapter(Adapter):
         self.ot_ctl_path = os.path.join(self.addon_path,'thread','ot-ctl')
         self.otbr_web_path = os.path.join(self.addon_path,'thread','otbr-web')
         self.chip_tool_path = os.path.join(self.addon_path,'thread','chip-tool')
+        
+        if os.path.isfile(str(self.otbr_agent_path)):
+            os.system('chmod +x ' + str(self.otbr_agent_path))
+        if os.path.isfile(str(self.ot_ctl_path)):
+            os.system('chmod +x ' + str(self.ot_ctl_path))
+        if os.path.isfile(str(self.otbr_web_path)):
+            os.system('chmod +x ' + str(self.otbr_web_path))
+        if os.path.isfile(str(self.chip_tool_path)):
+            os.system('chmod +x ' + str(self.chip_tool_path))
+        
         self.addon_thread_dir_path = os.path.join(self.addon_path,'thread')
         self.data_thread_dir_path = os.path.join(self.data_path,'thread')
         if not os.path.isdir(str(self.data_thread_dir_path)):
-            print("creating missing data/thread dir: ", self.data_thread_dir_path)
+            #print("creating missing data/thread dir: ", self.data_thread_dir_path)
             os.system('mkdir -p ' + str(self.data_thread_dir_path))
         
         os.chdir(self.data_path)
@@ -276,14 +292,13 @@ class MatterAdapter(Adapter):
         #print("self.certs_dir_path: " + str(self.certs_dir_path))
         
         self.certs_downloader_path = os.path.join(self.addon_path, 'download_certificates.py')
+        
+        # deprecated, as Candle 3.0 has hotspot functionality built-in
         self.hotspot_addon_path = os.path.join(self.user_profile['addonsDir'], 'hotspot')
         self.hotspot_persistence_path = os.path.join(self.user_profile['dataDir'], 'hotspot', 'persistence.json')
         
         
-        # Create the data directory if it doesn't exist yet
-        if not os.path.isdir(self.data_path):
-            print("making missing data directory")
-            os.system('mkdir -p ' + str(self.data_path))
+        
         
         self.persistent_data = {}
         

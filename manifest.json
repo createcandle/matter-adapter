@@ -48,7 +48,7 @@
         },
         "Vendor ID":{
             "type": "string",
-            "description": "Advanced. You can manually set the Vendor ID of the Matter fabric. If you change this you will have to pair all your devices again."
+            "description": "Advanced. You can manually set the Vendor ID of the Matter fabric. If you change this you will have to pair all your devices again. For example, the Home Assistant vendor ID is 134B"
         },
         "Thread dataset":{
             "type": "string",

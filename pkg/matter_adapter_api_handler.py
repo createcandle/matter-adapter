@@ -146,7 +146,8 @@ class MatterAPIHandler(APIHandler):
                                       'thread_running': self.adapter.thread_running,
                                       'thread_error':self.adapter.thread_error,
                                       'last_found_pairing_code':self.adapter.last_found_pairing_code,
-                                      'client_connected':self.adapter.client_connected
+                                      'client_connected':self.adapter.client_connected,
+                                      'wifi_congestion_data':self.adapter.wifi_congestion_data
                                       }),
                         )
                     

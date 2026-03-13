@@ -201,6 +201,8 @@ class MatterAdapter(Adapter):
         self.wifi_password = ""
         self.wifi_set = False
         
+        self.wifi_congestion_data = {}
+        
         # not recommended  https://github.com/home-assistant-libs/python-matter-server
         #os.system('sudo sysctl -w net.ipv6.conf.all.forwarding=1')
         #os.system('sudo sysctl -w net.ipv6.conf.wlan0.accept_ra=2')
@@ -474,6 +476,10 @@ class MatterAdapter(Adapter):
             #self.ready = True
 
 
+
+            self.wifi_congestion_data = self.wifi_congestion_scan()
+
+
     def s_print(self, *a, **b):
         """Thread safe print function"""
         with self.s_print_lock:
@@ -602,6 +608,21 @@ class MatterAdapter(Adapter):
                 print("\nNO THREAD RADIO FOUND\n")
 
 
+    def add_otbr_iptables(self):
+        
+        current_iptables = run_command('sudo iptables -S')
+        if isinstance(current_iptable,str):
+            if not 'wpan0' in current_iptables:
+                if self.DEBUG:
+                    print("add_otbr_iptables: adding wpan0 masquerade iptables")
+                    
+                #  OpenThread NAT64
+                os.system('sudo iptables -t mangle -A PREROUTING -i wpan0 -j MARK --set-mark 0x1001')
+                os.system('sudo iptables -t nat -A POSTROUTING -m mark --mark 0x1001 -j MASQUERADE')
+                os.system('sudo iptables -t filter -A FORWARD -o uap0 -j ACCEPT')
+                os.system('sudo iptables -t filter -A FORWARD -i uap0 -j ACCEPT')
+
+
 
     def start_otbr(self):
         if self.DEBUG:
@@ -633,6 +654,8 @@ class MatterAdapter(Adapter):
                         if real_tty_path and str(real_tty_path).startswith('tty') and len(str(real_tty_path)) < 10:
                             thread_radio_url = "spinel+hdlc+uart:///dev/" + str(real_tty_path) + "?uart-baudrate=460800"
                         
+                    
+                    # &uart-init-deassert
                     
                 
                 self.thread_radio_url = thread_radio_url
@@ -670,13 +693,21 @@ class MatterAdapter(Adapter):
                 """
                 os.system('sudo sysctl "net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1 net.ipv6.conf.all.accept_ra=2 net.ipv6.conf.all.accept_ra_rt_info_max_plen=64 net.ipv6.conf.eno1.accept_ra=2 net.ipv6.conf.wpan0.accept_ra=2"')
                 
+                os.system('sudo sysctl -w net.ipv6.conf.wlan0.accept_ra=2')
+                os.system('sudo sysctl -w net.ipv6.conf.uap0.accept_ra=2')
+                os.system('sudo sysctl -w net.ipv6.conf.eth0.accept_ra=2')
                 
+                agent_command_array = ["sudo",str(self.otbr_agent_path),"--data-path",str(self.data_thread_dir_path),"--syslog-disable","--debug-level","7","--vendor-name","CandleSmartHome","--model-name","CandleController","--thread-ifname","wpan0","-B", str(self.thread_backbone_interface), str(self.thread_radio_url)]
                 
-                agent_command_array = ["sudo",str(self.otbr_agent_path),"--data-path",str(self.data_thread_dir_path),"--syslog-disable","--debug-level","7","--thread-ifname","wpan0","-B", str(self.thread_backbone_interface), str(self.thread_radio_url)]
+                #
+                # trel://wlan0
+                # enables router-to-router communication over the IP backbone
+                #
                 
-                print("\n\nOTBR agent_command_array: ", str(agent_command_array), "\n\n")
-                
-                print("\n\nTREAD AGENT COMMAND:\n\n" + str( " ".join(agent_command_array) ) + "\n\n")
+                if self.DEBUG:
+                    print("\n\nOTBR agent_command_array: ", str(agent_command_array), "\n\n")
+                    print("\n\nTREAD AGENT COMMAND:\n\n" + str( " ".join(agent_command_array) ) + "\n\n")
+                    
                 self.otbr_agent_process = subprocess.Popen(agent_command_array, stderr=subprocess.DEVNULL, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 #self.tcpdump = subprocess.Popen(["sudo","tcpdump","-i","any","'udp port 5353 and (host 224.0.0.251 or host ff02::fb)'","-n"], stderr=subprocess.DEVNULL, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 
@@ -726,7 +757,44 @@ class MatterAdapter(Adapter):
                 print("caught error in really_start_otbr: " + str(ex))
                 
                 
-              
+    
+    def wifi_congestion_scan(self):
+        channel_data = {}
+        channels_output = str(run_command("sudo iwlist wlan0  channel | grep -v 'available frequencies' | grep -v 'Current Frequency'"))
+        if 'Channel ' in channels_output:
+            for channel_line in channels_output.splitlines():
+                if 'Channel ' in channel_line and ' GHz' in channel_line:
+                    channel_number = channel_line.split(' : ',1)[0].strip().rstrip()
+                    #channel_number = channel_number.replace('Channel ','').strip().rstrip()
+                    frequency = channel_line.split(' : ',1)[1]
+                    frequency = frequency.replace(' GHz','').strip().rstrip()
+                    
+                    
+                    if frequency.isdigit():
+                        channel_data[channel_number] = {'nr':channel_number.replace('Channel ','').strip().rstrip(), 'frequency':frequency}
+                        
+                        # sudo iw dev wlan0 scan freq 2412 
+                        #frequency_data = run_command('sudo iw dev wlan0 scan freq ' + str(frequency))
+                        frequency_data = str(run_command('sudo iw dev wlan0 scan freq ' + str(frequency) + ' | grep "channel utilisation"'))
+                        if '* channel utilisation: ' in frequency_data and '/' in frequency_data:
+                            utilisation = frequency_data.split('* channel utilisation: ',1)[1]
+                            if '/' in utilisation:
+                                utilisation = utilisation.split('/',1)[0]
+                                if utilisation.isdigit():
+                                    channel_data[channel_number]['utilisation'] = int(utilisation)
+                        
+                        if '* station count: ' in frequency_data and '/' in frequency_data:
+                            station_count = frequency_data.split('* station count: ',1)[1]
+                            station_count = station_count.strip().rstrip()
+                            if len(station_count) < 4 and station_count.isdigit():
+                                channel_data[channel_number]['station_count'] = int(station_count)
+        return channel_data        
+                        
+                        
+                    
+        
+    
+    
     def start_thread_mesh(self):
         if self.DEBUG:
             print("in start_thread_mesh")
@@ -734,6 +802,16 @@ class MatterAdapter(Adapter):
         
         ip_link_show_output = str(run_command('ip link show'))
         if os.path.isfile(self.ot_ctl_path) and 'wpan0' in ip_link_show_output:
+            
+            if self.DEBUG:
+                print("start_thread_mesh: calling add_otbr_iptables")
+            self.add_otbr_iptables()
+            
+            if self.DEBUG:
+                print("start_thread_mesh: setting txpower to 8")
+            txpower_output = self.run_ot_ctl_command('txpower 8')
+            if self.DEBUG:
+                print("txpower_output: ", txpower_output)
             
             if 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 10:
                 if str(self.run_ot_ctl_command('dataset set active ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
@@ -745,54 +823,71 @@ class MatterAdapter(Adapter):
             
             if dataset_loaded == False:
                 if self.run_ot_ctl_command('dataset init new'):
-                    if str(self.run_ot_ctl_command('dataset panid 0xdead')).rstrip() == 'Done':
-                        if str(self.run_ot_ctl_command('dataset extpanid dead1111dead2222')).rstrip() == 'Done':
-                            if str(self.run_ot_ctl_command('dataset networkname CandleThread')).rstrip() == 'Done':
-                                if str(self.run_ot_ctl_command('dataset networkkey 11112233445566778899DEAD1111DEAD')).rstrip() == 'Done':
-                                    if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
-                                        if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
-                                            if self.DEBUG:
-                                                print("start_thread_mesh: called dataset commit active on brand new thread dataset")
-                                            dataset_loaded = True
+                    panid = '0x' + str(run_command('openssl rand -hex 1')).rstrip()
+                    extpanid = str(run_command('openssl rand -hex 8')).rstrip()
+                    networkkey = str(run_command('openssl rand -hex 16')).rstrip()
+                    if len(extpanid) > 4 and len(networkkey) > 8:
+                        if str(self.run_ot_ctl_command('dataset panid ' + str(panid))).rstrip() == 'Done': #0xdead
+                            if str(self.run_ot_ctl_command('dataset extpanid ' + str(extpanid))).rstrip() == 'Done': # dead1111dead2222
+                                if str(self.run_ot_ctl_command('dataset networkname CandleThread')).rstrip() == 'Done':
+                                    if str(self.run_ot_ctl_command('dataset networkkey ' + str(networkkey))).rstrip() == 'Done': #11112233445566778899DEAD1111DEAD
+                                        if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
+                                            if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
+                                                if self.DEBUG:
+                                                    print("start_thread_mesh: called dataset commit active on brand new thread dataset")
+                                                dataset_loaded = True
                                     
                                     
             if dataset_loaded:
                 #self.thread_running = True
                 
-                self.thread_dataset = str(self.run_ot_ctl_command('dataset active -x')).replace('Done','').strip().rstrip()
+                active_dataset = self.run_ot_ctl_command('dataset active -x')
+                if isinstance(active_dataset,str) and 'Done' in active_dataset:
+                    self.thread_dataset = str(active_dataset).replace('Done','').strip().rstrip()
                 
-                if self.DEBUG:
-                    print("self.thread_dataset: -->" + str(self.thread_dataset) + "<--")
-                self.set_thread_dataset()
+                    if self.DEBUG:
+                        print("self.thread_dataset: -->" + str(self.thread_dataset) + "<--")
+                    self.set_thread_dataset()
                 
-                if not 'thread_dataset' in self.persistent_data:
-                    self.persistent_data['thread_dataset'] = "" + str(self.thread_dataset)
-                    self.should_save = True
+                    if not 'thread_dataset' in self.persistent_data:
+                        self.persistent_data['thread_dataset'] = "" + str(self.thread_dataset)
+                        self.should_save = True
                     
-                elif 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 10:
+                    elif 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 10:
+                        if str(self.thread_dataset) == str(self.persistent_data['thread_dataset']):
+                            if self.DEBUG:
+                                print("OK, the thread dataset is still the same")
+                        else:
+                            if self.DEBUG:
+                                print("\nERROR, thread dataset is different from version in persistent data!")
+                                print(str(self.thread_dataset) + " != " + str(self.persistent_data['thread_dataset']) + "\n")
                     
-                    if str(self.thread_dataset) == str(self.persistent_data['thread_dataset']):
+                    thread_state = str(self.run_ot_ctl_command('state')).rstrip()
+                    if self.DEBUG:
+                        print("thread state: \n" + str(thread_state))
+                        
+                    
+                    if 'leader' in thread_state or 'router' in thread_state:
+                        self.thread_running = True
                         if self.DEBUG:
-                            print("OK, the thread dataset is still the same")
+                            print("\nOK - Thread is running\n" + str(thread_state))
+                    
+                    elif 'isabled' in thread_state:
+                        if self.DEBUG:
+                            print("\nWARNING, thread started in disabled state. Attempting to bring it up.")
+                        if str(self.run_ot_ctl_command('ifconfig up')).rstrip() == 'Done':
+                            if str(self.run_ot_ctl_command('thread start')).rstrip() == 'Done':
+                                self.thread_running = True
+                                if self.DEBUG:
+                                    print("\nOK, Thread has fully started\n")
                     else:
                         if self.DEBUG:
-                            print("\nERROR, thread dataset is different from version in persistent data!")
-                            print(str(self.thread_dataset) + " != " + str(self.persistent_data['thread_dataset']) + "\n")
-                            
-                    
-                thread_state = str(self.run_ot_ctl_command('state')).rstrip()
-                if self.DEBUG:
-                    print("thread state: \n" + str(thread_state))
-                
-                if 'leader' in str(self.run_ot_ctl_command('state')):
-                    self.thread_running = True
-                    
-                elif 'isabled' in str(self.run_ot_ctl_command('state')):
-                    if str(self.run_ot_ctl_command('ifconfig up')).rstrip() == 'Done':
-                        if str(self.run_ot_ctl_command('thread start')).rstrip() == 'Done':
-                            self.thread_running = True
-                            if self.DEBUG:
-                                print("\nOK, Thread has fully started: \n")
+                            print("\nchecking if thread has started fell through.  thread_state: \n" + str(thread_state))
+            
+                else:
+                    print("\nERROR, could not get active thread dataset!\n")
+            else:
+                print("\nERROR, no Thread dataset loaded!\n")
             
             if self.thread_running and self.DEBUG:    
                 print("__THREAD DETAILS__")             
@@ -1898,13 +1993,19 @@ class MatterAdapter(Adapter):
         self.running = False
         
         if self.server_process and self.server_process.poll() == None:
+            if self.DEBUG:
+                print("doing .terminate() of matter_server")
             self.server_process.terminate()
             time.sleep(.2)
         if self.server_process and self.server_process.poll() == None:
+            if self.DEBUG:
+                print("doing .kill() of matter_server")
             self.server_process.kill()
             time.sleep(.2)
         if self.server_process and self.server_process.poll() == None:
-            os.system('sudo pkill -f ')
+            if self.DEBUG:
+                print("doing pkill of matter_server")
+            os.system('sudo pkill -f matter_server.server')
         
         try:
             run_loop = asyncio.get_running_loop()
@@ -1934,12 +2035,12 @@ class MatterAdapter(Adapter):
         # A final chance to save the data.
         self.save_persistent_data()
         
-        time.sleep(4)
-        if self.server_process != None:
+        #time.sleep(.1)
+        #if self.server_process != None:
             #self.server.stop()
-            time.sleep(1)
-            os.system("pkill -f 'matter_server.server' --signal SIGKILL")
-            os.system("pkill -f 'matter_server.server' --signal SIGKILL")
+        #    time.sleep(1)
+        #    os.system("pkill -f 'matter_server.server' --signal SIGKILL")
+        #    os.system("pkill -f 'matter_server.server' --signal SIGKILL")
         
         # does it reach this?
         if self.DEBUG:

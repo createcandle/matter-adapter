@@ -70,7 +70,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.4.0",
+  "version": "0.3.34",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",
@@ -78,6 +78,7 @@
     "images/*.gif",
     "images/*.jpg",
     "js/*.js",
-    "views/*.html"
+    "views/*.html",
+	"other/*.json"
   ]
 }

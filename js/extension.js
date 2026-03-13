@@ -1020,6 +1020,12 @@
 				
 					if(typeof body.decoded_pairing_code != 'undefined'){
 						console.warn("body.decoded_pairing_code: ", body.decoded_pairing_code);
+						if(Array.isArray(body.decoded_pairing_code)){
+							for(let l = 0; l < body.decoded_pairing_code.length; l++){
+								console.log("decoded pairing code line: ", body.decoded_pairing_code[l]);
+							}
+						}
+						
 					}
 				
                 

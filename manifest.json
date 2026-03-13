@@ -8,7 +8,7 @@
       ],
       "js": [
         "js/extension.js",
-	"js/qrcode.js"
+        "js/qrcode.js"
       ]
     }
   ],  

@@ -6,3 +6,4 @@ python-matter-server[server]
 requests
 click
 click-option-group
+xmltodict

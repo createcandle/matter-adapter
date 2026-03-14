@@ -156,6 +156,10 @@ fi
 
 mkdir -p package
 
+mkdir -p ./package/other
+wget https://raw.githubusercontent.com/project-chip/connectedhomeip/master/src/app/zap-templates/zcl/data-model/chip/matter-devices.xml -O ./package/other/matter-devices.xml
+
+
 # Put package together
 cp -r lib pkg LICENSE *.json *.py README.md thread other css images js views  package/
 find package -type f -name '*.pyc' -delete

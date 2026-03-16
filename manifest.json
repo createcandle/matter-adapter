@@ -28,7 +28,7 @@
   "options": {
     "default": {
       "Brightness transition duration":0,
-      "Use Hotspot addon as WiFi network for devices": false,
+      "Do not use Hotspot addon as WiFi network for devices": false,
       "Vendor ID":"",
 	  "Thread dataset":"",
 	  "Thread channel":15,
@@ -42,9 +42,9 @@
             "minimum": 0,
             "maximum": 10
         },
-        "Use Hotspot addon as WiFi network for devices":{
+        "Do not use Hotspot addon as WiFi network for devices":{
             "type": "boolean",
-            "description": "Advanced. Under development. The Hotspot addon can generate a separate guest WiFi network for your smart devices. Doing so will give you more insight into the communication habits of your Matter devices, and you can also block connections you don't want or trust."
+            "description": "Advanced. Under development. The Hotspot offers a separate guest WiFi network for your smart devices. Using it will give you more insight into the communication habits of your Matter devices, and you can also block connections you don't want or trust."
         },
         "Vendor ID":{
             "type": "string",
@@ -70,7 +70,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",
@@ -79,6 +79,7 @@
     "images/*.jpg",
     "js/*.js",
     "views/*.html",
-	"other/*.json"
+	"other/*.json",
+	"other/*.xml"
   ]
 }

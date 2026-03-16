@@ -1,8 +1,13 @@
 # helper functions for Matter adapter
 
+import sys
+import json
 import math
 from collections import namedtuple
 
+from chip.clusters.ClusterObjects import ALL_ATTRIBUTES, ALL_CLUSTERS
+
+from matter_server.client.models.device_types import ALL_TYPES
 
 
 # Turns color names into HEX color values. Useful with voice control
@@ -35,6 +40,7 @@ def colorNameToHex(color):
     if color.lower() in color: #(typeof colors[color.toLowerCase()] != 'undefined')
         return colors[color.lower()]
     else:
+        print("colorNameToHex: no match. Returning white (#ffffff)")
         return "#ffffff";
 
 
@@ -44,7 +50,7 @@ XYPoint = namedtuple('XYPoint', ['x', 'y'])
 # from: https://github.com/benknight/hue-python-rgb-converter/blob/master/rgbxy/__init__.py
 def hex_to_xy(hex):
     try:
-        hex = hex.replace('#', '')
+        hex = str(hex).replace('#', '')
         print("hex_to_xy: parsing hex: " + str(hex))
         #self, red_i, green_i, blue_i
     
@@ -82,29 +88,29 @@ def hex_to_xy(hex):
         return XYPoint(0.5, 0.5) # Wild guess..
         
 
-def hex_to_red(self, hex):
+def hex_to_red(hex):
     """Parses a valid hex color string and returns the Red RGB integer value."""
     return int(hex[0:2], 16)
 
-def hex_to_green(self, hex):
+def hex_to_green(hex):
     """Parses a valid hex color string and returns the Green RGB integer value."""
     return int(hex[2:4], 16)
 
-def hex_to_blue(self, hex):
+def hex_to_blue(hex):
     """Parses a valid hex color string and returns the Blue RGB integer value."""
     return int(hex[4:6], 16)
 
-def hex_to_rgb(self, h):
+def hex_to_rgb(h):
     """Converts a valid hex color string to an RGB array."""
     rgb = (self.hex_to_red(h), self.hex_to_green(h), self.hex_to_blue(h))
     return rgb
 
-def rgb_to_hex(self, r, g, b):
+def rgb_to_hex(r, g, b):
     """Converts RGB to hex."""
     return '%02x%02x%02x' % (r, g, b)
 
 
-def xy_to_hex(self, x, y, bri=1):
+def xy_to_hex(x, y, bri=1):
     try:
         xy_point = XYPoint(x, y)
         #if not self.check_point_in_lamps_reach(xy_point):
@@ -148,11 +154,145 @@ def xy_to_hex(self, x, y, bri=1):
 
 
 
+def humanize_cluster_id(cluster_id):
+    if str(cluster_id).isdigit():
+        cluster_id = int(cluster_id)
+        cluster = f"{ALL_CLUSTERS[cluster_id].__name__}"
+        return cluster
+    return str(cluster_id)
+    
+def humanize_attribute_id(cluster_id,attribute_id):
+    if str(cluster_id).isdigit() and str(attribute_id).isdigit():
+        cluster_id = int(cluster_id)
+        attribute_id = int(attribute_id)
+        attribute = f"{ALL_ATTRIBUTES[cluster_id][attribute_id].__name__}"
+        return attribute
+    return str(attribute_id)
+
+def humanize(code):
+    if '/' in str(code):
+        parts = str(code).split('/')
+        print("humanize: parts: ", parts)
+        if len(parts) == 3:
+            cluster_id = int(parts[1])
+            attribute_id = int(parts[2])
+            #cluster = f"{ALL_CLUSTERS[cluster_id].__name__}"
+            #print("humanize: cluster: ", cluster)
+            #attribute = f"{ALL_ATTRIBUTES[cluster_id][attribute_id].__name__}"
+            #print("humanize: attribute: ", cluster)
+            code = humanize_cluster_id(cluster_id) + '.Attributes.' + humanize_attribute_id(cluster_id,attribute_id)
+            print("humanize: final code: ", code)
+    return str(code)
 
 
 
 
+# Turns numbered attributes style list into human readable attributes tree
+def process_node(node):
+    """Process a node."""
+    endpoints = {}
+    cluster_warn = set()
 
+    new_attributes={}
+    
+    clusters_to_ignore = ['OtaSoftwareUpdateRequestor','AccessControl','Descriptor','IcdManagement','OperationalCredentials','WiFiNetworkDiagnostics','ThreadNetworkDiagnostics','AdministratorCommissioning','NetworkCommissioning','GeneralCommissioning','GroupKeyManagement','Identify','Groups']
+
+    for attr_path, value in node["attributes"].items():
+        endpoint_id, cluster_id, attr_id = attr_path.split("/")
+        cluster_id = int(cluster_id)
+        endpoint_id = int(endpoint_id)
+        attr_id = int(attr_id)
+        
+        if cluster_id == 5: # "Scenes" cluster is not officially supported anymore. Even though IKEA still uses it?
+            continue
+        
+        attribute_path=''
+        if cluster_id in ALL_CLUSTERS:
+            cluster_name = f"{ALL_CLUSTERS[cluster_id].__name__}"
+            if cluster_name in clusters_to_ignore:
+                continue
+            attribute_path = f"{ALL_CLUSTERS[cluster_id].__name__}.Attributes."
+        else:
+            if cluster_id not in cluster_warn:
+                print("Unknown cluster ID: {}".format(cluster_id))
+                cluster_warn.add(cluster_id)
+            cluster_name = f"{cluster_id} (unknown)"
+            attribute_path = f"{cluster_id}.Attributes."
+
+        if cluster_id in ALL_ATTRIBUTES and attr_id in ALL_ATTRIBUTES[cluster_id]:
+            attr_name = f"{ALL_ATTRIBUTES[cluster_id][attr_id].__name__}"
+            attribute_path += attr_name
+        else:
+            if cluster_id not in cluster_warn:
+                print(
+                    "Unknown attribute ID: {} in cluster {} ({})".format(
+                        attr_id, cluster_name, cluster_id
+                    )
+                )
+            attr_name = f"{attr_id} (unknown)"
+            attribute_path += f"{attr_id}"
+        
+        endpoint_name = 'Endpoint' + str(endpoint_id)
+        if not endpoint_name in new_attributes:
+            new_attributes[endpoint_name] = {}
+            
+        
+        if endpoint_id not in endpoints:
+            endpoints[endpoint_id] = {}
+
+        if cluster_name not in endpoints[endpoint_id]:
+            endpoints[endpoint_id][cluster_name] = {}
+
+        if attribute_path not in new_attributes[endpoint_name]:
+            new_attributes[endpoint_name][attribute_path] = value
+
+        endpoints[endpoint_id][cluster_name][attr_name] = value
+
+    # Augment device types
+    for endpoint in endpoints.values():
+        if not (descriptor_cls := endpoint.get("Descriptor")):
+            continue
+
+        if not (device_types := descriptor_cls.get("DeviceTypeList")):
+            continue
+        try:
+            for device_type in device_types:
+                if "deviceType" in device_type:
+                    device_type_id = device_type["deviceType"]
+                    if device_type_id in ALL_TYPES:
+                        device_type_name = ALL_TYPES[device_type_id].__name__
+                    else:
+                        device_type_name = f"{device_type} (unknown)"
+
+                    device_type["name"] = device_type_name
+                    device_type["hex"] = f"0x{device_type_id:04x}"
+        except Exception as ex:
+            print("matter_util.py: caught error in process_node: ", ex)
+        
+    node['attributes_list'] = new_attributes
+    
+    node["attributes"] = {
+        f"Endpoint{endpoint_id}": clusters
+        for endpoint_id, clusters in endpoints.items()
+    }
+    
+
+
+
+
+def uncamel(value):
+    output = ''
+    if isinstance(value,str) and len(value) > 1:
+        for char in value:
+            if char.isupper():
+                output += "_" + char.lower()
+            else:
+                output += char
+        if output.startswith("_"):
+            output = output[1:]
+    if output == '':
+        output = str(value)
+    return output
 
 
 
@@ -244,3 +384,81 @@ function XYtoHEX(x, y, bri) { // and needs brightness too
 	return "#" + r + g + b;
 }
 """
+
+
+
+
+
+
+"""
+def process_node_old(node):
+    endpoints = {}
+    cluster_warn = set()
+
+    for attr_path, value in node["attributes"].items():
+        endpoint_id, cluster_id, attr_id = attr_path.split("/")
+        cluster_id = int(cluster_id)
+        endpoint_id = int(endpoint_id)
+        attr_id = int(attr_id)
+
+        if cluster_id in ALL_CLUSTERS:
+            cluster_name = f"{ALL_CLUSTERS[cluster_id].__name__} ({cluster_id} / 0x{cluster_id:04x})"
+        else:
+            if cluster_id not in cluster_warn:
+                print("Unknown cluster ID: {}".format(cluster_id))
+                cluster_warn.add(cluster_id)
+            cluster_name = f"{cluster_id} (unknown)"
+
+        if cluster_id in ALL_ATTRIBUTES and attr_id in ALL_ATTRIBUTES[cluster_id]:
+            attr_name = f"{ALL_ATTRIBUTES[cluster_id][attr_id].__name__} ({attr_id} / 0x{attr_id:04x})"
+        else:
+            if cluster_id not in cluster_warn:
+                print(
+                    "Unknown attribute ID: {} in cluster {} ({})".format(
+                        attr_id, cluster_name, cluster_id
+                    )
+                )
+            attr_name = f"{attr_id} (unknown)"
+
+        if endpoint_id not in endpoints:
+            endpoints[endpoint_id] = {}
+
+        if cluster_name not in endpoints[endpoint_id]:
+            endpoints[endpoint_id][cluster_name] = {}
+
+        endpoints[endpoint_id][cluster_name][attr_name] = value
+
+    # Augment device types
+    for endpoint in endpoints.values():
+        if not (descriptor_cls := endpoint.get("Descriptor (29 / 0x001d)")):
+            continue
+
+        if not (device_types := descriptor_cls.get("DeviceTypeList (0 / 0x0000)")):
+            continue
+        try:
+            for device_type in device_types:
+                if "deviceType" in device_type:
+                    device_type_id = device_type["deviceType"]
+                    if device_type_id in ALL_TYPES:
+                        device_type_name = ALL_TYPES[device_type_id].__name__
+                    else:
+                        device_type_name = f"{device_type} (unknown)"
+
+                    device_type["name"] = device_type_name
+                    device_type["hex"] = f"0x{device_type_id:04x}"
+        except Exception as ex:
+            print("matter_util.py: caught error in process_node: ", ex)
+        
+
+    node["attributes"] = {
+        f"Endpoint {endpoint_id}": clusters
+        for endpoint_id, clusters in endpoints.items()
+    }
+
+"""
+
+
+
+
+
+        

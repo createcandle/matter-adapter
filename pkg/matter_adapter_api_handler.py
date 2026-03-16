@@ -77,7 +77,7 @@ class MatterAPIHandler(APIHandler):
         """
         
         try:
-            print("IN HANDLE REQUEST")
+            #print("IN HANDLE REQUEST")
             
             if request.method != 'POST':
                 return APIResponse(status=404) # we only accept POST requests
@@ -89,7 +89,7 @@ class MatterAPIHandler(APIHandler):
                     action = str(request.body['action']) 
                     
                     if self.DEBUG:
-                        print("API handler is being called. Action: " + str(action))
+                        #print("API handler is being called. Action: " + str(action))
                         print("request.body: " + str(request.body))
                     
                     
@@ -124,8 +124,25 @@ class MatterAPIHandler(APIHandler):
                     
                     # MAIN POLL
                     elif action == 'get_main_poll':
+                        
+                        
+                        wifi_restore_countdown = 0;
+                        if self.adapter.turn_wifi_back_on_at != 0:
+                            if self.DEBUG:
+                                print("get_main_poll: self.adapter.turn_wifi_back_on_at: ", self.adapter.turn_wifi_back_on_at)
+                            wifi_restore_countdown = round(self.adapter.turn_wifi_back_on_at - time.time())
+                            if self.DEBUG:
+                                print("get_main_poll: wifi_restore_countdown: ", wifi_restore_countdown)
+                            if wifi_restore_countdown < 0:
+                                wifi_restore_countdown = 0
+                        
+                        
+                        thread_radio_is_alive_seconds_ago = None
+                        if isinstance(self.adapter.last_thread_radio_is_alive_timestamp,int) and self.adapter.last_thread_radio_is_alive_timestamp != 0:
+                            thread_radio_is_alive_seconds_ago = int(time.time()) - self.adapter.last_thread_radio_is_alive_timestamp;
+                        
                         if self.DEBUG:
-                            print("API: in get_main_poll")
+                            print("API: get_main_poll:  wifi_restore_countdown: ", wifi_restore_countdown)
                         
                         return APIResponse(
                           status=200,
@@ -147,7 +164,10 @@ class MatterAPIHandler(APIHandler):
                                       'thread_error':self.adapter.thread_error,
                                       'last_found_pairing_code':self.adapter.last_found_pairing_code,
                                       'client_connected':self.adapter.client_connected,
-                                      'wifi_congestion_data':self.adapter.wifi_congestion_data
+                                      'wifi_congestion_data':self.adapter.wifi_congestion_data,
+                                      'wifi_restore_countdown':wifi_restore_countdown,
+                                      'thread_radio_is_alive_seconds_ago':thread_radio_is_alive_seconds_ago,
+                                      'pairing_phase':self.adapter.pairing_phase
                                       }),
                         )
                     
@@ -218,7 +238,8 @@ class MatterAPIHandler(APIHandler):
                                       'decoded_pairing_code': str(decoded_pairing_code).splitlines(),
                                       'busy_pairing':self.adapter.busy_pairing,
                                       'pairing_failed':self.adapter.pairing_failed,
-                                      'nodez': self.adapter.persistent_data['nodez']
+                                      'nodez': self.adapter.persistent_data['nodez'],
+                                      'pairing_phase':self.adapter.pairing_phase
                                       }),
                         )
                         
@@ -315,6 +336,94 @@ class MatterAPIHandler(APIHandler):
                           content_type='application/json',
                           content=json.dumps({'state':True}),
                         )
+                    
+                    
+                    elif action == 'reset_customizations':
+                        if self.DEBUG:
+                            print("\n\nAPI: in reset_customizations")
+                        
+                        self.adapter.persistent_data['nodez'] = {}
+                        self.adapter.get_nodes()
+                        self.adapter.should_save = True
+                        
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':True}),
+                        )
+                        
+                    
+                    elif action == 'change_attribute':
+                        if self.DEBUG:
+                            print("API: in change_attribute")
+                        state = False
+                        
+                        try:
+                            thing_id = str(request.body['thing_id'])
+                            endpoint_name = str(request.body['endpoint_name'])
+                            short_type = str(request.body['short_type'])
+                            attribute = str(request.body['attribute'])
+                            value = request.body['value']
+                            path = ''
+                            if 'path' in request.body:
+                                path = request.body['path']
+                                
+                            if self.DEBUG:
+                                print("- thing_id: ", thing_id)
+                                print("- endpoint_name: ", endpoint_name)
+                                print("- short_type: ", short_type)
+                                print("- path: ", path)
+                                print("- attribute: ", attribute)
+                                print("- value: ", value)
+                                
+                            if value != None and thing_id in self.adapter.persistent_data['nodez']:
+                                if thing_id in self.adapter.persistent_data['nodez']:
+                                    if 'attributes' in self.adapter.persistent_data['nodez'][thing_id]:
+                                        if endpoint_name in self.adapter.persistent_data['nodez'][thing_id]['attributes']:
+                                            if short_type in self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name]:
+                                                if path == '':
+                                                    self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][short_type][attribute] = value
+                                                    if self.DEBUG:
+                                                        print("attribute set.\nAttempting to reparse thing..")
+                                                    if attribute == 'enabled':
+                                                        target_device = self.adapter.get_device(thing_id)
+                                                        if target_device:
+                                                            state = target_device.reparse_node()
+                                                        else:
+                                                            if self.DEBUG:
+                                                                print("change_attribute could not find the target_device from thing_id: ", thing_id)
+                                                            state = False
+                                                    else:
+                                                        state = True
+                                                    
+                                                elif path == 'description' and 'property' in self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][short_type] and 'description' in self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][short_type]['property']:
+                                                    self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][short_type]['property']['description'][attribute] = value
+                                                    if self.DEBUG:
+                                                        print("attribute set.\nAttempting to reparse thing..")
+                                                    target_device = self.adapter.get_device(thing_id)
+                                                    if target_device:
+                                                        state = target_device.reparse_node()
+                                                    else:
+                                                        if self.DEBUG:
+                                                            print("change_attribute could not find the target_device from thing_id: ", thing_id)
+                                                        state = False
+                                                    
+                                                    
+                                                    
+                                                    
+                        except Exception as ex:
+                            print("caught error in change_attibute: ", ex)
+                        
+                        if self.DEBUG:
+                            print("change_attribute: final state: ", state)
+                        
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':state}),
+                        )
+                        
+                        
                     
                     
                     

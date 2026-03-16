@@ -583,8 +583,8 @@ class MatterAdapter(Adapter):
             if self.DEBUG:
                 print(str(config)) # Print the entire config data
 
-            if "Do not use Hotspot addon as WiFi network for devices" in config:
-                self.use_hotspot = not bool(config["Do not use Hotspot addon as WiFi network for devices"])
+            if "Do not use Hotspot as WiFi network for devices" in config:
+                self.use_hotspot = not bool(config["Do not use Hotspot as WiFi network for devices"])
                 if self.DEBUG:
                     print("Use hotspot preference was in settings: " + str(self.use_hotspot))
                     

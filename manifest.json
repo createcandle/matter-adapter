@@ -28,7 +28,7 @@
   "options": {
     "default": {
       "Brightness transition duration":0,
-      "Do not use Hotspot addon as WiFi network for devices": false,
+      "Do not use Hotspot as WiFi network for devices": false,
       "Vendor ID":"",
 	  "Thread dataset":"",
 	  "Thread channel":15,
@@ -42,7 +42,7 @@
             "minimum": 0,
             "maximum": 10
         },
-        "Do not use Hotspot addon as WiFi network for devices":{
+        "Do not use Hotspot as WiFi network for devices":{
             "type": "boolean",
             "description": "Advanced. Under development. The Hotspot offers a separate guest WiFi network for your smart devices. Using it will give you more insight into the communication habits of your Matter devices, and you can also block connections you don't want or trust."
         },

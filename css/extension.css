@@ -30,6 +30,11 @@
     margin-top:1rem;
 }
 
+.extension-matter-adapter-bold{
+	font-weight:bold;
+}
+
+
 #extension-matter-adapter-content-container {
 	display:flex;
 	flex-direction: column;
@@ -117,6 +122,10 @@
 }
 
 
+.extension-matter-adapter-flex-wrap-when-narrow{
+	display:flex;
+}
+
 .extension-matter-adapter-flex-between{
     display:flex;
     justify-content:space-between;
@@ -132,9 +141,28 @@
     justify-content:center;
     align-items: center;
 }
+/*
+.extension-matter-adapter-flex-justify-center{
+    display:flex;
+    justify-content:center;
+}
+*/
 
 .extension-matter-adapter-green-bg{
 	background-color: green!important;
+}
+
+
+/*  FIND THREAD RADIO WIZARD  */
+
+#extension-matter-adapter-find-thread-radio-button-container{
+	margin-left: auto;
+    width: 100%;
+    margin-top: 2rem;
+    text-align: right;
+}
+#extension-matter-adapter-find-thread-radio-success:not(.extension-matter-adapter-hidden) + #extension-matter-adapter-find-thread-radio-failed{
+	display:none;
 }
 
 
@@ -153,22 +181,46 @@
 	color:orange;
 }
 
+.extension-matter-adapter-thread-radio-is-not-responding::after{
+	content: '?';
+    font-size: 2.5rem;
+    opacity: 1;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 3.5rem;
+    height: 3.5rem;
+    display: inline-block;
+    background-color: red;
+    text-align: center;
+    border-radius: 2.5rem;
+    color: white;
+    font-weight: bold;
+}
+
 #extension-matter-adapter-thread-logo-wrapper{
 	width:30%;
 	max-width:5rem;
 	margin-right:1rem;
+	min-width:4rem;
+	min-height:4rem;
+	align-self:flex-start;
 }
 
 #extension-matter-adapter-thread-radio-details{
 	font-size:1.6rem;
 	display:flex;
 	flex-direction:column;
+	position:relative;
 }
 #extension-matter-adapter-thread-radio-details span{
 	display:block;
 }
 
-
+.extension-matter-adapter-thread-radio-seems-down-warning{
+	margin-top:1rem;
+	font-weight:bold;
+}
 
 
 
@@ -215,14 +267,13 @@
 	display: flex;
 	/*background-color: #46769C;*/
     background-color:rgba(0,0,0,.2);
-	margin-top:1rem;
+	margin-top:2rem;
 	border-radius: .5rem;
 	width:100%;
     flex-direction:column;
 }
 
 .extension-matter-adapter-item-header{
-	display: flex;
 	position: relative;
 	width:100%;
 }
@@ -383,8 +434,8 @@
 
 
 .extension-matter-adapter-item-details-attribute-value{
+	display:block;
 	font-style:italic;
-	margin-left:2rem;
 }
 
 .extension-matter-adapter-item-details li label{
@@ -512,7 +563,10 @@
 }
 
 
-
+#extension-matter-adapter-pairing-iframe-container iframe{
+	width:100%;
+	height:75vh;
+}
 
 
 
@@ -558,6 +612,7 @@
 	text-decoration:none;
 }
 .extension-matter-adapter-pairing-qr-choose-scanner-icon{
+	display:block;
 	opacity:.15;
 	position:absolute;
 	top:4rem;
@@ -579,7 +634,9 @@
 
 #extension-matter-adapter-pairing-qr-camera-area:not(.extension-matter-adapter-hidden) ~ #extension-matter-adapter-pairing-qr-area,
 #extension-matter-adapter-pairing-qr-choose-scanner-area:not(.extension-matter-adapter-hidden) + #extension-matter-adapter-pairing-qr-area{
-	display:none;
+	/*display:none;*/
+	opacity:0.5;
+	pointer-events:none;
 }
 
 
@@ -608,6 +665,7 @@
 #extension-matter-adapter-mobile-qr{
     display:none;
 }
+
 .extension-matter-adapter-is-mobile #extension-matter-adapter-mobile-qr{
     display:block;
 }
@@ -692,6 +750,8 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
 #extension-matter-adapter-qr-code-url-wrapper{
 	border-bottom-left-radius: 1rem;
 	border-bottom-right-radius: 1rem;
+    padding: 0 2rem 4rem 2rem;
+    background-color: white;
 }
 
 #extension-matter-adapter-qr-code img{
@@ -882,22 +942,78 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
     #extension-matter-adapter-pairing-qr-choose-scanner-area h3{
     	font-size:2.7rem;
     }
+	.extension-matter-adapter-flex-wrap-when-narrow{
+		display:flex;
+		flex-wrap:wrap;
+	}
+	
+	.extension-matter-adapter-item{
+		border-top-right-radius:2rem;
+	}
+	
+	.extension-matter-adapter-item-menu{
+		width:100%;
+		justify-content:space-between;
+		border-bottom: 1px solid rgba(255, 255, 255, .1);
+	}
+	
+	.extension-matter-adapter-item-right{
+		/*position: absolute;
+		top: 0;
+		right: 0;
+		*/
+	    display: flex;
+	    align-items: center;
+	    border-radius: .5rem;
+	}
+	
+	.extension-matter-adapter-item-delete-button{
+		width:auto;
+		height:auto;
+	    min-width: 3.6rem;
+	    border-radius: .5rem;
+		border:none;
+	    cursor: pointer;
+	    display: inline-block;
+	    color: white;
+	    opacity: 1;
+	    display: flex;
+	    align-items: center;
+		background:transparent;
+	    background-color: rgba(0, 0, 0, .2);
+	    padding: 1rem;
+	}
+	
+	.extension-matter-adapter-item-delete-button::after{
+		content: 'Delete';
+		padding-left: 1rem;
+		padding-right: 1rem;
+	}
+	
+	
 }
 
-@media screen and (min-width: 760px) {
+@media screen and (min-width: 761px) {
     .extension-matter-adapter-item-header{
         justify-content:space-between;
         flex-direction:row;
     }
+	
     .extension-matter-adapter-item-menu{
         flex-direction:column;
         justify-content: space-around;
         border-top:0;
         border-left:1px solid rgba(255,255,255,.1);
     }
+	
     .extension-matter-adapter-item-right{
         margin-top:3rem;
     }
+	
+	.extension-matter-adapter-item-details-attribute-value{
+		display:inline;
+		margin-left:2rem;
+	}
 }
 
 

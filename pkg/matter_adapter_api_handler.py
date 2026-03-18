@@ -90,7 +90,7 @@ class MatterAPIHandler(APIHandler):
                     
                     if self.DEBUG:
                         #print("API handler is being called. Action: " + str(action))
-                        print("request.body: " + str(request.body))
+                        print("API: debug: request.body: " + str(request.body))
                     
                     
                     # INIT
@@ -142,7 +142,7 @@ class MatterAPIHandler(APIHandler):
                             thread_radio_is_alive_seconds_ago = int(time.time()) - self.adapter.last_thread_radio_is_alive_timestamp;
                         
                         if self.DEBUG:
-                            print("API: get_main_poll:  wifi_restore_countdown: ", wifi_restore_countdown)
+                            print("API: debug: get_main_poll:  wifi_restore_countdown: ", wifi_restore_countdown)
                         
                         return APIResponse(
                           status=200,
@@ -150,24 +150,27 @@ class MatterAPIHandler(APIHandler):
                           content=json.dumps({
                                       'debug': self.adapter.DEBUG,
                                       'certificates_updated': self.adapter.certificates_updated,
-                                      'busy_updating_certificates':self.adapter.busy_updating_certificates,
+                                      'busy_updating_certificates': self.adapter.busy_updating_certificates,
                                       'client_connected': self.adapter.client_connected,
                                       'discovered': self.adapter.discovered, # deprecated, but might be interesting to see if it's ever populated
-                                      'busy_discovering':self.adapter.busy_discovering,
-                                      'busy_pairing':self.adapter.busy_pairing,
-                                      'pairing_failed':self.adapter.pairing_failed,
+                                      'busy_discovering': self.adapter.busy_discovering,
+                                      'busy_pairing': self.adapter.busy_pairing,
+                                      'pairing_failed': self.adapter.pairing_failed,
                                       'nodez': self.adapter.persistent_data['nodez'],
                                       'found_thread_radio_again': self.adapter.found_thread_radio_again,
-                                      'found_new_thread_radio':self.adapter.found_new_thread_radio,
+                                      'found_new_thread_radio': self.adapter.found_new_thread_radio,
+                                      'found_a_thread_radio': self.adapter.found_a_thread_radio,
+                                      'thread_radio_went_missing': self.adapter.thread_radio_went_missing,
                                       'otbr_started': self.adapter.otbr_started,
                                       'thread_running': self.adapter.thread_running,
-                                      'thread_error':self.adapter.thread_error,
-                                      'last_found_pairing_code':self.adapter.last_found_pairing_code,
-                                      'client_connected':self.adapter.client_connected,
-                                      'wifi_congestion_data':self.adapter.wifi_congestion_data,
-                                      'wifi_restore_countdown':wifi_restore_countdown,
-                                      'thread_radio_is_alive_seconds_ago':thread_radio_is_alive_seconds_ago,
-                                      'pairing_phase':self.adapter.pairing_phase
+                                      'thread_error': self.adapter.thread_error,
+                                      'last_found_pairing_code': self.adapter.last_found_pairing_code,
+                                      'client_connected': self.adapter.client_connected,
+                                      'wifi_congestion_data': self.adapter.wifi_congestion_data,
+                                      'wifi_restore_countdown': wifi_restore_countdown,
+                                      'thread_radio_is_alive_seconds_ago': thread_radio_is_alive_seconds_ago,
+                                      'pairing_phase': self.adapter.pairing_phase,
+                                      'extension_cable_recommended': self.adapter.extension_cable_recommended
                                       }),
                         )
                     
@@ -192,12 +195,13 @@ class MatterAPIHandler(APIHandler):
                                 print("poll: doing request to candle webserver. parameters: " + str(parameters))
                             
                             q = requests.post( "https://www.candlesmarthome.com/qr/ajax.php", data = parameters )
-                            if self.adapter.DEBUG:
-                                print("q.content = " + str(q.content))
-                                print("q.json = " + str(q.json))
+                            #if self.adapter.DEBUG:
+                            #    print("q.content = " + str(q.content))
+                            #    print("q.json = " + str(q.json))
                             if len(str(q.content)) > 4:
                                 qr_json = q.json()
-                                print("qr_json: ", qr_json)
+                                if self.adapter.DEBUG:
+                                    print("qr_json: ", qr_json)
                                 
                                 if 'code' in qr_json:
                                     code = qr_json['code']
@@ -266,10 +270,29 @@ class MatterAPIHandler(APIHandler):
                         )
                     
                     
+                    elif action == 'find_thread_radio_before':
+                        self.adapter.serial_before = str(run_command('ls /dev/serial/by-id'))
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':True}),
+                        )
+                    
+                    elif action == 'find_thread_radio':
+                        self.adapter.find_thread_radio()
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':self.adapter.found_new_thread_radio}),
+                        )
+                    
+                    
+                    
+                    
                     # START NORMAL PAIRING
                     elif action == 'start_pairing':
                         if self.DEBUG:
-                            print("\n\nAPI: in start_pairing. request.body: " + str(request.body))
+                            print("\n\nAPI: debug: in start_pairing. request.body: " + str(request.body))
                         state = False
                         self.adapter.pairing_failed = False
                         code = ""

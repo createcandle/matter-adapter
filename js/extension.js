@@ -44,6 +44,7 @@
             
 			//console.log("QrScanner: ", QrScanner);
 			
+			document.body.classList.add(location.protocol.replace(':',''));
 			
             this.is_narrow = window.matchMedia("only screen and (max-width: 760px)").matches;
             this.is_touch = ('ontouchstart' in document.documentElement && navigator.userAgent.match(/Mobi/));
@@ -148,90 +149,7 @@
                 	if(this.debug){
                         console.log("matter adapter: Start commission_with_code button clicked. this.busy_pairing: ", this.busy_pairing);
                     }
-                    const wifi_ssid = document.getElementById('extension-matter-adapter-wifi-ssid').value;
-                    const wifi_password = document.getElementById('extension-matter-adapter-wifi-password').value;
-                    const wifi_remember = document.getElementById('extension-matter-adapter-wifi-remember-checkbox').value;
-                    
-                    this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
-                    
-                    if(this.wifi_credentials_available == false){
-                        if(wifi_ssid.length < 2){
-                            console.log("matter adapter: Wifi name is too short");
-                            alert("That wifi name is too short");
-                            return;
-                        }
-                        if(wifi_password.length < 8){
-                            console.log("matter adapter: Wifi password is too short");
-                            alert("That wifi password is too short");
-                            return;
-                        }
-                    }
-                    
-                    const code = this.pairing_code;
-                    if(this.debug){
-                        console.log("matter adapter: Pairing code: ", code);
-                    }
-                    if(code.length < 5){
-                        console.log("matter adapter: pairing code was too short");
-                        alert("That pairing code is too short");
-                        return;
-                    }
-                    if(!code.startsWith('MT:')){
-                        console.log("matter adapter: pairing code did not start with MT:");
-                        alert("The pairing code should start with 'MT:'");
-                        return;
-                    }
-                    //this.device_to_pair = {"not":"needed"}
-                    /*
-                    if(this.device_to_pair == null){
-                        console.log("device_to_pair was null");
-                        return // shouldn't be possible, but just to be safe
-                    }
-                    */
-                    
-                    //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.add('extension-matter-adapter-hidden');
-                    //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
-                    
-                    this.initial_nodez_count = this.nodez.length; // if this increases, then a new device has been paired.
-					
-                    this.busy_pairing = true;
-					if(!this.second_page_el){
-						this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
-					}
-					if(this.second_page_el){
-                    	this.second_page_el.classList.add('extension-matter-adapter-busy-pairing');
-						
-	                    // Inform backend
-	                    window.API.postJson(
-							`/extensions/${this.id}/api/ajax`,
-							{'action':'start_pairing',
-	                        'wifi_ssid':wifi_ssid,
-	                        'wifi_password':wifi_password,
-	                        'wifi_remember':wifi_remember,
-	                        'pairing_type':'commission_with_code',
-	                        'code':code}
-						).then((body) => { 
-							if(this.debug){
-	                            console.log("pair device via commission_with_code response: ", body);
-	                        }
-							if(typeof body.state != 'undefined'){
-								if(body.state == false){
-									this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
-									this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-								}
-								else if(body.state == true){
-									console.log("Matter server pairing process seems to have started succesfully");
-								}
-							}
-                        
-                        
-						}).catch((e) => {
-	                        this.busy_pairing = false;
-							console.error("matter-adapter: error making commission_with_code pairing request: ", e);
-	                        //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
-						});
-						
-					}
+                    this.start_pairing();
                     
                 });
                 
@@ -302,7 +220,7 @@
 
 
                 // Reveal wifi change button
-    			this.view.querySelector('#extension-matter-adapter-reveal-wifi-setup-button').addEventListener('click', (event) => {
+    			this.view.querySelector('#extension-matter-adapter-reveal-wifi-setup-button').addEventListener('click', () => {
                     this.view.querySelector('#extension-matter-adapter-current-wifi-ssid-container').classList.add('extension-matter-adapter-hidden');
                     this.view.querySelector('#extension-matter-adapter-provide-wifi-container').classList.remove('extension-matter-adapter-hidden');
     			});
@@ -398,7 +316,7 @@
 				*/
 				
 				// Choose to scan with phone
-    			this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-phone').addEventListener('click', (event) => {
+    			this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-phone').addEventListener('click', () => {
 					console.log("matter adapter: clicked on big phone button");
     				document.getElementById('extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
     			});
@@ -406,11 +324,16 @@
 				
 				
                 // Pairing failed, try again button
-    			this.view.querySelector('#extension-matter-adapter-pairing-failed-try-again-button').addEventListener('click', (event) => {
+    			this.view.querySelector('#extension-matter-adapter-pairing-failed-back-to-the-start-button').addEventListener('click', () => {
     				this.show_pairing_page();
     			});
+				
+                // Pairing failed, try again button
+    			this.view.querySelector('#extension-matter-adapter-pairing-failed-try-again-button').addEventListener('click', () => {
+    				this.start_pairing();
+    			});
                 
-    			this.view.querySelector('#extension-matter-adapter-update-certificates-button').addEventListener('click', (event) => {
+    			this.view.querySelector('#extension-matter-adapter-update-certificates-button').addEventListener('click', () => {
     				this.view.querySelector('#extension-matter-adapter-certificates-need-update').classList.add('extension-matter-adapter-hidden');
 					this.view.querySelector('#extension-matter-adapter-busy-updating-certificates').classList.remove('extension-matter-adapter-hidden');
     			});
@@ -419,7 +342,7 @@
 			
 			
                 // DEV
-    			this.view.querySelector('#extension-matter-adapter-stop-poll-button').addEventListener('click', (event) => {
+    			this.view.querySelector('#extension-matter-adapter-stop-poll-button').addEventListener('click', () => {
                     console.log("matter adapter: stopping poll?");
                     try{
         				clearInterval(window.matter_adapter_poll_interval);
@@ -441,14 +364,14 @@
                 
                 
                 // Show more pairing options button
-    			this.view.querySelector('#extension-matter-adapter-show-more-pairing-options-button').addEventListener('click', (event) => {
+    			this.view.querySelector('#extension-matter-adapter-show-more-pairing-options-button').addEventListener('click', () => {
     				this.view.querySelector('#extension-matter-adapter-other-pairing-options-container').classList.remove('extension-matter-adapter-hidden');
                     this.view.querySelector('#extension-matter-adapter-show-more-pairing-options-button').classList.add('extension-matter-adapter-hidden');
     			});
                 
                 
                 // Manually entered pairing code button
-    			this.view.querySelector('#extension-matter-adapter-save-manual-input-pairing-code-button').addEventListener('click', (event) => {
+    			this.view.querySelector('#extension-matter-adapter-save-manual-input-pairing-code-button').addEventListener('click', () => {
                     this.view.querySelector('#extension-matter-adapter-save-manual-input-pairing-code-button').classList.add('extension-matter-adapter-hidden');
                     
                     const input_code = this.view.querySelector('#extension-matter-adapter-pairing-code-input').value;
@@ -494,12 +417,12 @@
 				}
 				
                 
-    			this.view.querySelector('#extension-matter-adapter-pairing-network-question-normal-button').addEventListener('click', (event) => {
+    			this.view.querySelector('#extension-matter-adapter-pairing-network-question-normal-button').addEventListener('click', () => {
     				this.second_page_el.classList.remove('extension-matter-adapter-pairing-questioning');
                     this.second_page_el.classList.add('extension-matter-adapter-pairing-normal');
     			});
                 
-    			this.view.querySelector('#extension-matter-adapter-pairing-network-question-network-button').addEventListener('click', (event) => {
+    			this.view.querySelector('#extension-matter-adapter-pairing-network-question-network-button').addEventListener('click', () => {
     				this.second_page_el.classList.remove('extension-matter-adapter-pairing-questioning');
                     this.second_page_el.classList.add('extension-matter-adapter-pairing-network');
     			});
@@ -508,21 +431,21 @@
                 
             
                 // Easter egg when clicking on the title
-    			this.view.querySelector('#extension-matter-adapter-title').addEventListener('click', (event) => {
+    			this.view.querySelector('#extension-matter-adapter-title').addEventListener('click', () => {
     				this.show();
     			});
                 
-    			this.view.querySelector('#extension-matter-adapter-refresh-paired-list-button').addEventListener('click', (event) => {
+    			this.view.querySelector('#extension-matter-adapter-refresh-paired-list-button').addEventListener('click', () => {
     				this.view.querySelector('#extension-matter-adapter-refresh-paired-list-button').classList.add('extension-matter-adapter-hidden');
                     this.view.querySelector('#extension-matter-adapter-paired-devices-list').innerHTML = '<div class="extension-matter-adapter-spinner"><div></div><div></div><div></div><div></div></div>';
                     this.get_init_data();
     			});
     			
-				this.view.querySelector('#extension-matter-adapter-stop-refreshing-list-button').addEventListener('click', (event) => {
+				this.view.querySelector('#extension-matter-adapter-stop-refreshing-list-button').addEventListener('click', () => {
 					this.stop_regenerating = true;
 				});
 				
-				this.view.querySelector('#extension-matter-adapter-reset-customizations-button').addEventListener('click', (event) => {
+				this.view.querySelector('#extension-matter-adapter-reset-customizations-button').addEventListener('click', () => {
 					if(confirm("Are you sure you want to forget all device customizations?")){
 			            window.API.postJson(
 							`/extensions/${this.id}/api/ajax`,
@@ -543,7 +466,7 @@
             
             
                 // ADD DEVICES PLUS BUTTON
-                this.view.querySelector('#extension-matter-adapter-show-second-page-button').addEventListener('click', (event) => {
+                this.view.querySelector('#extension-matter-adapter-show-second-page-button').addEventListener('click', () => {
                     if(this.debug){
                         console.log("matter adapter debug: clicked on (+) button");
                     }
@@ -554,9 +477,13 @@
                     
                     this.show_pairing_page();
     			});
+				
+				this.view.querySelector('#extension-matter-adapter-pairing-accept-thing-button').addEventListener('click', () => {
+					document.getElementById('add-button').click();
+				});
                 
                 // SHOW WIFI PASSWORD CHECKBOX
-                this.view.querySelector('#extension-matter-adapter-wifi-show-password-checkbox').addEventListener('change', (event) => {
+                this.view.querySelector('#extension-matter-adapter-wifi-show-password-checkbox').addEventListener('change', () => {
                     if(this.debug){
                         console.log("matter adapter debug: clicked on wifi password reveal checkbox");
                     }
@@ -568,6 +495,69 @@
                         this.view.querySelector('#extension-matter-adapter-wifi-password').type = 'password';
                     }
     			});
+				
+				
+				
+				//
+				// FIND THREAD RADIO
+				//
+				
+				
+                this.view.querySelector('#extension-matter-adapter-find-thread-radio-button').addEventListener('click', (event) => {
+                    if(this.debug){
+                        console.log("matter adapter debug: clicked on add a Thread radio button");
+                    }
+					
+					this.view.querySelector('#extension-matter-adapter-find-thread-radio-button').classList.add('extension-matter-adapter-hidden');
+					this.view.querySelector('#extension-matter-adapter-find-thread-radio-container').classList.remove('extension-matter-adapter-hidden');
+					
+    			});
+				
+				
+                this.view.querySelector('#extension-matter-adapter-find-thread-radio-unplugged-button').addEventListener('click', (event) => {
+                    if(this.debug){
+                        console.log("matter adapter debug: clicked on find thread radio UNPLUGGED button");
+                    }
+					window.API.postJson(
+						`/extensions/${this.id}/api/ajax`,
+						{'action':'find_thread_radio_before'}
+					).then((body) => { 
+						
+						this.view.querySelector('#extension-matter-adapter-find-thread-radio-step2').classList.remove('extension-matter-adapter-hidden');
+						
+					}).catch((err) => {
+						console.error("matter-adapter: error calling find_thread_radio_before: ", err);
+					});
+					
+    			});
+				
+                this.view.querySelector('#extension-matter-adapter-find-thread-radio-plugged-in-button').addEventListener('click', (event) => {
+                    if(this.debug){
+                        console.log("matter adapter debug: clicked on find thread radio PLUGGED IN button");
+                    }
+					window.API.postJson(
+						`/extensions/${this.id}/api/ajax`,
+						{'action':'find_thread_radio'}
+					).then((body) => { 
+						
+						if(body.state === true){
+							this.view.querySelector('#extension-matter-adapter-find-thread-radio-step1').classList.add('extension-matter-adapter-hidden');
+							this.view.querySelector('#extension-matter-adapter-find-thread-radio-step2').classList.add('extension-matter-adapter-hidden');
+							this.view.querySelector('#extension-matter-adapter-find-thread-radio-success').classList.remove('extension-matter-adapter-hidden');
+							this.view.querySelector('#extension-matter-adapter-find-thread-radio-failed').classList.add('extension-matter-adapter-hidden');
+						}
+						else{
+							this.view.querySelector('#extension-matter-adapter-find-thread-radio-success').classList.add('extension-matter-adapter-hidden');
+							this.view.querySelector('#extension-matter-adapter-find-thread-radio-failed').classList.remove('extension-matter-adapter-hidden');
+						}
+						
+					}).catch((err) => {
+						console.error("matter-adapter: error calling find_thread_radio_before: ", err);
+					});
+					
+    			});
+				
+				
                 
             
                 
@@ -891,7 +881,7 @@
 							thread_details_el.innerHTML += '<span>Thread radio detected</span>';
 						}
 						else{
-							thread_details_el.innerHTML += '<span>No Thread radio detected; you can only pair Matter WiFi devices.</span>';
+							thread_details_el.innerHTML += '<span>No Thread radio detected</span><span style="font-style:italic">Only WiFi Matter devices can be paired</span>';
 							if(this.debug){
 								console.warn("matter adapter: debug: No Thread radio detected (yet)");
 							}
@@ -925,20 +915,26 @@
 						}
 					}
 					
-					if(typeof body.thread_radio_is_alive_seconds_ago == 'number' && body.thread_radio_is_alive_seconds_ago <= 60){
-						thread_details_el.classList.remove('extension-matter-adapter-thread-radio-is-not-responding');
-					}
-					else{
-						if(typeof body.thread_radio_is_alive_seconds_ago == 'number' && body.thread_radio_is_alive_seconds_ago > 60){
-							if(body.thread_radio_is_alive_seconds_ago < 181){
-								thread_details_el.innerHTML += '<span>Thread radio last responded ' + body.thread_radio_is_alive_seconds_ago  + ' seconds ago</span>';
-							}
-							else if(body.thread_radio_is_alive_seconds_ago < 3600){
-								thread_details_el.innerHTML += '<span>Thread radio last responded ' + Math.round(body.thread_radio_is_alive_seconds_ago/60)  + ' minutes ago</span>';
-							}
+					if(typeof body.thread_radio_is_alive_seconds_ago == 'number'){
+						if(body.thread_radio_is_alive_seconds_ago <= 60){
+							thread_details_el.classList.remove('extension-matter-adapter-thread-radio-is-not-responding');
 						}
-						thread_details_el.classList.add('extension-matter-adapter-thread-radio-is-not-responding');
+						else{
+							if(body.thread_radio_is_alive_seconds_ago > 60){
+								if(body.thread_radio_is_alive_seconds_ago < 181){
+									thread_details_el.innerHTML += '<span class="extension-matter-adapter-thread-radio-seems-down-warning">Thread radio last responded ' + body.thread_radio_is_alive_seconds_ago  + ' seconds ago</span>';
+								}
+								else if(body.thread_radio_is_alive_seconds_ago < 600){
+									thread_details_el.innerHTML += '<span class="extension-matter-adapter-thread-radio-seems-down-warning">Thread radio last responded ' + Math.round(body.thread_radio_is_alive_seconds_ago/60)  + ' minutes ago</span>';
+								}
+								else{
+									thread_details_el.innerHTML += '<span class="extension-matter-adapter-thread-radio-seems-down-warning">Thread will restart once the radio is plugged in again.</span>';
+								}
+							}
+							thread_details_el.classList.add('extension-matter-adapter-thread-radio-is-not-responding');
+						}
 					}
+					
 					
 				}
 				
@@ -979,6 +975,11 @@
 					}
 					
 				}
+				
+				if(typeof body.extension_cable_recommended == 'boolean' && body.extension_cable_recommended == true){
+					this.view.querySelector('#extension-matter-adapter-extension-cable-hint').classList.remove('extension-matter-adapter-hidden');
+				}
+				
 				
 				
                 // PAIRING FAILED?
@@ -1049,8 +1050,20 @@
 				console.error("matter-adapter: error making reset pairing request: ", e);
 			});
             
+            /*
+			if ( this.is_mobile && window.location.protocol.startsWith('https') && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && ('BarcodeDetector' in window) && ((await BarcodeDetector.getSupportedFormats()).includes('qr_code')) ) {
+				const scanner_container_el = this.view.querySelector('#extension-matter-adapter-pairing-scanner-container');
+				if(scanner_container_el){
+					scanner_container_el.innerHTML = '<div style="height:40rem;" class="extension-matter-adapter-flex-center extension-matter-adapter-area"><button>Scan QR code</button><span class="extension-matter-adapter-pairing-qr-choose-scanner-icon extension-matter-adapter-pairing-qr-choose-scanner-icon-camera"></span></div>';
+				}
+			}
+			else{
+				this.generate_qr();
+			}
+			*/
             
-            this.generate_qr();
+			this.generate_qr();
+			
             
             // start polling for data
             if(window.matter_adapter_poll_interval == null){
@@ -1389,7 +1402,7 @@
                         
                         let item_data = this.nodez[thing_id];
                         if(this.debug){
-                            console.log("matter adapter debug: item_data: ", item_data); // device_id
+                            //console.log("matter adapter debug: item_data: ", item_data); // device_id
                         }
                         //console.log("item_data: ", item_data);
                     
@@ -2096,23 +2109,10 @@
 							
 						}
 						
-				
-				
-				
-				
-				
-				
-				
-				
-				
-				
-				
 						if(brand_new_item){
 							list.append(clone);
 						}
     					
-                        
-                        
                     }
         			catch(err){
         				console.error("matter adapter: caught general error while looping over nodez: ", err);
@@ -2168,6 +2168,154 @@
 			
 		}
  
+ 
+		start_pairing(){
+            const wifi_ssid = this.view.querySelector('#extension-matter-adapter-wifi-ssid').value;
+            const wifi_password = this.view.querySelector('#extension-matter-adapter-wifi-password').value;
+            const wifi_remember = this.view.querySelector('#extension-matter-adapter-wifi-remember-checkbox').value;
+            
+            this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
+            
+            if(this.wifi_credentials_available == false){
+                if(wifi_ssid.length < 2){
+                    console.log("matter adapter: Wifi name is too short");
+                    alert("That wifi name is too short");
+                    return;
+                }
+                if(wifi_password.length < 8){
+                    console.log("matter adapter: Wifi password is too short");
+                    alert("That wifi password is too short");
+                    return;
+                }
+            }
+            
+            const code = this.pairing_code;
+            if(this.debug){
+                console.log("matter adapter: Pairing code: ", code);
+            }
+            if(code.length < 5){
+                console.log("matter adapter: pairing code was too short");
+                alert("That pairing code is too short");
+                return;
+            }
+            if(!code.startsWith('MT:')){
+                console.log("matter adapter: pairing code did not start with MT:");
+                alert("The pairing code should start with 'MT:'");
+                return;
+            }
+            //this.device_to_pair = {"not":"needed"}
+            /*
+            if(this.device_to_pair == null){
+                console.log("device_to_pair was null");
+                return // shouldn't be possible, but just to be safe
+            }
+            */
+            
+            //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.add('extension-matter-adapter-hidden');
+            //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
+            
+            this.initial_nodez_count = this.nodez.length; // if this increases, then a new device has been paired.
+			
+            this.busy_pairing = true;
+			if(!this.second_page_el){
+				this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
+			}
+			if(this.second_page_el){
+            	this.second_page_el.classList.add('extension-matter-adapter-busy-pairing');
+				
+                // Inform backend
+                window.API.postJson(
+					`/extensions/${this.id}/api/ajax`,
+					{'action':'start_pairing',
+                    'wifi_ssid':wifi_ssid,
+                    'wifi_password':wifi_password,
+                    'wifi_remember':wifi_remember,
+                    'pairing_type':'commission_with_code',
+                    'code':code}
+				).then((body) => { 
+					if(this.debug){
+                        console.log("pair device via commission_with_code response: ", body);
+                    }
+					if(typeof body.state != 'undefined'){
+						if(body.state == false){
+							this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
+							this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
+						}
+						else if(body.state == true){
+							console.log("Matter server pairing process seems to have started succesfully");
+						}
+					}
+                
+                
+				}).catch((e) => {
+                    this.busy_pairing = false;
+					console.error("matter-adapter: error making commission_with_code pairing request: ", e);
+                    //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
+				});
+				
+			}
+		}
+		
+		
+		/*
+		scan_qr_code(){
+			
+			if (('BarcodeDetector' in window) && ((await BarcodeDetector.getSupportedFormats()).includes('qr_code'))) {
+				console.log('BarcodeDetector is supported');
+			
+				// Get video element 
+				const video_el = document.getElementById('qr-video');
+
+				if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+					const constraints = {
+						video: true,
+						audio: false
+					};
+  
+					navigator.mediaDevices.getUserMedia(constraints).then(stream => video_el.srcObject = stream);
+				}
+			
+				// Detect code function 
+				const detectCode = () => {
+				  barcodeDetector.detect(video).then(codes => {
+				    for (const barcode of codes)  {
+						console.log("Found QR code: ", barcode);
+					
+						setResult('Matter',{'data':barcode.rawValue});
+			      
+				    }
+				  }).catch(err => {
+				    console.error("CAught error using barcodeDetector: ", err);
+				  })
+				}
+
+		        document.getElementById('start-button').addEventListener('click', () => {
+				
+					if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+						const constraints = {
+							video: true,
+							audio: false
+						};
+  
+						navigator.mediaDevices.getUserMedia(constraints).then(stream => video_el.srcObject = stream);
+					
+			            window.detecting_interval = setInterval(detectCode, 100);
+			            document.getElementById('scanner-container').style.display = 'block';
+			            document.getElementById('intro').style.display = 'none';
+					
+					}
+		        });
+			
+			
+			
+			}
+			
+		}
+		
+		*/
+		
+		
+		
         // Generate QR code to go to QR code scanner (feels weird, but it works)
         generate_qr(){
             

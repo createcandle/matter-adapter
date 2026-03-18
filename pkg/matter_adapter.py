@@ -200,9 +200,10 @@ class MatterAdapter(Adapter):
         
         
         # THREAD / OTBR
-        
         self.found_thread_radio_again = False
         self.found_new_thread_radio = False
+        self.found_a_thread_radio = False
+        self.thread_radio_went_missing = False
         self.thread_radio_is_alive_count = 0 # how many spinel messages have been received
         self.last_thread_radio_is_alive_timestamp = 0
         self.otbr_started = False # This is the first stage, done by otbr-agent
@@ -214,7 +215,9 @@ class MatterAdapter(Adapter):
         self.thread_channel = 15
         self.thread_dataset = ''
         self.turn_wifi_back_on_at = 0
-        
+        self.extension_cable_recommended = False
+        self.last_time_otbr_restarted = 0
+        self.serial_before = '' # used to detect newly plugged in USB sticks by comparing before and after of lsusb
         
         # Hotspot
         self.use_hotspot = True
@@ -648,34 +651,50 @@ class MatterAdapter(Adapter):
         serial_by_id_output = run_command('ls /dev/serial/by-id')
         if isinstance(serial_by_id_output,str) and len(str(serial_by_id_output)) > 5:
             
-            if 'thread_radio_serial_port' in self.persistent_data and isinstance(self.persistent_data['thread_radio_serial_port'],str) and len(str(self.persistent_data['thread_radio_serial_port'])) > 3:
-                for line in serial_by_id_output.splitlines():
-                    if str(self.persistent_data['thread_radio_serial_port']) == str(line).strip().rstrip():
-                        if self.DEBUG:
-                            print("Found the thread radio again")
-                        found_thread_radio_again = True
-                        break
-                    
-            if found_thread_radio_again == False:
+            if self.serial_before:
                 for line in serial_by_id_output.splitlines():
                     line = str(line).strip().rstrip()
-                    if 'SkyConnect' in line or 'Nabu_Casa' in line:
+                    if not line in self.serial_before:
                         self.persistent_data['thread_radio_serial_port'] = line
                         if self.DEBUG:
                             print("Found a new thread radio: ", line)
                         found_new_thread_radio = True
+                        self.serial_before = ''
                         self.should_save = True
                         break
+            
+            if found_new_thread_radio == False:
+                if 'thread_radio_serial_port' in self.persistent_data and isinstance(self.persistent_data['thread_radio_serial_port'],str) and len(str(self.persistent_data['thread_radio_serial_port'])) > 3:
+                    for line in serial_by_id_output.splitlines():
+                        if str(self.persistent_data['thread_radio_serial_port']) == str(line).strip().rstrip():
+                            if self.DEBUG:
+                                print("Found the thread radio again")
+                            found_thread_radio_again = True
+                            break
+                    
+                if found_thread_radio_again == False:
+                    for line in serial_by_id_output.splitlines():
+                        line = str(line).strip().rstrip()
+                        if 'SkyConnect' in line or 'Nabu_Casa' in line:
+                            self.persistent_data['thread_radio_serial_port'] = line
+                            if self.DEBUG:
+                                print("Found a new thread radio: ", line)
+                            found_new_thread_radio = True
+                            self.should_save = True
+                            break
                         
         self.found_thread_radio_again = found_thread_radio_again
         self.found_new_thread_radio = found_new_thread_radio
 
         if self.found_thread_radio_again or self.found_new_thread_radio:
+            self.found_a_thread_radio = True
             if self.otbr_started == False:
                 self.start_otbr()
         else:
-            if self.DEBUG:
-                print("\nNO THREAD RADIO FOUND\n")
+            #if self.DEBUG:
+            #    print("\nNO THREAD RADIO FOUND\n")
+            if self.found_a_thread_radio:
+                self.thread_radio_went_missing = True
 
 
     def add_otbr_iptables(self):
@@ -1422,7 +1441,7 @@ class MatterAdapter(Adapter):
                     if self.DEBUG:
                         self.s_print("\nRECEIVED ERROR MESSAGE\nerror_code: " + str(message['error_code']) )
                         if 'details' in message:
-                            print("Error details: ", details)
+                            print("Error details: ", message['details'])
                         
                     """
                         INVALID_COMMAND = 1
@@ -2057,6 +2076,24 @@ class MatterAdapter(Adapter):
                     if passed_time > 2:
                         print("\n\n\nWARNING, CLOCK WAS VERY DELAYED: ", passed_time, "\n\n\n")
                     
+                    
+                    # Check if the thread radio needs to be restarted
+                    if self.last_thread_radio_is_alive_timestamp < time.time() - 300:
+                        self.find_thread_radio()
+                        
+                        if self.thread_radio_went_missing and self.found_thread_radio_again == False and self.found_new_thread_radio == False and self.otbr_started:
+                            if self.DEBUG:
+                                print("Thread radio was unplugged? Stopping OTBR")
+                            self.send_pairing_prompt("Thread radio was unplugged?")
+                            self.really_stop_otbr()
+                        elif self.thread_radio_went_missing and (self.found_thread_radio_again or self.found_new_thread_radio) and self.otbr_started == False and self.thread_set_active == False and self.otbr_agent_process == None and self.last_time_otbr_restarted < time.time() - 600:
+                            if self.DEBUG:
+                                print("auto-restarting the Thread border router to connect to the USB stick again")
+                            self.send_pairing_prompt("Thread radio was plugged in again?")
+                            self.start_otbr()
+                        
+                            
+                    
             #if self.server_process != None:
             #if self.DEBUG:
             #    self.s_print("clock: server_process exists")
@@ -2097,6 +2134,7 @@ class MatterAdapter(Adapter):
                         if self.DEBUG:
                             print("the Thread radio may need to use an extension cord")
                         self.thread_error = 'You may need to use a USB extension cable for your Thread dongle'
+                        self.extension_cable_recommended = True
                     elif 'Failed to communicate with RCP' in otbr_message:
                         if self.DEBUG:
                             print("\nERROR, spotted message indicating the thread radio isn't responding")
@@ -2106,6 +2144,7 @@ class MatterAdapter(Adapter):
                         if self.DEBUG:
                             print("calling start_thread_mesh from clock")
                         self.thread_set_active = True
+                        self.thread_radio_went_missing = False
                         self.start_thread_mesh()
                 
 

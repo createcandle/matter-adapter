@@ -5,9 +5,14 @@ import json
 import math
 from collections import namedtuple
 
-from chip.clusters.ClusterObjects import ALL_ATTRIBUTES, ALL_CLUSTERS
+# for creating enum lookup
+import chip.clusters.Objects as cluster_details
 
+from chip.clusters.ClusterObjects import ALL_ATTRIBUTES, ALL_CLUSTERS #, ALL_EVENTS
 from matter_server.client.models.device_types import ALL_TYPES
+
+
+
 
 
 # Turns color names into HEX color values. Useful with voice control
@@ -184,6 +189,77 @@ def humanize(code):
             print("humanize: final code: ", code)
     return str(code)
 
+
+
+
+
+def get_enums_lookup():
+    enums_lookup = {}
+
+    try:
+        dir_list = dir(cluster_details)
+        for key in dir_list:
+            if str(key).startswith('__'):
+                continue
+            #print("get_enums_lookup: checking key: ", key)
+            
+    
+            try:
+                instance = getattr(cluster_details, str(key))()
+                enums = getattr(instance, 'Enums')
+                if enums:
+                    
+                    for attr, value in enums.__dict__.items():
+                        if str(attr).startswith('__'):
+                            continue
+                        #print("-->", enums.__dict__[attr])
+                        #print("---->", list(enums.__dict__[attr]))
+                        enum_list = list(enums.__dict__[attr])
+                        names = [member.name for member in enum_list]
+                        #print("names: ", names)
+                        enums_lookup[str(key)] = []
+                        for enum_name in names:
+                            #print("enum_name: ", enum_name)
+                            if str(enum_name).startswith('k'):
+                                enums_lookup[str(key)].append(str(enum_name)[1:])
+                            else:
+                                enums_lookup[str(key)].append(str(enum_name))
+                    
+                        #print([e.name for e in enum_list])
+                        #for item_index in enum_list:
+                        #    print("....", item_index, enum_list[item_index])
+                
+            except Exception as ex:
+                pass
+                #print("no enums for key: ", key)
+            #print(dir(instance))
+            #print("instance: ", instance)
+
+        #for subclass in cluster_details.__subclasses__():
+        #    print("subclass name: ", subclass.__name__)    
+    
+        #for key in str(dir_list).splitlines():
+        #    print("key: ", key)
+        #    if str(key).startswith('__'):
+        #        continue
+            #my_instance = MyClass()
+            #print(dir(cluster_details[key]))
+    
+    
+    
+    except Exception as ex:
+        print("matter_util.py: caught error creating enums lookup: ", ex)
+    
+    #print("enums_lookup: ", enums_lookup)
+    return enums_lookup
+
+#def show_clusters():
+#    
+#    print("ALL_ATTRIBUTES: ", ALL_ATTRIBUTES)
+#    for cluster_id in range(3,16):
+#        #if str(cluster_id) in ALL_ATTRIBUTES:
+#        for attribute_id, attribute in ALL_ATTRIBUTES[cluster_id].items():
+#            print(cluster_id, ": ", attribute_id, " -> ", attribute)
 
 
 

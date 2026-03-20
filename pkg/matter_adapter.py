@@ -1,6 +1,5 @@
 """
 Matter addon for Candle Controller.
-
     START_LISTENING = "start_listening"
     SERVER_DIAGNOSTICS = "diagnostics"
     SERVER_INFO = "server_info"
@@ -15,7 +14,17 @@ Matter addon for Candle Controller.
     INTERVIEW_NODE = "interview_node"
     DEVICE_COMMAND = "device_command"
     REMOVE_NODE = "remove_node"
-
+    GET_VENDOR_NAMES = "get_vendor_names"
+    READ_ATTRIBUTE = "read_attribute"
+    WRITE_ATTRIBUTE = "write_attribute"
+    PING_NODE = "ping_node"
+    GET_NODE_IP_ADDRESSES = "get_node_ip_addresses"
+    IMPORT_TEST_NODE = "import_test_node"
+    CHECK_NODE_UPDATE = "check_node_update"
+    UPDATE_NODE = "update_node"
+    SET_DEFAULT_FABRIC_LABEL = "set_default_fabric_label"
+    SET_ACL_ENTRY = "set_acl_entry"
+    SET_NODE_BINDING = "set_node_binding"
 """
 
 
@@ -40,7 +49,7 @@ from gateway_addon import Database, Adapter, Device, Property
 # Database - needed to read from the settings database. If your addon doesn't have any settings, then you don't need this.
 from .matter_device import MatterDevice
 
-from .matter_util import process_node,uncamel,humanize,humanize_cluster_id
+from .matter_util import process_node,uncamel,humanize,humanize_cluster_id,get_enums_lookup
 
 try:
     from .matter_adapter_api_handler import *
@@ -66,20 +75,25 @@ import logging
 import argparse
 from os.path import abspath, dirname
 from pathlib import Path
-from sys import path
+#from sys import path
 
 #import aiohttp
 import asyncio
 #from aiorun import run
 import coloredlogs
 
-path.insert(1, dirname(dirname(abspath(__file__))))
+sys.path.insert(1, dirname(dirname(abspath(__file__))))
 #from matter_server.client.client import MatterClient  # noqa: E402
 #from matter_server.server.server import MatterServer  # noqa: E402
 
 # DEV
-from chip.clusters import Objects as clusters
+#from chip.clusters import Objects as clusters
 #from chip.clusters import ClusterCommand
+
+#import json
+# Clusters.ThreadNetworkDiagnostics.Enums
+#print(json.dumps(clusters,indent=4))
+
 
 # Import the ability to turn objects into dictionaries, and vice-versa
 #from matter_server.common.helpers.util import dataclass_from_dict,dataclass_to_dict,create_attribute_path_from_attribute
@@ -153,6 +167,9 @@ class MatterAdapter(Adapter):
         self.should_save = False
         self.auto_enable_properties = True
         
+        #show_clusters()
+        #return
+        
         # There is a very useful variable called "user_profile" that has useful values from the controller.
         #print("self.user_profile: " + str(self.user_profile))
         
@@ -218,6 +235,9 @@ class MatterAdapter(Adapter):
         self.extension_cable_recommended = False
         self.last_time_otbr_restarted = 0
         self.serial_before = '' # used to detect newly plugged in USB sticks by comparing before and after of lsusb
+        
+        self.enums_lookup = get_enums_lookup()
+        #print("self.enums_lookup: ", self.enums_lookup)
         
         # Hotspot
         self.use_hotspot = True
@@ -331,7 +351,7 @@ class MatterAdapter(Adapter):
             os.system('mkdir -p ' + str(self.data_thread_dir_path))
         
         os.chdir(self.data_path)
-        
+
         pwd = run_command('pwd')
         pwd = pwd.rstrip()
         
@@ -667,20 +687,23 @@ class MatterAdapter(Adapter):
                 if 'thread_radio_serial_port' in self.persistent_data and isinstance(self.persistent_data['thread_radio_serial_port'],str) and len(str(self.persistent_data['thread_radio_serial_port'])) > 3:
                     for line in serial_by_id_output.splitlines():
                         if str(self.persistent_data['thread_radio_serial_port']) == str(line).strip().rstrip():
-                            if self.DEBUG:
-                                print("Found the thread radio again")
+                            if self.found_thread_radio_again == False and self.otbr_started == False:
+                                if self.DEBUG:
+                                    print("Found the thread radio again")
                             found_thread_radio_again = True
                             break
                     
+                # TODO: this should be removed, since the SkyConnect could also have zigbee firmware. Maybe leave it, but only run it if there is no zigbee2mqtt addon installed
                 if found_thread_radio_again == False:
                     for line in serial_by_id_output.splitlines():
                         line = str(line).strip().rstrip()
                         if 'SkyConnect' in line or 'Nabu_Casa' in line:
                             self.persistent_data['thread_radio_serial_port'] = line
-                            if self.DEBUG:
-                                print("Found a new thread radio: ", line)
+                            if self.otbr_started == False:
+                                if self.DEBUG:
+                                    print("Found a new thread radio: ", line)
+                                self.should_save = True
                             found_new_thread_radio = True
-                            self.should_save = True
                             break
                         
         self.found_thread_radio_again = found_thread_radio_again
@@ -808,6 +831,8 @@ class MatterAdapter(Adapter):
                 # TODO: merge this with clock thread?
                 def read_otbr_stdout():
                     while self.running:
+                        if self.otbr_agent_process == None:
+                            break
                         msg = self.otbr_agent_process.stdout.readline()
                         decoded_message = str(msg.decode()).strip().rstrip()
                         if len(decoded_message) > 1:
@@ -1116,6 +1141,7 @@ class MatterAdapter(Adapter):
         self.otbr_started = False
         self.thread_radio_is_alive_count = 0
         self.thread_set_active = False
+        self.thread_error = ''
 
 
     # Check the Hotspot addon's settings for the SSID and Password
@@ -2010,7 +2036,7 @@ class MatterAdapter(Adapter):
             matter_server_command = matter_server_command + " --vendorid " + str(decimal_vendor_id)
             
         if self.nmcli_installed == True:
-            matter_server_command = matter_server_command + " --primary-interface uap0"
+            matter_server_command = matter_server_command + " --primary-interface 'uap0'"
             
             
         #if not os.path.isdir('/data/credentials'):

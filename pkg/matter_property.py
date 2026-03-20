@@ -337,19 +337,50 @@ class MatterProperty(Property):
             print("property: update. value: " + str(value) + ', existing value: ' + str(self.value))
             print("self.details: ", self.details) 
             
-        if 'short_type' in self.details and self.details['short_type'] == 'ColorControl.Attributes.CurrentX' and (isinstance(value,int) or str(value).isdigit()):
-            if self.DEBUG:
-                print("error: property: update: provided color was a number, but should be a hex value: ", value)
-            return
+        
             
-        if 'short_type' in self.details and self.details['short_type'] == 'LevelControl.Attributes.CurrentLevel' and isinstance(value,(int,float)):
-            if value < 0:
-                value = 0
-            elif value > 254:
-                value = 254
+        if 'short_type' in self.details:
+            
+            if self.details['short_type'] == 'ColorControl.Attributes.CurrentX' and (isinstance(value,int) or str(value).isdigit()):
+                if self.DEBUG:
+                    print("error: property: update: provided color was a number, but should be a hex value: ", value)
+                return
+            
+            # turn into enum string value
+            if self.details['short_type'] in self.device.adapter.enums_lookup and isinstance(value,int) and value >= 0 and value < len(self.device.adapter.enums_lookup[ self.details['short_type'] ]) and 'type' in self.description and self.description['type'] == 'string':
+                value = str(self.device.adapter.enums_lookup[ self.details['short_type'] ][value])
+            
+            # Adjust from percentage back to the range that the matter device expects (likely 0-100 -> 1-254)
+            elif self.details['short_type'] == 'LevelControl.Attributes.CurrentLevel' and isinstance(value,(int,float)):
+                if value < 0:
+                    value = 0
+                elif value > 254:
+                    value = 254
                 
-            if value < 101:
-                value = round(value * 2.54)
+                if 'minimum' in self.description:
+                    if value < self.description['minimum']:
+                        value = self.description['minimum']
+                
+                if 'maximum' in self.description:
+                    if value > self.description['maximum']:
+                        value = self.description['maximum']
+                    
+                    delta = self.description['maximum'] - self.description['minimum']
+                    #if delta > 100:
+                    percentage_factor = delta / 100
+                    if self.DEBUG:
+                        print("percentage_factor: ", percentage_factor)
+                    if value < 101: # the value coming from a percentage in the gateway should be between 0 and 100, so this check is superfluous
+                        value = self.description['minimum'] + round(value * percentage_factor)
+        
+                    if value > self.description['maximum']:
+                        if self.DEBUG:
+                            print("warning, percentage scaled value ended up bigger than the allowed maximum: ", value, self.description['maximum'] )
+                        value = self.description['maximum']
+                    if value < self.description['minimum']:
+                        if self.DEBUG:
+                            print("warning, percentage scaled value ended up smaller than the allowed minimum: ", value, self.description['minimum'] )
+                        value = self.description['minimum']
         
         if value != self.value:
             self.value = value

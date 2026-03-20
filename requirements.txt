@@ -7,3 +7,4 @@ requests
 click
 click-option-group
 xmltodict
+orjson

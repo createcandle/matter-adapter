@@ -7,12 +7,16 @@ from collections import namedtuple
 
 # for creating enum lookup
 import chip.clusters.Objects as cluster_details
+#from chip.clusters.Objects import ChipClusters
+#from chip.clusters.Objects import GetClusterInfoById, ListClusterInfo, ListClusterCommands, ListClusterAttributes
 
 from chip.clusters.ClusterObjects import ALL_ATTRIBUTES, ALL_CLUSTERS #, ALL_EVENTS
 from matter_server.client.models.device_types import ALL_TYPES
 
+#print("DIR cluster_details: ", dir(cluster_details))
 
-
+#print()
+#print("ChipClusters.ListClusterInfo: ", ChipClusters.ListClusterInfo())
 
 
 # Turns color names into HEX color values. Useful with voice control
@@ -177,7 +181,7 @@ def humanize_attribute_id(cluster_id,attribute_id):
 def humanize(code):
     if '/' in str(code):
         parts = str(code).split('/')
-        print("humanize: parts: ", parts)
+        #print("humanize: parts: ", parts)
         if len(parts) == 3:
             cluster_id = int(parts[1])
             attribute_id = int(parts[2])
@@ -186,11 +190,74 @@ def humanize(code):
             #attribute = f"{ALL_ATTRIBUTES[cluster_id][attribute_id].__name__}"
             #print("humanize: attribute: ", cluster)
             code = humanize_cluster_id(cluster_id) + '.Attributes.' + humanize_attribute_id(cluster_id,attribute_id)
-            print("humanize: final code: ", code)
+            #print("humanize: final code: ", code)
     return str(code)
 
 
 
+
+# 6 = OnOff
+# 8 = LevelControl
+# 40 = BasicInformation
+# 44 = TimeFormatLocalization
+# 47 = PowerSource
+# 51 = GeneralDiagnostics
+# 59 = Switch
+# 768 = ColorControl
+
+def get_commands_for_cluster_id(cluster_id):
+    commands_lookup = {}
+    #print("in get_commands_for_cluster.  cluster_id: ", cluster_id)
+    if str(cluster_id).isdigit():
+        cluster_id = int(cluster_id)
+        try:
+            
+            if cluster_id in ALL_CLUSTERS:
+                cluster_name = f"{ALL_CLUSTERS[cluster_id].__name__}"
+                commands = getattr(ALL_CLUSTERS[cluster_id], 'Commands')
+                commands_dir_list = dir(commands)
+                for key in commands_dir_list:
+                    if str(key).startswith('__'):
+                        continue
+                    if str(key) == 'TestEventTrigger':
+                        continue
+                    elif str(key) == 'TimeSnapshot':
+                        continue
+                    command = getattr(ALL_CLUSTERS[cluster_id].Commands, key)
+                    command_dict = command.__dict__
+                    command_id = command_dict['command_id']
+                    
+                    if not cluster_name in commands_lookup:
+                        commands_lookup[cluster_name] = {}
+                        
+                        
+                    if not str(key) in commands_lookup[cluster_name]:
+                        commands_lookup[cluster_name][str(key)] = {'id':command_id,'name':str(key)}
+                        #commands_lookup[cluster_name]['id_from_name'][str(key)] = command_id
+                        #commands_lookup[cluster_name]['name_from_id'][str(command_id)] = str(key)
+                        
+                        # commands instance:  ColorControl.Commands.MoveColorTemperature(moveMode=0, rate=0, colorTemperatureMinimumMireds=0, colorTemperatureMaximumMireds=0, optionsMask=0, optionsOverride=0)
+                        # TODO: if need be, in the future the individual parameters could also be added
+                        
+            #else:
+            #    print("\nERROR: get_commands_for_cluster: cluster_id not spotted in ALL_CLUSTERS: ", cluster_id)
+        except Exception as ex:
+            pass
+            #print("\nERROR, get_commands_for_cluster: caught error trying to get commands: ", ex)
+    
+    #print("FINAL commands_lookup: ", commands_lookup)   
+    return commands_lookup 
+
+#get_commands_for_cluster(768)
+
+#print("\n\n\nListClusterInfo: ")
+#ListClusterInfo()
+
+#print("\n\n\nListClusterCommands: ")
+#ListClusterCommands()
+
+#print("\n\n\nListClusterAttributes: ")
+#ListClusterAttributes()
 
 
 def get_enums_lookup():
@@ -262,7 +329,6 @@ def get_enums_lookup():
 #            print(cluster_id, ": ", attribute_id, " -> ", attribute)
 
 
-
 # Turns numbered attributes style list into human readable attributes tree
 def process_node(node):
     """Process a node."""
@@ -279,6 +345,8 @@ def process_node(node):
         endpoint_id = int(endpoint_id)
         attr_id = int(attr_id)
         
+        
+        
         if cluster_id == 5: # "Scenes" cluster is not officially supported anymore. Even though IKEA still uses it?
             continue
         
@@ -287,6 +355,8 @@ def process_node(node):
             cluster_name = f"{ALL_CLUSTERS[cluster_id].__name__}"
             if cluster_name in clusters_to_ignore:
                 continue
+                
+            print("process_node:  cluster_id,cluster_name: ", cluster_id, cluster_name)
             attribute_path = f"{ALL_CLUSTERS[cluster_id].__name__}.Attributes."
         else:
             if cluster_id not in cluster_warn:
@@ -343,7 +413,7 @@ def process_node(node):
                     device_type["name"] = device_type_name
                     device_type["hex"] = f"0x{device_type_id:04x}"
         except Exception as ex:
-            print("matter_util.py: caught error in process_node: ", ex)
+            print("matter_util.py: caught error in process_node while trying to figure out device type: ", ex)
         
     node['attributes_list'] = new_attributes
     
@@ -369,6 +439,21 @@ def uncamel(value):
     if output == '':
         output = str(value)
     return output
+
+
+
+def boolean_list_to_number(bools):
+    return ((1 if bools[0] else 0) << 0) | \
+           ((1 if bools[1] else 0) << 1) | \
+           ((1 if bools[2] else 0) << 2) | \
+           ((1 if bools[3] else 0) << 3) | \
+           ((1 if bools[4] else 0) << 4) | \
+           ((1 if bools[5] else 0) << 5) | \
+           ((1 if bools[6] else 0) << 6) | \
+           ((1 if bools[7] else 0) << 7)
+
+def number_to_boolean_list(num):
+    return [bool((num >> i) & 1) for i in range(8)]
 
 
 

@@ -88,9 +88,9 @@ class MatterAPIHandler(APIHandler):
                     
                     action = str(request.body['action']) 
                     
-                    if self.DEBUG:
-                        #print("API handler is being called. Action: " + str(action))
-                        print("API: debug: request.body: " + str(request.body))
+                    #if self.DEBUG:
+                    #    #print("API handler is being called. Action: " + str(action))
+                    #    print("API: debug: request.body: " + str(request.body))
                     
                     
                     # INIT
@@ -125,7 +125,6 @@ class MatterAPIHandler(APIHandler):
                     # MAIN POLL
                     elif action == 'get_main_poll':
                         
-                        
                         wifi_restore_countdown = 0;
                         if self.adapter.turn_wifi_back_on_at != 0:
                             if self.DEBUG:
@@ -141,8 +140,9 @@ class MatterAPIHandler(APIHandler):
                         if isinstance(self.adapter.last_thread_radio_is_alive_timestamp,int) and self.adapter.last_thread_radio_is_alive_timestamp != 0:
                             thread_radio_is_alive_seconds_ago = int(time.time()) - self.adapter.last_thread_radio_is_alive_timestamp;
                         
-                        if self.DEBUG:
-                            print("API: debug: get_main_poll:  wifi_restore_countdown: ", wifi_restore_countdown)
+                        if wifi_restore_countdown != 0:
+                            if self.DEBUG:
+                                print("API: debug: get_main_poll:  wifi_restore_countdown: ", wifi_restore_countdown)
                         
                         return APIResponse(
                           status=200,
@@ -170,6 +170,8 @@ class MatterAPIHandler(APIHandler):
                                       'wifi_restore_countdown': wifi_restore_countdown,
                                       'thread_radio_is_alive_seconds_ago': thread_radio_is_alive_seconds_ago,
                                       'pairing_phase': self.adapter.pairing_phase,
+                                      'pairing_attempt': self.adapter.pairing_attempt,
+                                      'pairing_phase_message':self.adapter.pairing_phase_message,
                                       'extension_cable_recommended': self.adapter.extension_cable_recommended
                                       }),
                         )
@@ -243,7 +245,9 @@ class MatterAPIHandler(APIHandler):
                                       'busy_pairing':self.adapter.busy_pairing,
                                       'pairing_failed':self.adapter.pairing_failed,
                                       'nodez': self.adapter.persistent_data['nodez'],
-                                      'pairing_phase':self.adapter.pairing_phase
+                                      'pairing_phase':self.adapter.pairing_phase,
+                                      'pairing_attempt': self.adapter.pairing_attempt,
+                                      'pairing_phase_message':self.adapter.pairing_phase_message,
                                       }),
                         )
                         
@@ -255,7 +259,7 @@ class MatterAPIHandler(APIHandler):
                             print("\n\nAPI: in discover")
                         state = False
                         
-                        code = "MT:Y.ABCDEFG123456789"
+                        code = ""
                         
                         try:
                             state = self.adapter.discover()
@@ -331,7 +335,8 @@ class MatterAPIHandler(APIHandler):
                                     #device = request.body['device']
                                     state = self.adapter.start_matter_pairing(pairing_type, code) # device data isn't really needed, CHIP brute-force scans all devices on the network.
                             else:
-                                print("\n\n\nERROR, NOT ALL DATA FOR PAIRING WAS PROVIDED")
+                                if self.DEBUG:
+                                    print("\n\n\nERROR, NOT ALL DATA FOR PAIRING WAS PROVIDED")
                         
                         except Exception as ex:
                             if self.DEBUG:
@@ -353,6 +358,9 @@ class MatterAPIHandler(APIHandler):
                         self.adapter.busy_pairing = False
                         self.adapter.pairing_failed = False
                         self.adapter.pairing_code = ""
+                        self.adapter.pairing_phase = 0
+                        self.adapter.pairing_attempt = 0
+                        self.adapter.self.pairing_phase_message = 'Starting pairing'
                         
                         return APIResponse(
                           status=200,
@@ -435,7 +443,8 @@ class MatterAPIHandler(APIHandler):
                                                     
                                                     
                         except Exception as ex:
-                            print("caught error in change_attibute: ", ex)
+                            if self.DEBUG:
+                                print("caught error in change_attibute: ", ex)
                         
                         if self.DEBUG:
                             print("change_attribute: final state: ", state)
@@ -460,6 +469,8 @@ class MatterAPIHandler(APIHandler):
                         self.adapter.device_was_deleted = False
                         try:
                             node_id = str(request.body['node_id'])
+                            if node_id.startswith('matter-'):
+                                node_id = node_id.replace('matter-','')
                             device_id = 'matter-' + str(node_id)
                             #state = self.delete_item(name) # This method returns True if deletion was succesful
                             
@@ -564,7 +575,8 @@ class MatterAPIHandler(APIHandler):
                         )
                     
                     else:
-                        print("Error, that action is not possible")
+                        if self.DEBUG:
+                            print("Error, that action is not possible")
                         return APIResponse(
                             status=404
                         )

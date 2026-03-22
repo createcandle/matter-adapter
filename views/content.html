@@ -145,11 +145,11 @@
                     
 						<div id="extension-matter-adapter-pairing-step-wifi" class="extension-matter-adapter-area">
 						
-							<h4>Provide WiFi credentials</h4>
+							<h4>WiFi credentials</h4>
 						
 							<p id="extension-matter-adapter-pairing-step-wifi-explanation">If it's a WiFi based device you will also need to provide the WiFi name and password.</p>
 							<div id="extension-matter-adapter-current-wifi-ssid-container" class="extension-matter-adapter-hidden">
-								<p>WiFi credentials will be shared for: <span id="extension-matter-adapter-current-wifi-ssid">...</span><p>
+								<p>WiFi Matter devices will be told to connect to: <span id="extension-matter-adapter-current-wifi-ssid">...</span><p>
 								<div class="extension-matter-adapter-align-right">
 	                                <button id="extension-matter-adapter-reveal-wifi-setup-button" class="text-button">Change</button>
 	                            </div>
@@ -188,21 +188,25 @@
 						<div id="extension-matter-adapter-pairing-step-qr" class="extension-matter-adapter-area">
 							<h4>Getting the pairing code</h4>
 
-							<p>Your device or its packaging should have a Matter QR code on it.</p>
+							<p>Your device (or its packaging) should have a Matter QR code on it.</p>
 						
-					
+							
+							
 							<div id="extension-matter-adapter-pairing-qr-choose-scanner-area">
-								<a id="extension-matter-adapter-pairing-qr-choose-scanner-camera" href="#" target="_blank">
+								<div id="extension-matter-adapter-pairing-qr-choose-scanner-camera">
 									<h3>Scan with this device</h3>
 									<span class="extension-matter-adapter-pairing-qr-choose-scanner-icon extension-matter-adapter-pairing-qr-choose-scanner-icon-camera"></span>
-								</a>
+								</div>
 								<div id="extension-matter-adapter-pairing-qr-choose-scanner-phone">
 									<h3>Scan with a phone</h3>
 									<div class="extension-matter-adapter-pairing-qr-choose-scanner-icon extension-matter-adapter-pairing-qr-choose-scanner-icon-phone"></div>
 								</div>
 							</div>
+							<div id="extension-matter-adapter-pairing-use-previously-scanned-code" class="extension-matter-adapter-hidden">
+								<h4>Use previously scanned code</h4>
+							</div>
 						
-							<div id="extension-matter-adapter-pairing-scanner-container"></div>
+							
 						
 							<!--
 							<div id="extension-matter-adapter-pairing-qr-camera-area" class="extension-matter-adapter-hidden">
@@ -230,6 +234,9 @@
 							// -->
 							
 							<div id="extension-matter-adapter-pairing-qr-area">
+								
+								<div id="extension-matter-adapter-pairing-scanner-container"></div>
+								
 								<div id="extension-matter-adapter-desktop-qr">
 	                                <p>Scan this QR code with your phone to get started:</p>
 								    <div id="extension-matter-adapter-qr-code"></div>
@@ -292,8 +299,10 @@
 
 						<div id="extension-matter-adapter-pairing-start-area" class="extension-matter-adapter-area extension-matter-adapter-hidden">
 							<h4>Ready to pair</h4>
-
-	                        <p>Using pairing code: <span id="extension-matter-adapter-pairing-start-area-pairing-code">Error!</span></p>
+							<p>Pairing code: <span id="extension-matter-adapter-pairing-start-area-pairing-code">Error!</span></p>
+							
+							<h3 id="extension-matter-adapter-pairing-start-area-vendor-name"></h3>
+							
 							<div id="extension-matter-adapter-busy-updating-certificates" class="extension-matter-adapter-hidden extension-matter-adapter-area">
 								<div class="extension-matter-adapter-spinner">
 									<div></div><div></div><div></div><div></div>
@@ -307,11 +316,12 @@
 	                            </div>
 	                        </div>
 						
+							
 						
 	                        <div id="extension-matter-adapter-pairing-bluetooth-hint">
 	    						<ul>
 	    							<li>The device must be within Bluetooth range of the Candle Controller</li>
-	    							<li>Please get your new device into pairing mode. If possible it's recommended to factory reset it.</li>
+	    							<li>Put your new device in pairing mode. If possible it's recommended to factory reset it.</li>
 	    						</ul>
 	                        </div>
                         
@@ -328,12 +338,13 @@
 									<div></div><div></div><div></div><div></div>
 								</div>
 								<div id="extension-matter-adapter-pairing-progress-bar-container"><div id="extension-matter-adapter-pairing-progress-bar"></div></div>
-								<p style="text-align:center">Pairing...</p>
+								<p id="extension-matter-adapter-pairing-attempt" style="text-align:center"></p>
+								<p id="extension-matter-adapter-pairing-progress-message" style="text-align:center">Starting pairing...</p>
 							</div>
 							<div id="extension-matter-adapter-pairing-failed-hint" class="extension-matter-adapter-area extension-matter-adapter-error extension-matter-adapter-hidden">
 								<h4>Pairing failed</h4>
-	                            <p>Try pressing the "Start pairing" button again first, to give it another go.</p>
-								<p>If that doesn't work, then you can try starting again from the beginning.</p>
+	                            <p>Try pressing the "Start pairing" button again to give it another go.</p>
+								<p>If that doesn't work, then you can try starting from the beginning.</p>
 								<div class="extension-matter-adapter-flex-between">
 	                                <button id="extension-matter-adapter-pairing-failed-back-to-the-start-button" class="text-button">Back to the start</button>
 									<button id="extension-matter-adapter-pairing-failed-try-again-button" class="text-button">Try again</button>

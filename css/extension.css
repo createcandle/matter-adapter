@@ -465,6 +465,17 @@
 	margin-left: 2rem;
 }
 
+
+.extension-matter-adapter-item-details-accepted-commands > span{
+	display: inline-block;
+	padding:1rem;
+	margin:0 1rem 1rem 0;
+	border-radius:.8rem;
+	border:1px solid rgba(255,255,255,.5);
+}
+
+
+
 /*  MAIN PAGE FOOTER BUTTONS */
 
 #extension-matter-adapter-reset-customizations-button{
@@ -478,6 +489,7 @@
 
 #extension-matter-adapter-second-page h4{
 	font-size:2.2rem;
+	width:100%;
 }
 
 /* back button */
@@ -581,12 +593,18 @@
 	margin:2rem 0;
 }
 
+#extension-matter-adapter-pairing-qr-choose-scanner-area.extension-matter-adapter-hidden + #extension-matter-adapter-pairing-use-previously-scanned-code{
+	display:none!important;
+}
+
+
 #extension-matter-adapter-pairing-qr-choose-scanner-area > *{
 	position:relative;
-	width:calc(50% - 1rem);
+	/*width:calc(50% - 1rem);*/
+	margin-top:2rem;
 	background-color:rgba(0,0,0,.1);
 	border-radius:1rem;
-	min-height:50vh;
+	min-height:25vh;
 	display:flex;
 	align-items:center;
 	padding:2rem 25% 2rem 2rem;
@@ -602,10 +620,17 @@
 #extension-matter-adapter-pairing-qr-choose-scanner-area > *:hover .extension-matter-adapter-pairing-qr-choose-scanner-icon{
 	opacity:.5;
 }
+
+#extension-matter-adapter-pairing-qr-choose-scanner-camera{
+	margin-right:1rem;
+}
+
 #extension-matter-adapter-pairing-qr-choose-scanner-camera > *,
 #extension-matter-adapter-pairing-qr-choose-scanner-phone > *{
 	pointer-events:none;
 }
+
+#extension-matter-adapter-pairing-scanner-container h3,
 #extension-matter-adapter-pairing-qr-choose-scanner-area h3{
 	font-size:4rem;
 	color:white;
@@ -631,21 +656,93 @@
 	background-image: url('../images/phone.svg');
 }
 
+#extension-matter-adapter-pairing-use-previously-scanned-code{
+	background-color: rgba(0, 0, 0, .1);
+    border-radius: 1rem;
+    display: flex;
+    text-align: center;
+	cursor:pointer;
+	transition: background .6s ease-in-out;
+}
+#extension-matter-adapter-pairing-use-previously-scanned-code:hover{
+	background-color:rgba(255, 255, 255, .3);
+}
 
-#extension-matter-adapter-pairing-qr-camera-area:not(.extension-matter-adapter-hidden) ~ #extension-matter-adapter-pairing-qr-area,
-#extension-matter-adapter-pairing-qr-choose-scanner-area:not(.extension-matter-adapter-hidden) + #extension-matter-adapter-pairing-qr-area{
-	/*display:none;*/
-	opacity:0.5;
-	pointer-events:none;
+
+#extension-matter-adapter-pairing-scanner-container{
+	position: relative;
+    width: 100%;
+	height: 800px;
+	max-height: 80vh;
+	overflow: hidden;
+}
+
+#extension-matter-adapter-pairing-scanner-extra-wrapper{
+	width:100%;
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
 }
 
 
 
 
+#extension-matter-adapter-qr-scanner-canvas,
+#extension-matter-adapter-qr-scanner-screenshot{
+	display:none;
+}
+
+
+#extension-matter-adapter-pairing-start-qr-scanner-button{
+	position: relative;
+    width: 100%;
+    background-color: rgba(0, 0, 0, .1);
+    border-radius: 1rem;
+    min-height: 25vh;
+    display: flex;
+    align-items: center;
+    padding: 2rem 25% 2rem 2rem;
+    box-sizing: border-box;
+    overflow: hidden;
+    cursor: pointer;
+    transition: background .6s ease-in-out;
+    text-decoration: none;
+}
+
+#extension-matter-adapter-qr-scanner-stop-button{
+	margin-top:2rem;
+}
+
+#extension-matter-adapter-pairing-scanner-container:not(:empty) + #extension-matter-adapter-desktop-qr,
+#extension-matter-adapter-pairing-scanner-container:not(:empty) ~ #extension-matter-adapter-mobile-qr{
+	display:none;
+}
+
+/*#extension-matter-adapter-pairing-qr-camera-area:not(.extension-matter-adapter-hidden) ~ #extension-matter-adapter-pairing-qr-area,*/
+#extension-matter-adapter-pairing-qr-choose-scanner-area:not(.extension-matter-adapter-hidden) ~ #extension-matter-adapter-pairing-qr-area{
+	display:none;
+}
+
+
+
+#extension-matter-adapter-qr-scanner-video,
 #extension-matter-adapter-qr-video{
 	width:100%;
+	max-width:100%;
 	border:1px solid #888;
 	box-sizing:border-box;
+}
+
+#extension-matter-adapter-qr-scanner-guide-lines{
+	position:absolute;
+	top:0;
+	left:0;
+	max-width:100%;
+	padding:10px;
+	background-color:transparent;
+	box-shadow:0 0 100px 100px rgba(0,0,0,.2);
+	z-index:1000;
 }
 
 #extension-matter-adapter-camera-options-container{
@@ -672,11 +769,11 @@
 .extension-matter-adapter-is-mobile #extension-matter-adapter-desktop-qr{
     display:none;
 }
-
+/*
 .extension-matter-adapter-is-mobile #extension-matter-adapter-pairing-qr-choose-scanner-area{
 	display:none;
 }
-
+*/
 #extension-matter-adapter-mobile-qr-button{
     background-color:white; 
     padding:2rem; 
@@ -728,6 +825,26 @@ div.extension-matter-adapter-busy-pairing #extension-matter-adapter-start-networ
     margin-bottom:1rem;
 }
 
+#extension-matter-adapter-pairing-start-area-vendor-name{
+	font-style:italic;
+    padding: 2rem;
+    background-color: rgba(255, 255, 255, .1);
+    border-radius: 1rem;
+    text-align: center;
+}
+#extension-matter-adapter-pairing-start-area-vendor-name:not(:empty){
+	margin:2rem 0;
+}
+
+#extension-matter-adapter-pairing-start-area-vendor-name:not(:empty)::before{
+	content:"This device was made by:";
+	display:block;
+	line-height: 2.6rem;
+    font-size: 1.4rem;
+    font-style: normal;
+    font-weight: normal;
+    margin-bottom: .5rem;
+}
 /*
 body.kiosk #extension-matter-adapter-qr-scan-button-container{
     display:none;
@@ -752,6 +869,7 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
 	border-bottom-right-radius: 1rem;
     padding: 0 2rem 4rem 2rem;
     background-color: white;
+	text-align:center;
 }
 
 #extension-matter-adapter-qr-code img{

@@ -49,7 +49,7 @@ from gateway_addon import Database, Adapter, Device, Property
 # Database - needed to read from the settings database. If your addon doesn't have any settings, then you don't need this.
 from .matter_device import MatterDevice
 
-from .matter_util import process_node,uncamel,humanize,humanize_cluster_id,get_enums_lookup
+from .matter_util import process_node,uncamel,humanize,humanize_cluster_id,get_enums_lookup,get_commands_for_cluster_id
 
 try:
     from .matter_adapter_api_handler import *
@@ -198,12 +198,14 @@ class MatterAdapter(Adapter):
         self.certificates_updated = False
         self.busy_updating_certificates = False
         self.last_certificates_download_time = 0
-        self.time_between_certificate_downloads = 604800   #   7 * 86400
+        self.time_between_certificate_downloads = 14 * 86400 # 14 days
         
         self.busy_discovering = False
         self.pairing_failed = False
         self.busy_pairing = False
         self.pairing_phase = 0
+        self.pairing_phase_message = 'Starting'
+        self.pairing_attempt = 0
         
         self.brightness_transition_time = 0
         
@@ -238,6 +240,9 @@ class MatterAdapter(Adapter):
         
         self.enums_lookup = get_enums_lookup()
         #print("self.enums_lookup: ", self.enums_lookup)
+        
+        self.completed_command_clusters = [] # Will be filled with cluster_id's that have already been lookup up through get_commands_for_cluster_id
+        self.commands_lookup = {} # will be filled as needed by calling get_commands_for_cluster_id(). The first key is the cluster_name
         
         # Hotspot
         self.use_hotspot = True
@@ -446,7 +451,8 @@ class MatterAdapter(Adapter):
             
         if 'last_certificates_download_time' not in self.persistent_data:
             self.persistent_data['last_certificates_download_time'] = 0
-            
+        elif self.persistent_data['last_certificates_download_time'] > time.time() - self.time_between_certificate_downloads:
+            self.certificates_updated = True
 
         # Allow the use_hotspot setting to override the wifi credentials
         # TODO: check if the hotspot addon is actually running?
@@ -458,7 +464,7 @@ class MatterAdapter(Adapter):
         if not os.path.exists('/boot/firmware/candle_hotspot.txt'):
             self.use_hotspot = False
         
-        print("self.nmcli_installed: ", self.nmcli_installed)
+        #print("self.nmcli_installed: ", self.nmcli_installed)
         
         if self.use_hotspot and (self.nmcli_installed or self.hotspot_addon_installed):
             # Figure out the Hotspot addon's SSID and password
@@ -520,7 +526,7 @@ class MatterAdapter(Adapter):
         
         if self.running:
             # Download the latest Matter certificates
-            self.download_certs()
+            #self.download_certs()
         
             self.find_thread_radio()
         
@@ -604,7 +610,7 @@ class MatterAdapter(Adapter):
                     print("Debugging enabled")
 
             if self.DEBUG:
-                print(str(config)) # Print the entire config data
+                print("matter adapter config: ", str(config)) # Print the entire config data
 
             if "Do not use Hotspot as WiFi network for devices" in config:
                 self.use_hotspot = not bool(config["Do not use Hotspot as WiFi network for devices"])
@@ -1399,6 +1405,7 @@ class MatterAdapter(Adapter):
                         self.busy_discovering = False
                         self.busy_pairing = False
                         self.pairing_phase = 100
+                        self.pairing_phase_message = 'Pairing completed succesfully'
                         self.get_nodes()
                         
                     elif message['message_id'] == 'start_listening':
@@ -1689,6 +1696,7 @@ class MatterAdapter(Adapter):
         if time.time() - self.time_between_certificate_downloads > self.persistent_data['last_certificates_download_time']:
             if self.DEBUG:
                 self.s_print("downloading latest certificates")
+            self.pairing_phase_message = 'Updating certificates'
             self.busy_updating_certificates = True
             self.certificates_updated = False
             certificates_download_command = "python3 " + str(self.certs_downloader_path) + " --use-main-net-http --paa-trust-store-path " + str(self.certs_dir_path)
@@ -1849,8 +1857,13 @@ class MatterAdapter(Adapter):
             self.s_print("\n\n\n\nin start_matter_pairing. Pairing type: " + str(pairing_type) + ", Code: " + str(code))
         self.pairing_failed = False
         # Download the latest certificates if they haven't been updated in a while
-        #self.download_certs()
+        self.download_certs()
         
+        self.pairing_attempt += 1
+        if self.pairing_attempt >= 4:
+            self.pairing_failed = True
+            self.pairing_attempt = 0
+            return
         
         if self.thread_dataset == '' and self.thread_radio_is_alive_count > 2:
             if self.DEBUG:
@@ -1876,7 +1889,7 @@ class MatterAdapter(Adapter):
         if is_thread_device and self.last_found_pairing_code and len(str(self.thread_dataset)) > 40:
             try:
                 if self.DEBUG:
-                    print("\n\nstart_matter_pairing: attempting to decde self.last_found_pairing_code: \n->" + str(self.last_found_pairing_code) + "<--")
+                    print("\n\nstart_matter_pairing: attempting to decode self.last_found_pairing_code: \n->" + str(self.last_found_pairing_code) + "<--")
                 decoded_pairing_code = self.parse_mt_pairing_code(str(self.last_found_pairing_code))
                 if self.DEBUG:
                     print('start_matter_pairing: decoded_pairing_code: \n\n', decoded_pairing_code, '\n\n')
@@ -1910,10 +1923,13 @@ class MatterAdapter(Adapter):
                         self.persistent_data['thing_index'] += 1
                         self.should_save = True
                         
-                        self.turn_wifi_back_on_at = time.time() + 30
+                        self.turn_wifi_back_on_at = time.time() + 60
+                        
+                        self.pairing_phase = 15
+                        self.pairing_phase_message = 'Turning of WiFi temporarily in an attempt to limit Bluetooth interference'
+                        time.sleep(1)
                         run_command('nmcli radio wifi off')
                         time.sleep(1)
-                        self.pairing_phase = 25
                         
                         #os.system('sudo btmgmt -i hci0 power off')
                         #os.system('sudo btmgmt -i hci0 bredr off')
@@ -1952,27 +1968,34 @@ class MatterAdapter(Adapter):
                     print("start_pairing: Client is connected, so sending commissioning code to Matter server.")
         
                 self.busy_pairing = True
+                self.pairing_phase_message = 'Setting credentials'
         
-        
-        
+                
                 # Set the wifi credentials
                 self.set_wifi_credentials()
-                self.pairing_phase = 10
+                self.pairing_phase = 2
                 self.set_thread_dataset()
-                self.pairing_phase = 12
-                self.turn_wifi_back_on_at = time.time() + 30
+                self.pairing_phase = 4
+                self.pairing_phase_message = 'Credentials set'
                 
-                time.sleep(6) # TODO: Dodgy
-                self.pairing_phase = 14
-                run_command('nmcli radio wifi off')
-                time.sleep(1)
-                self.pairing_phase = 16
-        
-                os.system('sudo btmgmt -i hci0 power off')
-                os.system('sudo btmgmt -i hci0 bredr off')
-                os.system('sudo btmgmt -i hci0 power on')
-                time.sleep(1)
-                self.pairing_phase = 18
+                if self.pairing_attempt == 2:
+                    self.pairing_phase_message = 'Turning of WiFi temporarily in an attempt to limit Bluetooth interference'
+                    self.turn_wifi_back_on_at = time.time() + 15
+                    time.sleep(3) # TODO: Dodgy
+                    
+                self.pairing_phase = 6
+                if self.pairing_attempt == 2:
+                    run_command('nmcli radio wifi off')
+                    time.sleep(1)
+                self.pairing_phase = 8
+                
+                if self.pairing_attempt == 1 or self.pairing_attempt == 2:
+                    self.pairing_phase_message = 'Turning Bluetooth off and on again first, perhaps that will help'
+                    os.system('sudo btmgmt -i hci0 power off')
+                    os.system('sudo btmgmt -i hci0 bredr off')
+                    os.system('sudo btmgmt -i hci0 power on')
+                    time.sleep(1)
+                self.pairing_phase = 10
                 
                 # create pairing message
                 message = None
@@ -1995,6 +2018,7 @@ class MatterAdapter(Adapter):
                             }
                         }
                 
+                
                 if self.DEBUG:
                     print("\nstart_matter_pairing: sending this message: \n", json.dumps(message,indent=4))
                 
@@ -2003,21 +2027,23 @@ class MatterAdapter(Adapter):
                     json_message = json.dumps(message)
                     self.ws.send(json_message)
                     self.pairing_phase = 20
+                    self.pairing_phase_message = 'Pairing in progress'
                     return True
             
             else:
+                self.pairing_phase_message = 'Error, Matter is not running'
                 if self.DEBUG:
                      self.s_print("start_matter_pairing: error, client is not connected")
                      self.send_pairing_prompt("Error, Matter client is not connected")
             
         except Exception as ex:
             self.s_print("caught error in start_pairing: " + str(ex))
-        
+            self.pairing_phase_message = 'An unexpected error occured while trying to start pairing'
         self.pairing_phase = 0
         self.busy_pairing = False
         return False
 
-
+    
 
 
     def clock(self):
@@ -2036,7 +2062,7 @@ class MatterAdapter(Adapter):
             matter_server_command = matter_server_command + " --vendorid " + str(decimal_vendor_id)
             
         if self.nmcli_installed == True:
-            matter_server_command = matter_server_command + " --primary-interface 'uap0'"
+            matter_server_command = matter_server_command + " --primary-interface uap0"
             
             
         #if not os.path.isdir('/data/credentials'):
@@ -2190,46 +2216,56 @@ class MatterAdapter(Adapter):
                         self.pairing_failed = True
                         self.busy_pairing = False
                         self.send_pairing_prompt("Error, Matter server crashed")
+                        self.pairing_phase_message = 'Matter crashed!'
                         self.pairing_phase = -1
                     if 'over BLE failed' in line:
                         self.pairing_failed = True
                         self.busy_pairing = False
                         self.send_pairing_prompt("Bluetooth commissioning failed")
+                        self.pairing_phase_message = 'Bluetooth connection to Matter device could not be established'
                         self.pairing_phase = -1
+                        
                     if 'error.NodeInterviewFailed' in line:
                         if self.busy_pairing:
                             self.pairing_failed = True
                             self.busy_pairing = False
                             self.send_pairing_prompt("Interviewing Matter device failed")
                             self.pairing_phase = -1
+                            self.pairing_phase_message = 'Interviewing the Matter device failed'
                     if 'Commission with code failed for node' in line:
                         self.pairing_failed = True
                         self.busy_pairing = False
                         self.send_pairing_prompt("Interviewing Matter device officially failed")
+                        self.pairing_phase_message = 'Pairing failed'
                         self.pairing_phase = -1
                     if 'Established secure session with Device' in line:
                         self.send_pairing_prompt("Connected to new device...")
+                        self.pairing_phase_message = 'Secure connection to Matter device established'
                         self.pairing_phase = 50
                     if 'Setting up attributes and events subscription' in line:
                         #if time.time() - self.addon_start_time > 60:
                         if self.busy_pairing:
                             self.send_pairing_prompt("Setting up device...")
+                            self.pairing_phase_message = 'Setting up Matter device'
                             self.pairing_phase = 70
                     if 'Discovery timed out' in line:
                         if self.busy_pairing:
                             self.pairing_failed = True
                             self.busy_pairing = False
                             self.send_pairing_prompt("No new Matter device detected")
+                            self.pairing_phase_message = 'No new Matter device detected'
                             self.pairing_phase = -1
                     if 'Failed to establish secure session to device' in line:
                         self.pairing_failed = True
                         self.busy_pairing = False
                         self.send_pairing_prompt("Creating secure connection to new Matter device failed")
+                        self.pairing_phase_message = 'Creating secure connection to new Matter device failed'
                         self.pairing_phase = -1
                     if 'le-connection-abort-by-local' in line:
                         self.pairing_failed = True
                         self.busy_pairing = False
                         self.send_pairing_prompt("Bluetooth got wireless interference. Try again?")
+                        self.pairing_phase_message = 'Could not connect to new device via Bluetooth. Possibly because of wireless interference'
                         self.pairing_phase = -1
                     if 'address already in use' in line:
                         self.s_print("ERROR, THERE ALREADY IS A MATTER SERVER RUNNING")
@@ -2601,9 +2637,30 @@ class MatterAdapter(Adapter):
             
             if 'attributes' in node:
                 if self.DEBUG:
-                    #print("parse_node: node before: \n", json.dumps(node,indent=2))
-                    print('parse_node: NODE BEFORE...')
+                    print("parse_node: node before: \n", json.dumps(node,indent=2))
+                    #print('parse_node: NODE BEFORE...')
                     #print("\nparse_node: end of node before\n\n\n\n\n\n\n\n")
+                
+                try:
+                    for attr_path, value in node["attributes"].items():
+                        endpoint_id, cluster_id, attr_id = attr_path.split("/")
+                        cluster_id = int(cluster_id)
+                        endpoint_id = int(endpoint_id)
+                        attr_id = int(attr_id)
+                        if not cluster_id in self.completed_command_clusters:
+                            command_lookup_table = get_commands_for_cluster_id(cluster_id);
+                            if command_lookup_table and len(list(command_lookup_table.keys())):
+                                self.commands_lookup = self.commands_lookup | command_lookup_table
+                                self.completed_command_clusters.append(cluster_id)
+                                if self.DEBUG:
+                                    print("self.completed_command_clusters is now: ", self.completed_command_clusters);
+                            #else:
+                            #    if self.DEBUG:
+                            #        print("\nERROR, get_commands_for_cluster_id did not return a valid dict")
+                except Exception as ex:
+                    print("caught error looping over node in order to get all commands: ", ex)
+                
+                    
                 process_node(node)
             
                 if self.DEBUG:
@@ -2622,6 +2679,11 @@ class MatterAdapter(Adapter):
             #    self.should_save = True
                 
         
+            if not 'node_id' in node:
+                if self.DEBUG:
+                    print("\nERROR: parse_node: node_id is missing from node data after process_node: ", node)
+                return
+                
             target_device = self.get_device(device_id)
             if target_device == None:
                 if self.DEBUG:
@@ -2629,7 +2691,7 @@ class MatterAdapter(Adapter):
                 
                 new_device = MatterDevice(self, device_id, node)
                 self.handle_device_added(new_device)
-            
+                
             else:
                 if self.DEBUG:
                     print("parse_node: target_device has already been created. Attempting to call it's update_from_node method.")
@@ -2867,8 +2929,8 @@ class MatterAdapter(Adapter):
         
         self.get_nodes()
         time.sleep(3)
-        
         matter_id = 'matter-' + str(node_id)
+            
         if matter_id in self.nodes:
             if self.DEBUG:
                 print("remove_node: Node seems to exist, will delete it")

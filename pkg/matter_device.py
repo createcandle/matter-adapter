@@ -914,7 +914,7 @@ class MatterDevice(Device):
                                     break
                                 
                                 
-                                if attribute_code.endswith('.RecentEvent')
+                                if attribute_code.endswith('.RecentEvent'):
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['readOnly'] = True
                                 
                                 elif attribute_code == 'OnOff.Attributes.OnOff':

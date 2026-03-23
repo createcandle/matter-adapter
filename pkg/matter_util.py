@@ -296,9 +296,9 @@ def rgb2hsv(r, g, b):
 #print(rgb2hsv(24, 12, 39))
 
 
-print("is_hex_color: ", is_hex_color('#FF0077'))
-hsv = hex_to_hsv('#FF0077')
-print("HSV OUTPUT: ", hsv)
+#print("is_hex_color: ", is_hex_color('#FF0077'))
+#hsv = hex_to_hsv('#FF0077')
+#print("HSV OUTPUT: ", hsv)
 
 
 # HSV to RGB

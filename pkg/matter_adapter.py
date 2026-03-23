@@ -245,6 +245,9 @@ class MatterAdapter(Adapter):
         self.last_time_otbr_restarted = 0
         self.serial_before = '' # used to detect newly plugged in USB sticks by comparing before and after of lsusb
         self.last_received_server_info = None
+        self.noise_counter = 0
+        self.previous_noise_counter = 0 # used to count noise per time unit
+        self.noise_delta = 0 # hot many instances of noise were counted during 5 seconds
         
         self.enums_lookup = get_enums_lookup()
         print("self.enums_lookup: ", self.enums_lookup)
@@ -850,7 +853,7 @@ class MatterAdapter(Adapter):
                             break
                         msg = self.otbr_agent_process.stdout.readline()
                         decoded_message = str(msg.decode()).strip().rstrip()
-                        print("otbr decoded_message: ", decoded_message)
+                        # note to self: do not put a print  statement here
                         if len(decoded_message) > 1:
                             self.otbr_stdout_messages.append(decoded_message)
                         time.sleep(0.0001)
@@ -2152,6 +2155,7 @@ class MatterAdapter(Adapter):
         #print("clock: self.running: " + str(self.running))
         last_tick_tock_time = time.time()
         dd = 1
+        seconds_counter = 0
         while self.running:
             time.sleep(0.01)
             #self.s_print("clock tick")
@@ -2160,6 +2164,13 @@ class MatterAdapter(Adapter):
             dd += 1
             if dd == 100:
                 dd = 0
+                seconds_counter += 1
+                
+                if seconds_counter > 5:
+                    seconds_counter = 0
+                    self.noise_delta = self.noise_counter - self.previous_noise_counter
+                    self.previous_noise_counter = self.noise_counter
+                    
                 #self.s_print("tick tock")
                 passed_time = time.time() - last_tick_tock_time
                 #print("actual seconds that passed: ", passed_time)
@@ -2240,6 +2251,13 @@ class MatterAdapter(Adapter):
                         self.thread_set_active = True
                         self.thread_radio_went_missing = False
                         self.start_thread_mesh()
+                
+                    elif '... noise:-128' in otbr_message:
+                        if self.DEBUG:
+                            print("\nThread radio is receiving a lot of noise?")
+                        self.noise_counter += 1
+                        #self.thread_error = 'The thread radio is receiving a lot of noise. You may need to use a USB extension cable for your Thread dongle'
+                        #self.extension_cable_recommended = True
                 
                     elif 'Wait for response timeout' in otbr_message:
                         if self.DEBUG:
@@ -2449,7 +2467,7 @@ class MatterAdapter(Adapter):
             
                 
             if isinstance(data, list) and len(data) == 3 and isinstance(data[0],int) and isinstance(data[1],str) and '/' in data[1]:
-                print("event = attribute_updated? ", event)
+                #print("event = attribute_updated? ", event)
                 node_id = data[0]
                 
                 value = data[2]
@@ -2641,9 +2659,7 @@ class MatterAdapter(Adapter):
                                     if decimals != None and decimals > self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['max_decimals_received']:
                                         self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['max_decimals_received'] = decimals
                                 
-                                    
-                                    
-                                
+                                     
                                 if value != None and isinstance(value,(str,int,float,bool)):
                                     if not value in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values']:
                                         if self.DEBUG:
@@ -2658,11 +2674,11 @@ class MatterAdapter(Adapter):
                                             
                                 if self.DEBUG:
                                     print("handle_event: received values:  device_id,endpoint_name,attribute_code,values: ", device_id, endpoint_name, attribute_code, self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'])
-                            
-                            
-                            
-                            
-                            
+                
+                
+                
+                
+                
                 if target_device == None:
                     if self.DEBUG:
                         print("\nERROR: handle_event: missing device: ", device_id)
@@ -2691,48 +2707,44 @@ class MatterAdapter(Adapter):
                     
                     # Also create and/or update event property if it exists
                     if isinstance(cluster_name,str) and cluster_name in self.events_lookup:
-                        if isinstance(attribute_code,str) and isinstance(attribute_name,str):
-                            event_attribute_code = str(attribute_name) + 'Event'
-                            event_property_id = 'property-' + str(endpoint_name) + '-'+ str(cluster_name) + '-CurrentEvent'
+                        
+                        event_property_id = 'property-' + str(endpoint_name) + '-'+ str(cluster_name) + '-RecentEvent'
+                        if self.DEBUG:
+                            print("handle_event: event_property_id: ", event_property_id)
+                        
+                        target_event_property = target_device.find_property(event_property_id)
+                        if target_event_property:
                             if self.DEBUG:
-                                print("handle_event: event_property_id: ", event_property_id)
-                            
-                            target_event_property = target_device.find_property(event_property_id)
-                            if target_event_property:
-                                if self.DEBUG:
-                                    print("handle_event: found event property")
-                                    print("possible events for cluster: ", cluster_name, self.events_lookup[cluster_name])
-                        
-                                if 'event_id' in data and isinstance(data['event_id'],int) and data['event_id'] >= 0 and data['event_id'] < len(self.events_lookup[cluster_name]):
-                                    target_event_property.update( self.events_lookup[cluster_name][data['event_id']] )
+                                print("handle_event: found event property")
+                                print("possible events for cluster: ", cluster_name, self.events_lookup[cluster_name])
+                    
+                            if 'event_id' in data and isinstance(data['event_id'],int) and data['event_id'] >= 0 and data['event_id'] < len(self.events_lookup[cluster_name]):
+                                target_event_property.update( self.events_lookup[cluster_name][data['event_id']] )
+                                
+                                
+                                #'Switch.Attributes.CurrentPosition':
+                                """
+                                0x00 SwitchLatched INFO V LS
+                                0x01 InitialPress INFO V MS
+                                0x02 LongPress INFO V MSL
+                                0x03 ShortRelease INFO V MSR
+                                0x04 LongRelease INFO V MSL
+                                0x05 MultiPressOngoing
+                                0x06 MultiPressComplete
+                                """
+                                
+                                #if attribute_code == 'Switch.Attributes.CurrentPosition' and data['event_id'] < len(self.switch_events):
+                                #    target_event_property.update( self.switch_events[data['event_id']] )
+                    
                                     
-                                    
-                                    #'Switch.Attributes.CurrentPosition':
-                                    """
-                                    0x00 SwitchLatched INFO V LS
-                                    0x01 InitialPress INFO V MS
-                                    0x02 LongPress INFO V MSL
-                                    0x03 ShortRelease INFO V MSR
-                                    0x04 LongRelease INFO V MSL
-                                    0x05 MultiPressOngoing
-                                    0x06 MultiPressComplete
-                                    """
-                                    
-                                    #if attribute_code == 'Switch.Attributes.CurrentPosition' and data['event_id'] < len(self.switch_events):
-                                    #    target_event_property.update( self.switch_events[data['event_id']] )
-                        
-                                        
-                        
-                                else:
-                                    target_event_property.update( 'None' )
-                                    if self.DEBUG:
-                                        print("handle_event: no event id, so setting event property to None")
+                    
                             else:
+                                target_event_property.update( 'None' )
                                 if self.DEBUG:
-                                    print("handle_event: did not find CurrentEvent property")
+                                    print("handle_event: no event id, so setting event property to None")
                         else:
                             if self.DEBUG:
-                                print("handle_event: cannot even attempt to update event property as attribute_code or attribute_name was not a string: ", attribute_code, attribute_name)    
+                                print("handle_event: did not find RecentEvent property")
                         
                         
             

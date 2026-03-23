@@ -452,9 +452,15 @@ class MatterProperty(Property):
                         value = str(value)
                         if 'enum' in self.description and len(self.description['enum']):
                             if not value in self.description['enum']:
-                                if self.DEBUG:
-                                    print("ERROR, the property has an enum list, but the provided string was not present in that list.  self.id, value, enum: ", self.id, value, self.description['enum'])
-                                return
+                                uncameled_value = uncamel(value).replace('_',' ')
+                                if uncameled_value in self.description['enum']:
+                                    if self.DEBUG:
+                                        print("OK, uncameled_value was found in enum: ", uncameled_value)
+                                    value = uncameled_value
+                                else:
+                                    if self.DEBUG:
+                                        print("ERROR, the property has an enum list, but the provided string was not present in that list.  self.id, value, enum: ", self.id, value, self.description['enum'])
+                                    return
                     elif str(self.description['type']) == 'integer':
                         value = int(value)
                     elif str(self.description['type']) == 'boolean':

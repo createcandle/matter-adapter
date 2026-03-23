@@ -173,7 +173,8 @@ class MatterAPIHandler(APIHandler):
                                       'pairing_attempt': self.adapter.pairing_attempt,
                                       'pairing_phase_message':self.adapter.pairing_phase_message,
                                       'extension_cable_recommended': self.adapter.extension_cable_recommended,
-                                      'last_received_server_info':self.adapter.last_received_server_info
+                                      'last_received_server_info':self.adapter.last_received_server_info,
+                                      'noise_delta':self.adapter.noise_delta
                                       }),
                         )
                     

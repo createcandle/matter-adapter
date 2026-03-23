@@ -234,9 +234,11 @@
                             }
                         }
                         
-					}).catch((e) => {
+					}).catch((err) => {
                         this.busy_pairing = false;
-						console.error("matter-adapter: error making commission_on_network pairing request: ", e);
+						if(this.debug){
+							console.error("matter-adapter debug: error making commission_on_network pairing request: ", err);
+						}
                         //document.getElementById('extension-matter-adapter-start-network-pairing-button').classList.remove('extension-matter-adapter-hidden');
 					});
                 });
@@ -255,8 +257,10 @@
 						this.start_local_qr_scanner();
 					}
 					else if(typeof this.matter_qr_scanner_url == 'string'){
-						console.log("matter adapter: opening in new window: event.target: ",  event.target);
-						console.log("matter adapter: opening in new window: url:", event.target.href);
+						if(this.debug){
+							console.log("matter adapter debug: opening in new window: event.target: ",  event.target);
+							console.log("matter adapter debug: opening in new window: url:", event.target.href);
+						}
 						this.scan_window = window.open(this.matter_qr_scanner_url,'_blank');
 						
 						// start polling for data
@@ -359,16 +363,22 @@
 				
 				// Choose to scan with phone
     			this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-phone').addEventListener('click', () => {
-					console.log("matter adapter: clicked on big phone button");
+					if(this.debug){
+						console.log("matter adapter debug: clicked on big phone button");
+					}
     				document.getElementById('extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
     			});
 				
 				// Use previously scanned code
     			this.view.querySelector('#extension-matter-adapter-pairing-use-previously-scanned-code').addEventListener('click', () => {
-					console.log("matter adapter: clicked on use-previously-scanned-code");
+					if(this.debug){
+						console.log("matter adapter debug: clicked on use-previously-scanned-code");
+					}
     				
 					this.pairing_code = this.view.querySelector('#extension-matter-adapter-pairing-code-input').value;
-					console.log("this.pairing_code is now: ", this.pairing_code);
+					if(this.debug){
+						console.log("matter adapter debug: this.pairing_code is now: ", this.pairing_code);
+					}
 					if(this.pairing_code.startsWith('MT:')){
 						document.getElementById('extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
 						this.show_pairing_start_area();
@@ -401,7 +411,9 @@
 				
 			
     			this.view.querySelector('#extension-matter-adapter-abort-pairing-button').addEventListener('click', () => {
-                    console.log("matter adapter: abort pairing button clicked");
+                    if(this.debug){
+						console.log("matter adapter debug: abort pairing button clicked");
+					}
                     try{
 						/*
 						if(window.matter_adapter_poll_interval){
@@ -423,19 +435,25 @@
 						
         			}
         			catch(e){
-        				console.log("matter adapter: no interval to clear? ", e);
+        				if(this.debug){
+							console.log("matter adapter debug: no interval to clear? ", e);
+						}
         			} 
     			});
 			
 			
                 // DEV
     			this.view.querySelector('#extension-matter-adapter-stop-poll-button').addEventListener('click', () => {
-                    console.log("matter adapter: stopping poll?");
+                    if(this.debug){
+						console.log("matter adapter: stopping poll?");
+					}
                     try{
         				clearInterval(window.matter_adapter_poll_interval);
 						this.total_busy_polling_counter = 0;
                         window.matter_adapter_poll_interval = null;
-                        console.log("matter adapter: cleared interval");
+                        if(this.debug){
+							console.log("matter adapter: cleared interval");
+						}
 						
 						if(!this.second_page_el){
 							this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
@@ -446,7 +464,9 @@
 						
         			}
         			catch(e){
-        				console.log("matter adapter: no interval to clear? ", e);
+        				if(this.debug){
+							console.log("matter adapter: no interval to clear? ", e);
+						}
         			} 
     			});
                 
@@ -471,7 +491,9 @@
                         this.show_pairing_start_area();
 						
 						if(this.scan_window){
-							console.log("matter adapter: closing previously opened scan window");
+							if(this.debug){
+								console.log("matter adapter: closing previously opened scan window");
+							}
 							this.scan_window.close();
 							this.scan_window = null;
 						}
@@ -841,6 +863,8 @@
 	        });	
         }
     
+	
+	
     	parse_body(body){
             try{
                 // We have now received initial data from the addon, so we can hide the loading spinner by adding the extension-matter-adapter-hidden class to it.
@@ -1125,9 +1149,16 @@
                 }
 				
 				if(typeof body.decoded_pairing_code != 'undefined'){
-					console.warn("decoded_pairing_code: ", body.decoded_pairing_code);
+					if(this.debug){
+						console.warn("decoded_pairing_code: ", body.decoded_pairing_code);
+					}
 				}
 				
+				if(typeof body.noise_delta == 'number'){
+					if(this.debug){
+						console.warn("body.noise_delta: ", body.noise_delta);
+					}
+				}
 				
             }
             catch(err){
@@ -1482,10 +1513,6 @@
                 }
             }
 			
-			
-			
-			
-            
         }
         
         

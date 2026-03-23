@@ -182,7 +182,24 @@ class MatterProperty(Property):
                                         transitionTime=self.device.adapter.brightness_transition_time,
                                     )
                 
-                    # Color
+                    # HSV Color
+                    elif self.details['attribute_code'] == 'ColorControl.Attributes.CurrentHue' and self.description and '@type' in self.description and str(self.description['@type']) == 'ColorProperty':
+                        if self.DEBUG:
+                            print("Attempting to translate hex color to Hue and Saturation values")
+                        if is_hex_color(value):
+                            
+                            hsv = hex_to_hsv(value)
+                            print("HSV COLOR OUTPUT FROM HEX: ", value, hsv)
+                            
+                            command = clusters.ColorControl.Commands.MoveToHueAndSaturation(
+                                    Hue=int(hsv[0]),
+                                    Saturation=int(sv[1]),
+                                    TransitionTime=self.device.adapter.brightness_transition_time,
+                                )
+                        
+                    
+                    
+                    # X Y Color
                     elif self.details['attribute_code'] == 'ColorControl.Attributes.CurrentX' and self.description and '@type' in self.description and str(self.description['@type']) == 'ColorProperty':
                         if self.DEBUG:
                             print("set_value: attempting to create cluster command for CurrentX and CurrentY")
@@ -195,9 +212,9 @@ class MatterProperty(Property):
                                 print("color xy_tuple: ", xy_tuple)
                                 
                             command = clusters.ColorControl.Commands.MoveToColor(
-                                        colorX=int(xy_tuple.x),
-                                        colorY=int(xy_tuple.y),
-                                        transitionTime=self.device.adapter.brightness_transition_time,
+                                        ColorX=int(xy_tuple.x),
+                                        ColorY=int(xy_tuple.y),
+                                        TransitionTime=self.device.adapter.brightness_transition_time,
                                     )
                         
                         elif isinstance(value,int) or str(value).isdigit():
@@ -229,7 +246,6 @@ class MatterProperty(Property):
                             if self.DEBUG:
                                 print("set_value: INVALID COLOR.  value: ", value)
                 
-                    
                     
                     elif self.description and '@type' in self.description and (str(self.description['@type']) == 'ColorProperty' or str(self.description['@type']) == 'ColorTemperatureProperty'):
                         if self.DEBUG:
@@ -331,8 +347,12 @@ class MatterProperty(Property):
     #    run(self.run_matter(), shutdown_callback=self.handle_stop)
 
 
-    def update(self, value):
+    def update(self, value, meta=None):
         # This is a quick way to set the value of this property. It checks that the value is indeed new, and then notifies the controller that the value was changed.
+        
+        if meta != None:
+            if self.DEBUG:
+                print("OK, Matter property received META data: ", meta)
         
         if self.device.data_mute:
             if self.DEBUG:
@@ -345,48 +365,71 @@ class MatterProperty(Property):
             
         
         try:
-            if 'attribute_code' in self.details:
+            if 'attribute_code' in self.details and '.Attributes.' in str(self.details['attribute_code']):
             
-                if self.details['attribute_code'] == 'ColorControl.Attributes.CurrentX' and (isinstance(value,int) or str(value).isdigit()):
-                    if self.DEBUG:
-                        print("error: property: update: provided color was a number, but should be a hex value: ", value)
-                    return
-            
-                # turn into enum string value
-                if self.details['attribute_code'] in self.device.adapter.enums_lookup and isinstance(value,int) and value >= 0 and value < len(self.device.adapter.enums_lookup[ self.details['attribute_code'] ]) and 'type' in self.description and self.description['type'] == 'string':
-                    value = str(self.device.adapter.enums_lookup[ self.details['attribute_code'] ][value])
-            
-                # Adjust from percentage back to the range that the matter device expects (likely 0-100 -> 1-254)
-                elif self.details['attribute_code'] == 'LevelControl.Attributes.CurrentLevel' and isinstance(value,(int,float)):
-                    if value < 0:
+                cluster_name = str(self.details['attribute_code'].split('.Attributes.')[0])
+                attribute_name = str(self.details['attribute_code'].split('.Attributes.')[1])
+                
+                if attribute_name == 'OnOff':
+                    if str(value) == 'On':
+                        value = True
+                    elif str(value) == 'Off':
+                        value = False
+                    else:
+                        value = None
+                        
+                elif attribute_name == 'CurrentPosition':
+                    if str(value) == 'On':
+                        value = 1
+                    elif str(value) == 'Off':
                         value = 0
-                    elif value > 254:
-                        value = 254
-                
-                    if 'minimum' in self.description:
-                        if value < self.description['minimum']:
-                            value = self.description['minimum']
-                
-                    if 'maximum' in self.description:
-                        if value > self.description['maximum']:
-                            value = self.description['maximum']
-                    
-                        delta = self.description['maximum'] - self.description['minimum']
-                        #if delta > 100:
-                        percentage_factor = delta / 100
+                    else:
                         if self.DEBUG:
-                            print("percentage_factor: ", percentage_factor)
-                        if value < 101: # the value coming from a percentage in the gateway should be between 0 and 100, so this check is superfluous
-                            value = self.description['minimum'] + round(value * percentage_factor)
+                            print("CurrentPosition update value: ", value)
+                        
+                if value != None: # None values are allowed and encouraged
+                    
+                    if self.details['attribute_code'] == 'ColorControl.Attributes.CurrentX' and (isinstance(value,int) or str(value).isdigit()):
+                        if self.DEBUG:
+                            print("error: property: update: provided color was a number, but should be a hex value: ", value)
+                            # TODO: change this to a hex color instead of returning
+                        return
+            
+                    # turn into enum string value
+                    if self.details['attribute_code'] in self.device.adapter.enums_lookup and isinstance(value,int) and value >= 0 and value < len(self.device.adapter.enums_lookup[ self.details['attribute_code'] ]) and 'type' in self.description and self.description['type'] == 'string':
+                        value = str(self.device.adapter.enums_lookup[ self.details['attribute_code'] ][value])
+            
+                    # Adjust from percentage back to the range that the matter device expects (likely 0-100 -> 1-254)
+                    elif self.details['attribute_code'] == 'LevelControl.Attributes.CurrentLevel' and isinstance(value,(int,float)):
+                        if value < 0:
+                            value = 0
+                        elif value > 254:
+                            value = 254
+                
+                        if 'minimum' in self.description:
+                            if value < self.description['minimum']:
+                                value = self.description['minimum']
+                
+                        if 'maximum' in self.description:
+                            if value > self.description['maximum']:
+                                value = self.description['maximum']
+                    
+                            delta = self.description['maximum'] - self.description['minimum']
+                            #if delta > 100:
+                            percentage_factor = delta / 100
+                            if self.DEBUG:
+                                print("percentage_factor: ", percentage_factor)
+                            if value < 101: # the value coming from a percentage in the gateway should be between 0 and 100, so this check is superfluous
+                                value = self.description['minimum'] + round(value * percentage_factor)
         
-                        if value > self.description['maximum']:
-                            if self.DEBUG:
-                                print("warning, percentage scaled value ended up bigger than the allowed maximum: ", value, self.description['maximum'] )
-                            value = self.description['maximum']
-                        if value < self.description['minimum']:
-                            if self.DEBUG:
-                                print("warning, percentage scaled value ended up smaller than the allowed minimum: ", value, self.description['minimum'] )
-                            value = self.description['minimum']
+                            if value > self.description['maximum']:
+                                if self.DEBUG:
+                                    print("warning, percentage scaled value ended up bigger than the allowed maximum: ", value, self.description['maximum'] )
+                                value = self.description['maximum']
+                            if value < self.description['minimum']:
+                                if self.DEBUG:
+                                    print("warning, percentage scaled value ended up smaller than the allowed minimum: ", value, self.description['minimum'] )
+                                value = self.description['minimum']
             
         except Exception as ex:
             print("ERROR: property: update: caught error trying to wrangle value based on attribute_code: ", self.id, ex)
@@ -395,38 +438,28 @@ class MatterProperty(Property):
         
         
         try:
-            
             # Make sure color values are in the form of a HEX code with a # at the beginning
             if self.description and '@type' in self.description and str(self.description['@type']) == 'ColorProperty':
-                if isinstance(value,str):
-                    if not str(value).startswith('#'):
-                        if self.DEBUG:
-                            print("WARNING: property: update: provided color value did not start with a #.  self.id,value: ", self.id, value)
-                        if len(value) == 6:
-                            value = '#' + str(value)
-                        else:
-                            if self.DEBUG:
-                                print("ERROR, the provided color string did not seem to be a 6 character hex code.  self.id,value: ", self.id, value)
-                            return
-            
-                else:
+                if not is_hex_color(value):
                     if self.DEBUG:
-                        print("ERROR: property: update: new color value must be a string, but provided value was: ", value)
+                        print("\nERROR: property: update: aborting, value was not a valid hex color: ", value)
                     return
-        
-            # Make sure values are in their correct form
-            if self.description and 'type' in self.description:
-                if str(self.description['type']) == 'string':
-                    value = str(value)
-                    if 'enum' in self.description and len(self.description['enum']):
-                        if not value in self.description['enum']:
-                            if self.DEBUG:
-                                print("ERROR, the property has an enum list, but the provided string was not present in that list.  self.id, value, enum: ", self.id, value, self.description['enum'])
-                            return
-                elif str(self.description['type']) == 'integer':
-                    value = int(value)
-                elif str(self.description['type']) == 'boolean':
-                    value = bool(value)
+                    
+            # Make sure values are of the expected type
+            elif value != None:
+                if self.description and 'type' in self.description:
+                    if str(self.description['type']) == 'string':
+                        value = str(value)
+                        if 'enum' in self.description and len(self.description['enum']):
+                            if not value in self.description['enum']:
+                                if self.DEBUG:
+                                    print("ERROR, the property has an enum list, but the provided string was not present in that list.  self.id, value, enum: ", self.id, value, self.description['enum'])
+                                return
+                    elif str(self.description['type']) == 'integer':
+                        value = int(value)
+                    elif str(self.description['type']) == 'boolean':
+                        value = bool(value)
+                        
         except Exception as ex:
             print("ERROR: property: update: caught error while trying ensure value is in correct format: ", self.id, ex)
         
@@ -435,4 +468,5 @@ class MatterProperty(Property):
             self.set_cached_value(value)
             self.device.notify_property_changed(self)
 
+        return self.value
  

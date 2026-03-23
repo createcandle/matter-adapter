@@ -339,7 +339,9 @@
 								</div>
 								<div id="extension-matter-adapter-pairing-progress-bar-container"><div id="extension-matter-adapter-pairing-progress-bar"></div></div>
 								<p id="extension-matter-adapter-pairing-attempt" style="text-align:center"></p>
-								<p id="extension-matter-adapter-pairing-progress-message" style="text-align:center">Starting pairing...</p>
+								<p id="extension-matter-adapter-pairing-progress-message" style="text-align:center">Starting pairing process</p>
+							
+								<button id="extension-matter-adapter-abort-pairing-button" class="text-button extension-matter-adapter-show-if-busy-pairing">Abort pairing attempt</button>
 							</div>
 							<div id="extension-matter-adapter-pairing-failed-hint" class="extension-matter-adapter-area extension-matter-adapter-error extension-matter-adapter-hidden">
 								<h4>Pairing failed</h4>
@@ -357,6 +359,9 @@
 	                                <button id="extension-matter-adapter-pairing-accept-thing-button" class="text-button">Next</button>
 	                            </div>
 							</div>
+							
+							
+							
 	                    </div>
 						<!--
 						<div id="extension-matter-adapter-pairing-step2" class="extension-matter-adapter-area">
@@ -411,7 +416,9 @@
 						</div>
 						-->
 
+						<pre id="extension-matter-adapter-extension-server-info" class="extension-matter-adapter-show-if-developer">
 
+						
 						<button id="extension-matter-adapter-stop-poll-button" class="extension-matter-adapter-show-if-developer text-button">Stop polling</button>
                     
 					</div>

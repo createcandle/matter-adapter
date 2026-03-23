@@ -398,6 +398,34 @@
     			});
 				
             	
+				
+			
+    			this.view.querySelector('#extension-matter-adapter-abort-pairing-button').addEventListener('click', () => {
+                    console.log("matter adapter: abort pairing button clicked");
+                    try{
+						/*
+						if(window.matter_adapter_poll_interval){
+	        				clearInterval(window.matter_adapter_poll_interval);
+                        	console.log("matter adapter: cleared interval");
+						}
+        				this.total_busy_polling_counter = 0;
+                        window.matter_adapter_poll_interval = null;
+						
+						if(!this.second_page_el){
+							this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
+						}
+						if(this.second_page_el){
+	                    	this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
+						}
+						*/
+						
+						this.show_pairing_page();
+						
+        			}
+        			catch(e){
+        				console.log("matter adapter: no interval to clear? ", e);
+        			} 
+    			});
 			
 			
                 // DEV
@@ -1048,13 +1076,18 @@
 				if(typeof body.pairing_attempt == 'number'){
 					const pairing_attempt_el = this.view.querySelector('#extension-matter-adapter-pairing-attempt');
 					if(pairing_attempt_el){
-						pairing_attempt_el.textContent = "Pairing attempt " + body.pairing_attempt + " of 3";
+						pairing_attempt_el.textContent = "Pairing attempt " + (body.pairing_attempt + 1) + " of 3";
 					}
 				}
 				
 				if(typeof body.extension_cable_recommended == 'boolean' && body.extension_cable_recommended == true){
 					this.view.querySelector('#extension-matter-adapter-extension-cable-hint').classList.remove('extension-matter-adapter-hidden');
 				}
+				
+				if(typeof body.last_received_server_info == 'object' && body.last_received_server_info != null){
+					this.view.querySelector('#extension-matter-adapter-extension-server-info').textContent = JSON.stringify(body.last_received_server_info,null,4);
+				}
+				
 				
 				
 				

@@ -159,7 +159,7 @@ class MatterAPIHandler(APIHandler):
                                       'nodez': self.adapter.persistent_data['nodez'],
                                       'found_thread_radio_again': self.adapter.found_thread_radio_again,
                                       'found_new_thread_radio': self.adapter.found_new_thread_radio,
-                                      'found_a_thread_radio': self.adapter.found_a_thread_radio,
+                                      'found_a_thread_radio': self.adapter.found_a_thread_radio_once,
                                       'thread_radio_went_missing': self.adapter.thread_radio_went_missing,
                                       'otbr_started': self.adapter.otbr_started,
                                       'thread_running': self.adapter.thread_running,
@@ -172,7 +172,8 @@ class MatterAPIHandler(APIHandler):
                                       'pairing_phase': self.adapter.pairing_phase,
                                       'pairing_attempt': self.adapter.pairing_attempt,
                                       'pairing_phase_message':self.adapter.pairing_phase_message,
-                                      'extension_cable_recommended': self.adapter.extension_cable_recommended
+                                      'extension_cable_recommended': self.adapter.extension_cable_recommended,
+                                      'last_received_server_info':self.adapter.last_received_server_info
                                       }),
                         )
                     
@@ -355,12 +356,14 @@ class MatterAPIHandler(APIHandler):
                         if self.DEBUG:
                             print("\n\nAPI: in reset_pairing")
                         
+                        if self.adapter.busy_pairing and self.adapter.pairing_attempt != -1:
+                            self.adapter.pairing_attempt = 100
                         self.adapter.busy_pairing = False
                         self.adapter.pairing_failed = False
                         self.adapter.pairing_code = ""
                         self.adapter.pairing_phase = 0
-                        self.adapter.pairing_attempt = 0
-                        self.adapter.self.pairing_phase_message = 'Starting pairing'
+                        
+                        self.adapter.self.pairing_phase_message = 'Starting pairing process'
                         
                         return APIResponse(
                           status=200,
@@ -392,7 +395,7 @@ class MatterAPIHandler(APIHandler):
                         try:
                             thing_id = str(request.body['thing_id'])
                             endpoint_name = str(request.body['endpoint_name'])
-                            short_type = str(request.body['short_type'])
+                            attribute_code = str(request.body['attribute_code'])
                             attribute = str(request.body['attribute'])
                             value = request.body['value']
                             path = ''
@@ -402,7 +405,7 @@ class MatterAPIHandler(APIHandler):
                             if self.DEBUG:
                                 print("- thing_id: ", thing_id)
                                 print("- endpoint_name: ", endpoint_name)
-                                print("- short_type: ", short_type)
+                                print("- attribute_code: ", attribute_code)
                                 print("- path: ", path)
                                 print("- attribute: ", attribute)
                                 print("- value: ", value)
@@ -411,12 +414,15 @@ class MatterAPIHandler(APIHandler):
                                 if thing_id in self.adapter.persistent_data['nodez']:
                                     if 'attributes' in self.adapter.persistent_data['nodez'][thing_id]:
                                         if endpoint_name in self.adapter.persistent_data['nodez'][thing_id]['attributes']:
-                                            if short_type in self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name]:
+                                            if attribute_code in self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name]:
                                                 if path == '':
-                                                    self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][short_type][attribute] = value
+                                                    if not 'customizations' in self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][attribute_code]:
+                                                        self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][attribute_code]['customizations'] = {}
+                                                    self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][attribute_code]['customizations'][attribute] = value
                                                     if self.DEBUG:
                                                         print("attribute set.\nAttempting to reparse thing..")
                                                     if attribute == 'enabled':
+                                                        self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][attribute_code]['enabled'] = bool(value)
                                                         target_device = self.adapter.get_device(thing_id)
                                                         if target_device:
                                                             state = target_device.reparse_node()
@@ -427,8 +433,11 @@ class MatterAPIHandler(APIHandler):
                                                     else:
                                                         state = True
                                                     
-                                                elif path == 'description' and 'property' in self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][short_type] and 'description' in self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][short_type]['property']:
-                                                    self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][short_type]['property']['description'][attribute] = value
+                                                elif path == 'description' and 'property' in self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][attribute_code]:
+                                                    if not 'description_customizations' in self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][attribute_code]['property']:
+                                                        self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][attribute_code]['property']['description_customizations'] = {}
+                                                        
+                                                    self.adapter.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][attribute_code]['property']['description_customizations'][attribute] = value
                                                     if self.DEBUG:
                                                         print("attribute set.\nAttempting to reparse thing..")
                                                     target_device = self.adapter.get_device(thing_id)
@@ -474,23 +483,25 @@ class MatterAPIHandler(APIHandler):
                             device_id = 'matter-' + str(node_id)
                             #state = self.delete_item(name) # This method returns True if deletion was succesful
                             
+                            self.adapter.remove_thing(device_id)
                             
                             # Remove Device object from the adapter
-                            old_device = self.adapter.get_device(device_id)
-                            if old_device != None:
-                                if self.DEBUG:
-                                    print("removing thing from adapter")
-                                self.adapter.remove_thing(device_id)
-                            else:
-                                if self.DEBUG:
-                                    print("Warning, thing was not present on adapter? Cannot delete thing.")
+                            #old_device = self.adapter.get_device(device_id)
+                            #if old_device != None:
+                            #    if self.DEBUG:
+                            #        print("removing thing from adapter")
+                            #    
+                            #else:
+                            #    if self.DEBUG:
+                            #        print("Warning, thing was not present on adapter? Cannot delete thing.")
                             
                             # Remove the device from the nodez dictionary
+                            """
                             if device_id in self.adapter.persistent_data['nodez']:
                                 if self.DEBUG:
                                     print("removing thing from nodez")
                                 del self.adapter.persistent_data['nodez'][device_id]
-                                message += " Also deleted from nodez"
+                                message += " Also deleted from persistent data"
                                 #state = True
                             else:
                                 if self.DEBUG:
@@ -498,6 +509,7 @@ class MatterAPIHandler(APIHandler):
                                 message = "Device was not present in data - already deleted?"
                                 if self.DEBUG:
                                     print("Error: " + message)
+                            """
                         except Exception as ex:
                             if self.DEBUG:
                                 print("Error deleting from nodez of things: " + str(ex))
@@ -519,13 +531,13 @@ class MatterAPIHandler(APIHandler):
                             else:
                                 message = "Device was succesfully removed."
                                 state = True
-                                if self.DEBUG:
-                                    print("OK: " + message)
+                            if self.DEBUG:
+                                print("delete action final message: " + str(message))
                                 
                             
                         except Exception as ex:
                             if self.DEBUG:
-                                print("Error deleting from Matter: " + str(ex))
+                                print("caught error deleting from Matter: " + str(ex))
                         
                         return APIResponse(
                           status=200,

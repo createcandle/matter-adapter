@@ -531,6 +531,7 @@
 }
 
 
+
 .extension-matter-adapter-busy-pairing .extension-matter-adapter-pairing-button{
     display:none;
 }
@@ -851,6 +852,10 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
 }
 */
 
+#extension-matter-adapter-second-pag.extension-matter-adapter-busy-pairing .extension-matter-adapter-hide-if-busy-pairing,
+#extension-matter-adapter-second-page:not(.extension-matter-adapter-busy-pairing) .extension-matter-adapter-show-if-busy-pairing{
+	display:none!important;
+}
 
 
 /*  QR CODE  */

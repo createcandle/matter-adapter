@@ -3,12 +3,14 @@ import re
 from gateway_addon import Device, Action
 from .matter_property import MatterProperty
 
-from .matter_util import xy_to_hex, uncamel, number_to_boolean_list
+#from .matter_util import xy_to_hex, uncamel, number_to_boolean_list, clusters_to_ignore, hsv_to_hex
+from .matter_util import *
 #from matter_server.common.helpers.util import dataclass_from_dict,dataclass_to_dict,create_attribute_path_from_attribute
 #from matter_server.common.helpers.util import create_attribute_path_from_attribute
 
 import chip.clusters.Objects as cluster_details
 
+import traceback
 
 
 #
@@ -107,6 +109,8 @@ class MatterDevice(Device):
                     'title':'Battery level',
                     'readOnly': True,
                     'percent':True,
+                    'minimum':0,
+                    'maximum':1,
                     'type':'integer'},
                 'PowerSource.Attributes.BatReplacementNeeded':{
                     'title':'Replace battery',
@@ -116,6 +120,12 @@ class MatterDevice(Device):
                 'Switch.Attributes.CurrentPosition':{
                     'readOnly': True,
                     'type':'integer'},
+                    
+                # This is a virtual attribute that it not in the Matter spec
+                'Switch.Attributes.CurrentPositionEvent':{
+                    'readOnly': True,
+                    'type':'string',
+                    'enum':self.adapter.switch_events},
                     
                 'BooleanState.Attributes.StateValue':{
                     'title':'State',
@@ -157,41 +167,29 @@ class MatterDevice(Device):
                     '@type':'LevelProperty',
                     'dev@type':'MultiLevelSensor'}, # illuminance
                     
-                'LevelControl.Attributes.CurrentLevel':{
-                    'title':'Brightness',
+                'LevelControl.Attributes.CurrentLevel':{ # Could be for a light, but also for audio
                     'readOnly': False, 
                     'type':'integer', 
-                    'percent':True, 
-                    '@type':'BrightnessProperty',
-                    'dev@type':'Light'}, # light brightness
+                    'percent':True},
                     
                 'ColorControl.Attributes.CurrentHue':{
                     'title':'Hue',
                     'readOnly': False, 
-                    'type':'integer', 
-                    #'@type': 'ColorProperty',
-                    'dev@type':'Light'}, # light color
+                    'type':'integer'}, # light color
                 
-                    
-                'ColorControl.Attributes.ColorMode':{
-                    'readOnly': False, 
-                    'type':'string', 
-                    #'@type': 'ColorProperty',
-                    'dev@type':'Light'}, # light color
+                #'ColorControl.Attributes.ColorMode':{
+                #    'readOnly': False, 
+                #    'type':'string'}, # light color
                 'ColorControl.Attributes.CurrentX':{
                     'title':'Color',
                     'readOnly': False, 
-                    'type':'string', 
-                    #'@type': 'ColorProperty',
-                    'dev@type':'Light'}, # color X coordinate. Y value will be loaded too if this one is an attribute
+                    'type':'string'}, # color X coordinate. Y value will be loaded too if this one is an attribute
                 'ColorControl.Attributes.ColorTemperatureMireds':{
                     'title':'Color temperature',
                     'readOnly': False, 
                     'type':'integer', 
                     'minimum':3000, 
-                    'maximum':7000, 
-                    #'@type': 'ColorTemperatureProperty', 
-                    'dev@type':'Light'}, # Color temperature (in Mireds)
+                    'maximum':7000}, # Color temperature (in Mireds)
                 
                 
                 
@@ -210,18 +208,18 @@ class MatterDevice(Device):
                 'OccupancySensing.Attributes.OccupancySensorTypeEnum':{
                     'title':'Sensor type',
                     'readOnly': True,
-                    'type':'string',
-                    'enum':['PIR','Ultrasonic','PIRAndUltrasonic','PhysicalContact']},
+                    'type':'string'},
+                    #'enum':['PIR','Ultrasonic','PIRAndUltrasonic','PhysicalContact']},
                     
                 'SmokeCOAlarm.Attributes.AlarmStateEnum':{
                     'readOnly': True,
-                    'type':'string',
-                    'enum':['Normal','Warning','Critical']},
+                    'type':'string'},
+                    #'enum':['Normal','Warning','Critical']},
                 'SmokeCOAlarm.Attributes.SensitivityEnum':{
                     'title':'Sensitivity',
                     'readOnly': True, 
-                    'type':'string',
-                    'enum':['High','Standard','Low']},
+                    'type':'string'},
+                    #'enum':['High','Standard','Low']},
                 
                 #'SmokeCOAlarm.Attributes.FeatureMap':{
                 #    'title':'Type',
@@ -231,13 +229,13 @@ class MatterDevice(Device):
                 'SmokeCOAlarm.Attributes.ExpressedStateEnum':{
                     'title':'Status',
                     'readOnly':True,
-                    'type':'string',
-                    'enum':['Normal','SmokeAlarm','COAlarm','BatteryAlert','Testing','HardwareFault','EndOfService','InterconnectSmoke','InterconnectCO']},
+                    'type':'string'},
+                   # 'enum':['Normal','SmokeAlarm','COAlarm','BatteryAlert','Testing','HardwareFault','EndOfService','InterconnectSmoke','InterconnectCO']},
                 'SmokeCOAlarm.Attributes.ContaminationStateEnum':{
                     'title':'Contamination state',
                     'readOnly': True, 
-                    'type':'string',
-                    'enum':['Normal','Low','Warning','Critical']},
+                    'type':'string'}
+                    #'enum':['Normal','Low','Warning','Critical']},
                 
                 
                     
@@ -265,7 +263,7 @@ class MatterDevice(Device):
             
             # these clusters should theoretically already be parsed out in process_node in matter_util.py
             # This list is manually copied from matter_util.py
-            clusters_to_ignore = ['OtaSoftwareUpdateRequestor','AccessControl','Descriptor','IcdManagement','OperationalCredentials','WiFiNetworkDiagnostics','ThreadNetworkDiagnostics','AdministratorCommissioning','NetworkCommissioning','GeneralCommissioning','GroupKeyManagement','Identify','Groups']
+            #clusters_to_ignore = ['OtaSoftwareUpdateRequestor','AccessControl','Descriptor','IcdManagement','OperationalCredentials','WiFiNetworkDiagnostics','ThreadNetworkDiagnostics','AdministratorCommissioning','NetworkCommissioning','GeneralCommissioning','GroupKeyManagement','Identify','Groups']
             
             
             
@@ -287,6 +285,9 @@ class MatterDevice(Device):
                 
                 if not 'attributes' in self.adapter.persistent_data['nodez'][device_id]:
                     self.adapter.persistent_data['nodez'][device_id]['attributes'] = {}
+                
+                
+                
                     
                 for endpoint_name in list(node['attributes_list'].keys()):
                     if self.DEBUG:
@@ -295,8 +296,34 @@ class MatterDevice(Device):
                     if not endpoint_name in self.adapter.persistent_data['nodez'][device_id]['attributes']:
                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name] = {}
                     
+                    
+                    #
+                    #  PRE-PRE-CHECK - add virtual event attribute
+                    #
+                    
+                    attribute_code_list = list(node['attributes_list'][endpoint_name].keys())
+                    
+                    available_clusters = []
+                    # figure out available clusters within this endpoint
+                    for attribute_code in attribute_code_list:
+                        if '.Attributes.' in str(attribute_code):
+                            cluster_name = str(attribute_code.split('.Attributes.')[0])
+                            if not cluster_name in available_clusters:
+                                available_clusters.append(cluster_name)
+                                if cluster_name in self.adapter.events_lookup:
+                                    if self.DEBUG:
+                                        print("this cluster has events: ", cluster_name)
+                                    attribute_code_list.append(str(cluster_name) + '.Attributes.RecentEvent')
+                                else:
+                                    if self.DEBUG:
+                                        print("this cluster does not have events: ", cluster_name)
+                    #if 'Switch.Attributes.CurrentPosition' in attribute_code_list:
+                    #    if not 'Switch.Attributes.CurrentPositionEvent' in attribute_code_list:
+                    #        attribute_code_list.append('Switch.Attributes.CurrentPositionEvent')
+                    
+                    
                     #for attribute_code in list(node['attributes'].keys()):
-                    for attribute_code in list(node['attributes_list'][endpoint_name].keys()):
+                    for attribute_code in attribute_code_list:
                         
                         try:
                             
@@ -331,7 +358,7 @@ class MatterDevice(Device):
                                 
                                 
                             #if ('Candle.' in attribute_code and self.adapter.add_hacky_properties) or (attribute_code in node['attributes_list'][endpoint_name] and isinstance(node['attributes_list'][endpoint_name][attribute_code],(str,int,float,bool)) ):
-                            if 'Candle.' in attribute_code or (attribute_code in node['attributes_list'][endpoint_name] and isinstance(node['attributes_list'][endpoint_name][attribute_code],(str,int,float,bool)) ):
+                            if 'Candle.' in attribute_code or attribute_code.endswith('.RecentEvent') or (attribute_code in node['attributes_list'][endpoint_name] and isinstance(node['attributes_list'][endpoint_name][attribute_code],(str,int,float,bool)) ):
                                 
                                 if not attribute_code in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
                                     if self.DEBUG:
@@ -343,6 +370,8 @@ class MatterDevice(Device):
                                     if self.DEBUG:
                                         print("  this attribute seems to have a useable simple value: ", node['attributes_list'][endpoint_name][attribute_code])
                                     early_value = node['attributes_list'][endpoint_name][attribute_code]
+                                    
+                                    # Switch value to an enums string
                                     if attribute_name in self.adapter.enums_lookup:
                                         if self.DEBUG:
                                             print("  enum available: ", attribute_name, self.adapter.enums_lookup[attribute_name])
@@ -356,18 +385,33 @@ class MatterDevice(Device):
                                     #if self.DEBUG:
                                     #    print("value set to persistent data")
                                 
+                                # Set an initial value for virtual 'hacky' attributes
+                                elif 'Candle.' in attribute_code:
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['value'] = None
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['supported'] = True
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] = True
+                                
+                                #Set an intial value for virtual 'event' attribute
+                                elif attribute_code.endswith('.Attributes.RecentEvent'):
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['value'] = 'None'
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['supported'] = True
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] = True
+                                else:
+                                    if self.DEBUG:
+                                        print("warning: attribute_code fell through: no early value is being set for: ", attribute_code)
+                                
                                 if attribute_code in supported_types:
                                     #if self.DEBUG:
                                     #    print("  first_loop: nice, this attribute is in supported_types")
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['supported'] = True
-                                #else:
-                                #    if self.DEBUG:
-                                #        print("first_loop: this attribute is NOT in supported_types")
+                                else:
+                                    if self.DEBUG:
+                                        print("first_loop: this attribute is NOT in supported_types")
                         
                                 if not 'enabled' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]:
                                     if self.DEBUG:
                                         print("  adding enabled attribute")
-                                    if attribute_code in supported_types and not attribute_code.startswith('BasicInformation'):
+                                    if attribute_code.endswith('.Attributes.RecentEvent') or (attribute_code in supported_types and not attribute_code.startswith('BasicInformation')):
                                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] = True
                                     else:
                                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] = False
@@ -441,16 +485,16 @@ class MatterDevice(Device):
                                             print("ACCEPTED COMMANDS LOOKUP EXISTS FOR cluster_name: ", cluster_name)
                                         if not attribute_code in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
                                             if self.DEBUG:
-                                                print("adding to persistent_data:  device_id,attribute_code: ", device_id, attribute_code)
+                                                print("adding AcceptedCommandList list to persistent_data:  device_id,attribute_code: ", device_id, attribute_code)
                                             self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code] = {'enabled':False}
                                             self.adapter.should_save = True
                                         
                                         for command_name in list(self.adapter.commands_lookup[cluster_name].keys()):
                                             if self.DEBUG:
-                                                print("checking if command is supported: ", command_name);
+                                                print("checking if command is supported: ", command_name)
                                             if 'id' in self.adapter.commands_lookup[cluster_name][command_name] and self.adapter.commands_lookup[cluster_name][command_name]['id'] in node['attributes_list'][endpoint_name][attribute_code]:
                                                 if self.DEBUG:
-                                                    print("COMMAND IS ACCEPTED: ", command_name);
+                                                    print("COMMAND IS ACCEPTED: ", command_name)
                                                 if not 'accepted_commands' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]:
                                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['accepted_commands'] = {}
                                                 if not command_name in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['accepted_commands']:
@@ -458,18 +502,20 @@ class MatterDevice(Device):
                                                 self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['accepted_commands'][command_name] = self.adapter.commands_lookup[cluster_name][command_name]
                                             else:
                                                 if self.DEBUG:
-                                                    print("COMMAND IS _NOT_ ACCEPTED: ", command_name);
+                                                    print("COMMAND IS _NOT_ ACCEPTED: ", command_name)
                                                         
                                         
                                         
                                     else:
                                         print("WARNING, this cluster was not in the commands lookup table: ", cluster_name)
                                 
-                            
+                            else:
+                                if self.DEBUG:
+                                    print("WARNING, attribute_code fell through during first round: ", attribute_code)
                             
                             
                         except Exception as ex:
-                            print("\ncaught error doing first loop over attributes: ", ex)
+                            print("\nERROR: caught error doing first loop over attributes: ", ex)
                         
                         
                         
@@ -503,7 +549,7 @@ class MatterDevice(Device):
                             if not attribute_code in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
                                 self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code] = {}
                             
-                            if not 'enabled' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
+                            if not 'enabled' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]:
                                 if self.DEBUG:
                                     print("\nERROR, enabled was missing from persistent data for attribute_code: ", attribute_code)
                                 #self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] = False
@@ -513,46 +559,46 @@ class MatterDevice(Device):
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] = False
                                 self.adapter.should_save = True
                             
+                            
+                            #
+                            #
+                            #      S K I P   I F   N O T   E N A B L E D
+                            #
+                            #
+                            
+                            
                             # If the attribute is not enabled as a thing property, then stop here
                             if self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] == False:
                                 if self.DEBUG:
                                     print("skipping attribute that is not enabled.  attribute_code: ", attribute_code)
                                 continue
                             
-                            if self.DEBUG:
-                                print("\n\n+\nattribute_code again: ", attribute_code)
-                            
-                            
-                            
-                            # For the old style output
-                            #attr = node['attributes_list'][endpoint_name][attribute_code] # e.g. "0/29/0"
-                            #if self.DEBUG:
-                            #    print("Device: checking attribute: " + str(attr))
-                        
-                            #if isinstance(attr,dict) and not 'attribute_type' in attr:
-                            #    if self.DEBUG:
-                            #        print("skipping attribute without an 'attribute_type' key")
-                                #continue
-                        
-                            # TODO: setting on a name and remove this switching from 'attribute_code' to 'attribute_code' here
-                        
                             if not '.Attributes.' in str(attribute_code):
                                 if self.DEBUG:
                                     print("\n\nERROR, no .Attributes. in attribute_code?: ", attribute_code)
                                 continue
-                        
-                            # For the old style output
-                            #if attribute_code == None and isinstance(attr,dict) and 'attribute_type' in attr:
-                            #    type_list = str(attr['attribute_type']).split('.')
-                            #    attribute_code = type_list[-3] + "." + type_list[-2] + "." + type_list[-1]
-                            #    if self.DEBUG:
-                            #        print("Device: old short type: " + str(attribute_code))
-                    
+                                
                             
                             if self.DEBUG:
-                                print("Device: final attribute_code: ", attribute_code)
+                                print("\n\n+\nattribute_code again: ", attribute_code)
+                            
+                            
+                            cluster_name = str(attribute_code.split('.Attributes.')[0])
+                            attribute_name = str(attribute_code.split('.Attributes.')[1])
+                            property_id = 'property-' + endpoint_name + '-' + cluster_name + '-' + attribute_name
+                            
+                            if self.DEBUG:
+                                print("- cluster_name: ", cluster_name)
+                                print("- attribute_name: ", attribute_name)
+                                print("- property_id: ", property_id)
                                 
-                                
+                            
+                            
+                            #
+                            #
+                            #  GET INTIIAL VALUE
+                            #  
+                            #
                             try:
                                 if attribute_code in node['attributes_list'][endpoint_name]:
                                     
@@ -560,13 +606,8 @@ class MatterDevice(Device):
                                     # and with the hacky properties, this is even more relevant, since those ONLY have a value in persistent data, and never in node data
                                     
                                     if isinstance(node['attributes_list'][endpoint_name][attribute_code],(str,int,float,bool)):
-                                        #self.adapter.persistent_data['nodez'][device_id]['attributes'][underscored_property_name] = node['attributes_list'][attribute_code]
                                         property_value = node['attributes_list'][endpoint_name][attribute_code]
                                          
-                                    #elif isinstance(node['attributes_list'][endpoint_name][attribute_code],dict) and 'value' in node['attributes_list'][endpoint_name][attribute_code]:
-                                    #    #self.adapter.persistent_data['nodez'][device_id]['attributes'][underscored_property_name] = attr['value']
-                                    #    property_value = attr['value']
-                                
                                     else:
                                         if self.DEBUG:
                                             print("Value fell through (probably an array).  node['attributes_list'][attribute_code]: ", node['attributes_list'][endpoint_name][attribute_code])
@@ -576,56 +617,130 @@ class MatterDevice(Device):
                                     property_value = self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['value']
                                 
                                 if self.DEBUG:
-                                    print("property_value for attribute_code: ", attribute_code, property_value)
-                                
+                                    print("- early value: ", property_value)
+                                    
                                 #if value != None:
                                 #self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['value'] = value
                             
-                            
+                                
                                 
                             except Exception as ex:
                                 if self.DEBUG:
-                                    print("device: caught error extracting value: " + str(ex))
+                                    print("\nERROR: device: caught error extracting initial value: " + str(ex))
+                                    print(traceback.format_exc())
                             
+                            
+                            # GENERATE TITLE
+                            
+                            try:
+                                property_title = '' + attribute_name
+                                property_title.replace('OnOff','State')
+                                if property_title.startswith('Current') and not property_title.endswith('Current'):
+                                    property_title.replace('Current','')
+                                    
+                                #elif attribute_name == 'CurrentPosition' and attribute_code.startswith('Switch'):
+                                #    property_title = 'State'
+                                
+                                if '.Attributes.' in property_title:
+                                    property_title = str(property_title.split('.Attributes.')[1])
+                                #property_title = uncamel(property_title).replace('_',' ')
+                                property_title = uncamel(property_title)
+                            
+                                if property_title.startswith('bat_'):
+                                    property_title = property_title.replace('bat_','battery_')
+                                property_title = property_title.replace("_string","")
+                                property_title = property_title.replace("_enum","")
+                                property_title = property_title.capitalize()
+                                property_title = property_title.replace('_',' ')
+                                if self.DEBUG:
+                                    print("raw property_title: " + str(property_title))
+                                
+                                # Override title if there is one defined in supported_attributes
+                                if attribute_code in supported_attributes and 'title' in supported_attributes[attribute_code].keys():
+                                    property_title = str(supported_attributes[attribute_code]['title'])
+                            
+                                # Use the cluster name as the title basis
+                                elif attribute_name == 'MeasuredValue' or attribute_name == 'MeasuredValueEvent':
+                                    property_title = cluster_name.replace('Measurement','')
+                                    property_title = uncamel(property_title).replace('_',' ')
+                            
+                            
+                                if self.DEBUG:
+                                    print("nicer property_title: " + str(property_title))
+                                
+                                # Make sure the property title is unique
+                                try:
+                                    if not property_title in used_property_titles:
+                                        used_property_titles.append(property_title)
+                                    else:
+                                        if self.DEBUG:
+                                            print("WARNING, property title was already used: ", property_title)
+                                        
+                                        title_with_endpoint_number = property_title + ' ' + str(endpoint_name).replace('Endpoint','')
+                                        if not title_with_endpoint_number in used_property_titles:
+                                            property_title = title_with_endpoint_number
+                                            used_property_titles.append(title_with_endpoint_number)
+                                        else:
+                                            keep_looping = True
+                                            index = 1
+                                            while keep_looping:
+                                                index += 1
+                                                possible_title = property_title + " " + str(index)
+                                                if not possible_title in used_property_titles:
+                                                    property_title = possible_title
+                                                    used_property_titles.append(possible_title)
+                                                    keep_looping = False
+                                                    break
+            
+                                    if self.DEBUG:
+                                        print("Final property title: " + str(property_title))
+                                    
+                                
+            
+                                except Exception as ex:
+                                    print("ERROR: device: caught error finding a good property title: " + str(ex))
+                            
+                                if self.DEBUG:
+                                    print("- Final property title: ", attribute_name, " -> ", property_title)
+                                
+                            except Exception as ex:
+                                if self.DEBUG:
+                                    print("\nERROR: device: caught error wrangling title: " + str(ex))
                             
                             
                             try:
                                 
-                                cluster_name = str(attribute_code.split('.Attributes.')[0])
-                                attribute_name = str(attribute_code.split('.Attributes.')[1])
-                                property_id = 'property-' + endpoint_name + '-' + cluster_name + '-' + attribute_name
-                                property_title = uncamel(attribute_name).replace('_',' ')
-                                if self.DEBUG:
-                                    print("- cluster_name: ", cluster_name)
-                                    print("- attribute_name: ", attribute_name)
-                                    print("- early property_title: ", property_title)
+                                #
+                                #   PROPERTY DICT IS NOW ENSURED
+                                #
                                 
                                 if not 'property' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]:
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property'] = {'attribute_code':attribute_code, 'id':property_id, 'cluster_name':cluster_name, 'attribute_name':attribute_name}
                                     self.adapter.should_save = True
                                 
-                                if not 'id' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']:
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['id'] = property_id
-                                    self.adapter.should_save = True
+                                if not 'description' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']:
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'] = {}
                                 
-                                if not '@type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']:
+                                if not 'dev@type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']:
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'] = []
                                     self.adapter.should_save = True
                                 
-                                underscored_property_name = uncamel(attribute_name)
-                            
-                                if underscored_property_name.startswith('bat_'):
-                                    underscored_property_name = underscored_property_name.replace('bat_','battery_')
+                                # Add some values that are needed to communicate back to the Matter network in matter_property.py
+                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['id'] = property_id
+                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['endpoint'] = int(endpoint_name.replace('Endpoint',''))
+                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['node_id'] = self.node_id
+                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['attribute_code'] = attribute_code
+                                
+                                
                             
                                 if self.DEBUG:
                                     print("property_id: ", property_id)
-                                    print("underscored_property_name: ", underscored_property_name)
                                     
                             except Exception as ex:
                                 if self.DEBUG:
                                     print("device: caught error doing early persistent_data ensuring: " + str(ex))
+                                    print(traceback.format_exc())
                                     
-                                    
                             
                                 
                             
@@ -633,256 +748,99 @@ class MatterDevice(Device):
                 
                             
                 
-                            # GENERATE TITLE
                             
-                            try:
-                                if not 'title' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']:
-                                    property_title = str(underscored_property_name).replace("_string","")
-                                    property_title = property_title.replace("_enum","")
-                                    property_title = property_title.capitalize()
-                                    property_title = property_title.replace('_',' ')
-                                    if self.DEBUG:
-                                        print("raw property_title: " + str(property_title))
-                                    if attribute_code in supported_attributes and 'title' in supported_attributes[attribute_code].keys():
-                                        property_title = str(supported_attributes[attribute_code]['title'])
                                 
-                                    elif attribute_name == 'OnOff':
-                                        property_title = 'State'
-                                        
-                                    elif attribute_name == 'CurrentPosition' and attribute_code.startswith('Switch'):
-                                        property_title = 'State'
-                                
-                                    elif attribute_name == 'MeasuredValue':
-                                        property_title = cluster_name.replace('Measurement','')
-                                        property_title = uncamel(property_title).replace('_',' ')
-                                
-                                
-                                    if self.DEBUG:
-                                        print("nicer property_title: " + str(property_title))
-                                    
-                                    # Make sure the property title is unique
-                                    try:
-                                        if not property_title in used_property_titles:
-                                            used_property_titles.append(property_title)
-                                        else:
-                                            if self.DEBUG:
-                                                print("WARNING, property title was already used: ", property_title)
-                                            
-                                            title_with_endpoint_number = property_title + ' ' + str(endpoint_name).replace('Endpoint','')
-                                            if not title_with_endpoint_number in used_property_titles:
-                                                property_title = title_with_endpoint_number
-                                                used_property_title.append(title_with_endpoint_number)
-                                            else:
-                                                keep_looping = True
-                                                index = 1
-                                                while keep_looping:
-                                                    index += 1
-                                                    possible_title = property_title + " " + str(index)
-                                                    if not possible_title in used_property_titles:
-                                                        property_title = possible_title
-                                                        used_property_titles.append(possible_title)
-                                                        keep_looping = False
-                                                        break
-                
-                                        if self.DEBUG:
-                                            print("Final property title: " + str(property_title))
-                                        
-                                    
-                
-                                    except Exception as ex:
-                                        print("ERROR: device: caught error finding a good property title: " + str(ex))
-                                
-                                    if self.DEBUG:
-                                        print("Final property title: ", attribute_code, property_title)
-                                    
-                                    # An error here should be impossible.. but you never know.
-                                    if not endpoint_name in self.adapter.persistent_data['nodez'][device_id]['attributes']:
-                                        if self.DEBUG:
-                                            print("\nERROR, fixing missing endpoint in persistent data?: ", device_id, endpoint_name)
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name] = {}
-                                    if not attribute_code in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
-                                        if self.DEBUG:
-                                            print("\nERROR, fixing missing attribute_code in persistent data?: ", device_id, attribute_code)
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name] = {}
-                                    if not 'property' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]:
-                                        if self.DEBUG:
-                                            print("\n\nERROR, missing 'property' in persistent data?: ", device_id, attribute_code)
-                                        continue
-                                        #self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]['property'] = {'enabled':False}
-                                        
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['title'] = str(property_title)
-                                
-                                else:
-                                    if self.DEBUG:
-                                        print("there is already a device title in persistent data: ", self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['title'])
-                                
-                            except Exception as ex:
-                                if self.DEBUG:
-                                    print("device: caught error wrangling title: " + str(ex))
-                                
-                                
-                            
+                            #
+                            #
+                            #  CREATING / UPDATING PROPERTY DESCRIPTION
+                            #
+                            #
                             
                 
-                
-                                
                 
                             # WEBTHINGS PROPERTY DESCRIPTION AND @-TYPES
                             try:
-                                if not 'description' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property'] or ('description' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property'] and not 'type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']):
-                                    # Basic property description
-                                    description = {}
                                 
-                                    description['title'] = str(property_title)
-                                    description['description'] = 'A Matter device'
-                                    if attribute_code in supported_attributes:
-                                        if 'type' in supported_attributes[attribute_code]:
-                                            description['type'] = supported_attributes[attribute_code]['type']
-                                        if 'readOnly' in supported_attributes[attribute_code]:
-                                            description['readOnly'] = supported_attributes[attribute_code]['readOnly']
+                                # Basic property description from supported_types
                                 
-                                        # Percentage shortcut, can be overwritten later on
-                                        if 'percent' in attribute_code.lower() or ('percent' in supported_attributes[attribute_code] and supported_attributes[attribute_code]['percent'] == True): # This is always True the case if the attribute exists...
-                                            description['multipleOf'] = 1
-                                            description['minimum'] = 0
-                                            description['maximum'] = 100
-                                            description['unit'] = 'percent'
                             
-                                        # MultipleOf
-                                        if 'multipleOf' in supported_attributes[attribute_code]:
-                                            description['multipleOf'] = supported_attributes[attribute_code]['multipleOf']
-                
-                                        # Minimum and maximum number/integer limits
-                                        if 'minimum' in supported_attributes[attribute_code]:
-                                            description['minimum'] = supported_attributes[attribute_code]['minimum']
-                                        if 'maximum' in supported_attributes[attribute_code]:
-                                            description['maximum'] = supported_attributes[attribute_code]['maximum']
-                                        
-                                
-                                    elif 'percent' in attribute_code.lower(): # This is always True the case if the attribute exists...
-                                        description['type'] = 'number'
-                                        description['multipleOf'] = 1
-                                        description['minimum'] = 0
-                                        description['maximum'] = 100
-                                        description['unit'] = 'percent'
+                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['title'] = str(property_title)
+                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['description'] = 'A Matter device'
+                                if attribute_code in supported_attributes:
+                                    if 'type' in supported_attributes[attribute_code]:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = supported_attributes[attribute_code]['type']
+                                    if 'readOnly' in supported_attributes[attribute_code]:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['readOnly'] = supported_attributes[attribute_code]['readOnly']
+                            
+                                    # Percentage shortcut, can be overwritten later on
+                                    if 'percent' in attribute_code.lower() or ('percent' in supported_attributes[attribute_code] and supported_attributes[attribute_code]['percent'] == True): # This is always True the case if the attribute exists...
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['multipleOf'] = 1
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = 0
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = 100
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['unit'] = 'percent'
+                        
+                                    # MultipleOf
+                                    if 'multipleOf' in supported_attributes[attribute_code]:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['multipleOf'] = supported_attributes[attribute_code]['multipleOf']
+            
+                                    # Minimum and maximum number/integer limits
+                                    if 'minimum' in supported_attributes[attribute_code]:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = supported_attributes[attribute_code]['minimum']
+                                    if 'maximum' in supported_attributes[attribute_code]:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = supported_attributes[attribute_code]['maximum']
                                     
-                                    if not 'type' in description:
-                                        if isinstance(property_value,int):
-                                            description['type'] = 'number'
-                                        elif isinstance(property_value,str):
-                                            description['type'] = 'string'
-                                        elif isinstance(property_value,bool):
-                                            description['type'] = 'boolean'
+                            
+                                elif 'percent' in attribute_code.lower(): # This is always True the case if the attribute exists...
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'number'
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['multipleOf'] = 1
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = 0
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = 100
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['unit'] = 'percent'
+                                
+                                if not 'type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']:
+                                    if isinstance(property_value,int) or str(property_value).isdigit():
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'number'
+                                    elif isinstance(property_value,str):
+                                        if property_value == 'On' or property_value == 'Off':
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'boolean'
                                         else:
-                                            if self.DEBUG:
-                                                print("\nERROR, getting description type from value itsel fell through. Will fall back to using 'string'")
-                                    
-                                    if not 'type' in description:
-                                        description['type'] = 'string'
-                                        
-                                    # TODO: does the controller automatically add forms?
-                                    #description["forms"] = [{"href": "properties/" + str(property_id)}]
-                
-                                    # ADD CAPABILITES
-                
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'string'
+                                    elif isinstance(property_value,bool):
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'boolean'
+                                    else:
+                                        if self.DEBUG:
+                                            print("\nERROR, getting description type from value itself fell through. Will fall back to using 'string'")
+                                
+                                if not 'type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']:
                                     if self.DEBUG:
-                                        print("initial new description: ", attribute_code, description)
-                
-                                    def add_device_capability():
-                                        try:
-                                            if self.DEBUG:
-                                                print("in add_device_capability. supported_attributes[attribute_code]: " + str(supported_attributes[attribute_code]))
-                                            if attribute_code in supported_attributes:
-                                                if '@type' in supported_attributes[attribute_code]:
-                                                    if supported_attributes[attribute_code]['@type'] not in used_property_at_types:
-                                                        description['@type'] = supported_attributes[attribute_code]['@type']
-                                                        used_property_at_types.append(description['@type'])
-                            
-                                                # Theoretically it would be nicer to check if ALL required properies for the dev@type exist. Also, currenty there is a tiny chance that the dev@type is never set
-                                                if 'dev@type' in supported_attributes[attribute_code]:
-                                                    if not supported_attributes[attribute_code]['dev@type'] in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
-                                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append( supported_attributes[attribute_code]['dev@type'] )
-                                                    
-                                                    if not supported_attributes[attribute_code]['dev@type'] in self._type:
-                                                        #self._type.append( supported_attributes[attribute_code]['dev@type'] )
-                                                        if self.DEBUG:
-                                                            print("add new capability: " + str(supported_attributes[attribute_code]['dev@type']))
-                                                    else:
-                                                        if self.DEBUG:
-                                                            print("capability already existed: " + str(supported_attributes[attribute_code]['dev@type']))
-                                                
-                                            
-                                            elif 'percent' in attribute_code.lower() and attribute_code != 'BatPercentRemaining':
-                                                description['@type'] = 'LevelProperty'
-                                                
-                                                # TODO:
-                                                # It would be useful to then also add either 'MultiLevelSensor' or 'MultiLevelSwitch' to the dev@type. But for that we need to know if this is a read-only or read-write cluster/attribute
-                                                
-                                                #if not supported_attributes[attribute_code]['dev@type'] in self._type:
-                                                
-                                        except Exception as ex:
-                                            print("Device: error in add_device_capability: " + str(ex))
-                
-                                    # Add these attributes to each MatterProperty object
-                                    #settings = {'attribute_code':attribute_code}
-                            
+                                        print("\n\n\n\nERROR, 'type' was still missing from property description: ", self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'])
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'string'
+                                    
+                                # TODO: does the controller automatically add forms?
+                                #description["forms"] = [{"href": "properties/" + str(property_id)}]
+            
                                 
-                            
-                                    # Add optional capabilities
-                                    add_device_capability()
-                
-                
-                                    
-                                    # Add some more capabilities by checking matter attributes
-                                    
-                                    
-                
-                
-                
-                
-                
-                                    # OPTMIZE VALUES
-                
-                                    #value = attr['value']
-                
-                                    # COLOR 
-                                    try:
-                                        # Turn XY Color in HEX color when parsing the X color
-                                        if attribute_code == 'ColorControl.Attributes.CurrentX' and 'ColorControl.Attributes.CurrentY' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
-                                            # Get Y value too
-                                            color_y_value = node['attributes_list'][endpoint_name]['ColorControl.Attributes.CurrentY']
-                                            if self.DEBUG:
-                                                print("color x: " + str(property_value) + ", y: " + str(color_y_value))
-                    
-                                            # TODO: in one line, theoretically:
-                                            # color_y_value = node['attributes'][ all_short_attributes['ColorControl.Attributes.CurrentY'] ]['value']
-                    
-                                            # calculate hex string
-                                            property_value = xy_to_hex(property_value,color_y_value)
-                    
-                                            #chip.clusters.Objects.ColorControl.Attributes.CurrentY
-                    
-
-                                                
-                            
-                                    except Exception as ex:
-                                        print("Device: error optimizing color value: " + str(ex))
-                                
-                                
-                                    # Add some values that are needed to communicate back to the Matter network in matter_property.py
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['endpoint'] = int(endpoint_name.replace('Endpoint',''))
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['node_id'] = self.node_id
-                                    
-                                    # Finally, add the initial version of the thing description into the persistent data
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'] = description
-                                
-                                else:
-                                    if self.DEBUG:
-                                        print("there is already a description in persistent data: ", self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'])
-                                    
+            
+                                if self.DEBUG:
+                                    print("initial description: ", attribute_code, self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'])
+            
+                               
                             except Exception as ex:
-                                print("caught error creating description for property to place in persistent storage: ", ex)
+                                if self.DEBUG:
+                                    print("caught error creating description for property to place in persistent storage: ", ex)
+                                    print(traceback.format_exc())
                                 
+                                
+                                
+                                
+                                
+                                
+                            
+                            #
+                            #
+                            #     ADD CAPABILITES
+                            #
+                            #    
                                 
                             try:
                                 
@@ -892,34 +850,113 @@ class MatterDevice(Device):
                                 # 2. Check that list agains some data source
                                 # 3. Use that info to determine optimal capabilities as well as which properties make sense to enable by default
                                 
+                                # 4. OR use the already implemented AcceptedCommandsList, as that also gives an indication about what the device supports
+                                
+                                #
+                                #
+                                #  START WITH ADDING CAPABILITIES FROM supported_types
+                                #
+                                #
+                                
+                                try:
+                                    
+                                    if attribute_code in supported_attributes:
+                                        if self.DEBUG:
+                                            print("attribute code is in supported_attributes: ", attribute_code, supported_attributes[attribute_code])
+                                        if '@type' in supported_attributes[attribute_code]:
+                                            if supported_attributes[attribute_code]['@type'] not in used_property_at_types:
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = supported_attributes[attribute_code]['@type']
+                                                used_property_at_types.append(self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'])
+                                            else:
+                                                if self.DEBUG:
+                                                    print("WARNING, SKIPPING, property capablity was already used in this device: ", description['@type'])
+                    
+                                        # Theoretically it would be nicer to check if ALL required properies for the dev@type exist. Also, currenty there is a tiny chance that the dev@type is never set
+                                        if 'dev@type' in supported_attributes[attribute_code]:
+                                            if not supported_attributes[attribute_code]['dev@type'] in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append( supported_attributes[attribute_code]['dev@type'] )
+                                            
+                                            #if not supported_attributes[attribute_code]['dev@type'] in self._type:
+                                            #    #self._type.append( supported_attributes[attribute_code]['dev@type'] )
+                                            #    if self.DEBUG:
+                                            #        print("add new capability: " + str(supported_attributes[attribute_code]['dev@type']))
+                                            #else:
+                                            #    if self.DEBUG:
+                                            #        print("capability already existed: " + str(supported_attributes[attribute_code]['dev@type']))
+                                        
+                                    
+                                    elif 'percent' in attribute_code.lower() and attribute_code != 'BatPercentRemaining' and not '@type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'LevelProperty'
+                                        
+                                        # TODO:
+                                        # It would be useful to then also add either 'MultiLevelSensor' or 'MultiLevelSwitch' to the dev@type. But for that we need to know if this is a read-only or read-write cluster/attribute
+                                        
+                                        #if not supported_attributes[attribute_code]['dev@type'] in self._type:
+                                        
+                                except Exception as ex:
+                                    if self.DEBUG:
+                                        print("Device: caught error adding capabilties from supported_types: " + str(ex))
+                                        print(traceback.format_exc())
                                 
                                 
-                                # already handled earlier
-                                #if not '@type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']:
-                                #    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'] = []
-                                if not 'property' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]:
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property'] = {}
-                                if not 'dev@type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']:
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'] = []
+                                
+                                
+                                
+                                
+                                
+                                
+                                
+                                
+                                
+                                
                                 if not 'description' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']:
-                                    print("ERROR, still missing description in property in persistent data. Aborting.")
+                                    if self.DEBUG:
+                                        print("ERROR, somehow still missing description in property in persistent data. Aborting.")
                                     break
                                 
                                 
-                                if not 'OnOffSwitch' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
-                                    if attribute_code == 'Switch.Attributes.CurrentPosition' and 'Switch.Attributes.NumberOfPositions' in node['attributes_list'][endpoint_name]:
-                                        if node['attributes_list'][endpoint_name]['Switch.Attributes.NumberOfPositions'] == 2:
+                                
+                                
+                                if attribute_code == 'OnOff.Attributes.OnOff':
+                                    if not 'OnOffSwitch' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('OnOffSwitch')
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'OnOffProperty'
+                                                                        
+                                
+                                elif attribute_code == 'Switch.Attributes.CurrentPosition' and 'Switch.Attributes.NumberOfPositions' in node['attributes_list'][endpoint_name]:
+                                    if node['attributes_list'][endpoint_name]['Switch.Attributes.NumberOfPositions'] == 2:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'OnOffProperty'
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'boolean'
+                                        if not 'OnOffSwitch' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
                                             self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('OnOffSwitch')
-                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'OnOffProperty'
+                                                
                                             #self._type.append("OnOffSwitch")
                                         # TODO: how to handle switches with multiple positions? if it's a read-write cluster, create actions for each one to toggle them?
                                         # TODO: or integrate with a potential variables/ranges/sliders addon, and immediately set one up?
-                                    elif attribute_code == 'OnOff.Attributes.OnOff':
-                                        if not 'OnOffSwitch' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
-                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('OnOffSwitch')
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'OnOffProperty'
-                                        if 'LevelControl.Attributes.CurrentLevel' in node['attributes_list'][endpoint_name] and not 'Light' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
+                                    else:
+                                        if not 'LevelControl.Attributes.CurrentLevel' in node['attributes_list'][endpoint_name]:
+                                            if not 'MultiLevelSwitch' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('MultiLevelSwitch')
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'integer'
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = 0
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = int(node['attributes_list'][endpoint_name]['Switch.Attributes.NumberOfPositions'])
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'LevelProperty'
+                                
+                                
+                                # LEVELCONTROL
+                                # Is it a light or something like an an audio device?
+                                if attribute_code.endswith('.CurrentLevel'):
+                                    if 'ColorControl.Attributes.FeatureMap' in node['attributes_list'][endpoint_name]:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]['LevelControl.Attributes.CurrentLevel']['property']['description']['@type'] = 'BrightnessProperty'
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]['LevelControl.Attributes.CurrentLevel']['property']['description']['title'] = 'Brightness'
+                                        if not 'Light' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
                                             self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('Light')
+                                    else:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]['LevelControl.Attributes.CurrentLevel']['property']['description']['@type'] = 'LevelProperty'
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]['LevelControl.Attributes.CurrentLevel']['property']['description']['title'] = 'Level'
+                                        if not 'MultiLevelSwitch' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('MultiLevelSwitch')
+                                
                                 
                                 # LEVELCONTROL MIN AND MAX LEVEL
                                 if attribute_code.endswith('.MinLevel') and isinstance(node['attributes_list'][endpoint_name][attribute_code],(int,float)):
@@ -927,83 +964,168 @@ class MatterDevice(Device):
                                 elif attribute_code.endswith('.MaxLevel') and isinstance(node['attributes_list'][endpoint_name][attribute_code],(int,float)):
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code]
                                 
-                                #self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']
-                                
-                                
-                                # COLOR
-                                if attribute_code.startswith('ColorControl.'):
-                                    if not 'Light' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('Light')
-                                    
-                                    if attribute_code == 'ColorControl.Attributes.CurrentX':
-                                        if 'ColorControl.Attributes.CurrentHue' in node['attributes_list'][endpoint_name] and 'ColorControl.Attributes.CurrentSaturation' in node['attributes_list'][endpoint_name]:
-                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'ColorProperty'
-                                    
-                                    # COLOR TEMPERATURE MIN-MAX
-                                    if attribute_code == 'ColorControl.Attributes.ColorTempPhysicalMinMireds' and \
-                                      isinstance(node['attributes_list'][endpoint_name][attribute_code],(int,float)) and \
-                                      'ColorControl.Attributes.ColorTempPhysicalMaxMireds' in node['attributes_list'][endpoint_name] and \
-                                      isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMaxMireds'],(int,float)):
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code]
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code]
                                 
                                 
                                 
-                                
-                                
-                                
-                                
-                                #if attribute_code == 'ColorControl.Attributes.CurrentHue':
-                                #    if 'ColorControl.Attributes.CurrentSaturation' in node['attributes_list'][endpoint_name]:
-                                #        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'ColorProperty'
-                                     
-                                # Override minimum and maximum mireds according to provided data
-                                if attribute_code == 'ColorControl.Attributes.ColorTemperatureMireds':
-                                    if 'ColorControl.Attributes.ColorTempPhysicalMinMireds' in node['attributes_list'][endpoint_name] and 'ColorControl.Attributes.ColorTempPhysicalMaxMireds' in node['attributes_list'][endpoint_name]:
-                                        if isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMinMireds'],int) and isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMaxMireds'],int):
-                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMinMireds']
-                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMaxMireds']
-                                    
-                                    # Color temperature only
-                                    if not 'ColorControl.Attributes.CurrentHue' in node['attributes_list'][endpoint_name]:
+                                try:
+                                    # COLOR
+                                    if attribute_code.startswith('ColorControl'):
                                         if not 'Light' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
                                             self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('Light')
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'ColorTemperatureProperty'
+                                    
+                                    
+                                        # What is determining the color at the moment?
+                                        # 0 CurrentHue and CurrentSaturation
+                                        # 1 CurrentX and CurrentY
+                                        # 2 ColorTemperatureMireds
+                                        # 3 EnhancedCurrentHue and CurrentSaturation
+                                    
+                                        if 'ColorControl.Attributes.EnhancedColorMode' in node['attributes_list'][endpoint_name]:
+                                            if self.DEBUG:
+                                                print("currently determining the color is: ", node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode'])
+                                        
+                                            
+                                        # COLOR 
+                                        try:
+                                            if self.DEBUG:
+                                                print("colorControl: property_value before: ", property_value)
+                                            # for the basic non-enhanced hue it seems the value can range between 0 and 254 (int8)
+                                            if attribute_code == 'ColorControl.Attributes.CurrentHue': # and not str(property_value).startswith('#')
+                                                if 'ColorControl.Attributes.CurrentHue' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name] and \
+                                                  'ColorControl.Attributes.CurrentSaturation' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name] and \
+                                                  'ColorControl.Attributes.CurrentHue' in node['attributes_list'][endpoint_name] and \
+                                                  'ColorControl.Attributes.CurrentSaturation' in node['attributes_list'][endpoint_name] and \
+                                                  isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.CurrentHue'],(int,float)) and \
+                                                  isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.CurrentSaturation'],(int,float)):
+                                                    hsv_to_hex_color = hsv_to_hex(node['attributes_list'][endpoint_name]['ColorControl.Attributes.CurrentHue'] , node['attributes_list'][endpoint_name]['ColorControl.Attributes.CurrentSaturation'])
+                                                    if self.DEBUG:
+                                                        print("HSV to HEX color: ", hsv_to_hex_color)
+                                                    if is_hex_color(hsv_to_hex_color):
+                                                        if not str(hsv_to_hex_color).startswith('#'):
+                                                            hsv_to_hex_color = '#' + hsv_to_hex_color
+                                                        property_value = hsv_to_hex_color
+                                                    
+                                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'ColorProperty'
+                                                        if not 'ColorControl' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
+                                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('ColorControl')
+                                                    
+                                                    
+                                            # Turn XY Color in HEX color when parsing the X color
+                                            elif attribute_code == 'ColorControl.Attributes.CurrentX': # and not str(property_value).startswith('#')
+                                                if 'ColorControl.Attributes.CurrentY' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
+                                                    # Get Y value too
+                                                    color_x_value = node['attributes_list'][endpoint_name]['ColorControl.Attributes.CurrentX']
+                                                    color_y_value = node['attributes_list'][endpoint_name]['ColorControl.Attributes.CurrentY']
+                                                    if self.DEBUG:
+                                                        print("color x: " + str(color_x_value) + ", y: " + str(color_y_value))
+                
+                                                    # value can range between 0 and 65279 (int16)
+                
+                                                    # TODO: in one line, theoretically:
+                                                    # color_y_value = node['attributes'][ all_short_attributes['ColorControl.Attributes.CurrentY'] ]['value']
+                
+                                                    # calculate hex string
+                                                    property_value = xy_to_hex(color_x_value,color_y_value)
+                                                    if self.DEBUG:
+                                                        print("initial color value from xy_to_hex: ", property_value)
+                                                    if isinstance(property_value,str) and not property_value.startswith('#') and len(property_value) == 6:
+                                                        property_value = '#' + property_value
+                                    
+                                        
+                                            if attribute_code == 'ColorControl.Attributes.CurrentX':
+                                                # Does it have CurrentHue attribute?
+                                                if 'ColorControl.Attributes.CurrentHue' in node['attributes_list'][endpoint_name] and 'ColorControl.Attributes.CurrentSaturation' in node['attributes_list'][endpoint_name]:
+                                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'ColorProperty'
+                                                    if not 'ColorControl' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
+                                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('ColorControl')
+                                      
+                                        
+
+                                                
+                            
+                                        except Exception as ex:
+                                            if self.DEBUG:
+                                                print("Device: caught error optimizing color value: " + str(ex))
+                                                print(traceback.format_exc())
+                                    
+                                        # COLOR TEMPERATURE MIN-MAX
+                                        # already handled below for color-temperature-only bulbs
+                                        #if attribute_code == 'ColorControl.Attributes.ColorTempPhysicalMinMireds' and \
+                                        #  isinstance(node['attributes_list'][endpoint_name][attribute_code],(int,float)) and \
+                                        #  'ColorControl.Attributes.ColorTempPhysicalMaxMireds' in node['attributes_list'][endpoint_name] and \
+                                        #  isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMaxMireds'],(int,float)):
+                                        #    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code]
+                                        #    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code]
                                 
-                               
+                                
+                                
+                                
+                                
+                                
+                                
+                                    #if attribute_code == 'ColorControl.Attributes.CurrentHue':
+                                    #    if 'ColorControl.Attributes.CurrentSaturation' in node['attributes_list'][endpoint_name]:
+                                    #        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'ColorProperty'
+                                     
+                                    # Override minimum and maximum mireds according to provided data
+                                    if attribute_code == 'ColorControl.Attributes.ColorTemperatureMireds':
+                                        # TODO: does this affect actual color control?
+                                        if 'ColorControl.Attributes.ColorTempPhysicalMinMireds' in node['attributes_list'][endpoint_name] and 'ColorControl.Attributes.ColorTempPhysicalMaxMireds' in node['attributes_list'][endpoint_name]:
+                                            if isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMinMireds'],int) and isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMaxMireds'],int):
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMinMireds']
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMaxMireds']
+                                    
+                                        # Color temperature only
+                                        if not 'ColorControl.Attributes.CurrentHue' in node['attributes_list'][endpoint_name]:
+                                            if not 'Light' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('Light')
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'ColorTemperatureProperty'
+                                
+                                    
+                                except Exception as ex:
+                                    if self.DEBUG:
+                                        print("Device: caught error adding color capabilties: " + str(ex))
+                                        print(traceback.format_exc())
+                                
                                 
                                 # MEASUREMENT
+                                try:
+                                    # measurement tolerance
+                                    measurement_types = [None,'mV','mA','mA','mA','Mw','mVAR','mVA','mV','mA','mW','mHz',None,'mA','mWh']
+                                    if attribute_code.endswith('.Tolerance') and isinstance(node['attributes_list'][endpoint_name][attribute_code],(int)) and node['attributes_list'][endpoint_name][attribute_code] > 0 and node['attributes_list'][endpoint_name][attribute_code] < len(measurement_types):
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['unit'] = measurement_types[node['attributes_list'][endpoint_name][attribute_code]]
                                 
-                                # measurement tolerance
-                                measurement_types = [None,'mV','mA','mA','mA','Mw','mVAR','mVA','mV','mA','mW','mHz',None,'mA','mWh']
-                                if attribute_code.endswith('.Tolerance') and isinstance(node['attributes_list'][endpoint_name][attribute_code],(int)) and node['attributes_list'][endpoint_name][attribute_code] > 0 and node['attributes_list'][endpoint_name][attribute_code] < len(measurement_types):
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['unit'] = measurement_types[node['attributes_list'][endpoint_name][attribute_code]]
+                                    if attribute_code.endswith('.MeasuredValue'):
+                                        if attribute_code.replace('.MeasuredValue','.MinMeasuredValue') in node['attributes_list'][endpoint_name] and \
+                                          isinstance(node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MinMeasuredValue')],(int,float)) and \
+                                          attribute_code.replace('.MeasuredValue','.MaxMeasuredValue') in node['attributes_list'][endpoint_name] and \
+                                          isinstance(node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MaxMeasuredValue')],(int,float)):
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MinMeasuredValue')]
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MaxMeasuredValue')]
                                 
-                                if attribute_code.endswith('.MeasuredValue'):
-                                    if attribute_code.replace('.MeasuredValue','.MinMeasuredValue') in node['attributes_list'][endpoint_name] and \
-                                      isinstance(node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MinMeasuredValue')],(int,float)) and \
-                                      attribute_code.replace('.MeasuredValue','.MaxMeasuredValue') in node['attributes_list'][endpoint_name] and \
-                                      isinstance(node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MaxMeasuredValue')],(int,float)):
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MinMeasuredValue')]
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MaxMeasuredValue')]
-                                
-                                # MEASUREMENT MIN-MAX
-                                if attribute_code.endswith('.RangeMin ') and \
-                                  not 'minimum' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'] and \
-                                  isinstance(node['attributes_list'][endpoint_name][attribute_code],(int,float)) and \
-                                  attribute_code.replace('.RangeMin','.RangeMax') in node['attributes_list'][endpoint_name][attribute_code]:
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code]
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.RangeMin','.RangeMax')]
+                                    # MEASUREMENT MIN-MAX
+                                    if attribute_code.endswith('.RangeMin ') and \
+                                      not 'minimum' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'] and \
+                                      isinstance(node['attributes_list'][endpoint_name][attribute_code],(int,float)) and \
+                                      attribute_code.replace('.RangeMin','.RangeMax') in node['attributes_list'][endpoint_name][attribute_code]:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code]
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.RangeMin','.RangeMax')]
                                 
                                 
-                                if attribute_code == 'OccupancySensing.Attributes.OccupancySensorTypeEnum' and isinstance(node['attributes_list'][endpoint_name][attribute_code],int):
-                                    occupancy_sensor_types = ['PIR','Ultrasonic','PIRAndUltrasonic','PhysicalContact']
-                                    if node['attributes_list'][endpoint_name][attribute_code] >= 0 and node['attributes_list'][endpoint_name][attribute_code] < len(occupancy_sensor_types):
-                                        property_value = occupancy_sensor_types[node['attributes_list'][endpoint_name][attribute_code]]
+                                    if attribute_code == 'OccupancySensing.Attributes.OccupancySensorTypeEnum' and isinstance(node['attributes_list'][endpoint_name][attribute_code],int):
+                                        occupancy_sensor_types = ['PIR','Ultrasonic','PIRAndUltrasonic','PhysicalContact']
+                                        if node['attributes_list'][endpoint_name][attribute_code] >= 0 and node['attributes_list'][endpoint_name][attribute_code] < len(occupancy_sensor_types):
+                                            property_value = occupancy_sensor_types[node['attributes_list'][endpoint_name][attribute_code]]
                                     
                                     
-                                # ElectricalEnergyMeasurement is more about high-level electricity flowing in or out (sending solar energy back to the grid, for example)
-                                # ElectricalPowerMeasurement seems more like a simple monitoring device
+                                    # ElectricalEnergyMeasurement is more about high-level electricity flowing in or out (sending solar energy back to the grid, for example)
+                                    # ElectricalPowerMeasurement seems more like a simple monitoring device
+                                    
+                                    
+                                except Exception as ex:
+                                    if self.DEBUG:
+                                        print("Device: caught error adding measurement capabilties: " + str(ex))
+                                
                                 
                                 """
                                 capability_translations = {
@@ -1015,63 +1137,147 @@ class MatterDevice(Device):
                                     'ElectricalPowerMeasurement':'EnergyMonitor',
                                 }
                                 """
-                                #if attribute_code.startsWith('TemperatureMeasurement.') and not 'TemperatureSensor' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
+                                #if attribute_code.startswith('TemperatureMeasurement.') and not 'TemperatureSensor' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
                                 #    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('TemperatureSensor')
                                 
                                 
-                                #ElectricalPowerMeasurement.Attributes.
                                 
                                 
                                 
                                 
-                                #if 'Measurement.' in attribute_code:
+                                
+                                
                                 
                                 
                                 # GET ENUM VALUE
                                 
                                 
                                 
-                                # with the enums lookup this should not be necessary anymore
-                                if attribute_name in self.adapter.enums_lookup:
-                                    if self.DEBUG:
-                                        print("adding enum to device.  attribute_code,enum: ", attribute_code, self.adapter.enums_lookup[attribute_name])
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'string'
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'] = self.adapter.enums_lookup[attribute_name]
-                                    if isinstance(property_value,int) and property_value >=0 and property_value < len(self.adapter.enums_lookup[attribute_name]):
-                                        property_value = self.adapter.enums_lookup[attribute_name][property_value]
+                                try:
+                                    
+                                    # GET EVENTS ENUM
+                                    
+                                    if attribute_code.endswith('.RecentEvent') and cluster_name in self.adapter.events_lookup:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'] = self.adapter.events_lookup[cluster_name]
                                         if self.DEBUG:
-                                            print("switched property value from number to string from enums_lookup: ", property_value)
+                                            print("set RecentEvent enum for attribute_code: ", attribute_code, self.adapter.events_lookup[cluster_name])
+                                    
+                                    
+                                    
+                                    # GET ENUM LIST FROM ENUMS_LOOKUP
+                                    
+                                    if attribute_name in self.adapter.enums_lookup:
+                                        if attribute_code.endswith('Enum'):
+                                            if self.DEBUG:
+                                                print("adding enum to device.  attribute_code,enum: ", attribute_code, self.adapter.enums_lookup[attribute_name])
+                                            if not 'type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']:
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'string'
+                                            if self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] == 'string':
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'] = self.adapter.enums_lookup[attribute_name]
+                                                if isinstance(property_value,int) and property_value >=0 and property_value < len(self.adapter.enums_lookup[attribute_name]):
+                                                    property_value = str(self.adapter.enums_lookup[attribute_name][property_value])
+                                                    if self.DEBUG:
+                                                        print("OK, switched property value from number to string from enums_lookup: ", property_value, self.adapter.enums_lookup[attribute_name])
+                                    
+                                            else:
+                                                if self.DEBUG:
+                                                    print("unexpectedly an attribute_code that ends with Enum does not have 'string' as its property type: ", attribute_code,  self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property'])
+                                        else:
+                                            if self.DEBUG:
+                                                print("Interesting, there is enum for an attribute_name that does not end with Enum: ", attribute_name, self.adapter.enums_lookup[attribute_name])
                                 
-                                elif attribute_code.endswith('Enum') and \
-                                  attribute_code in supported_attributes and \
-                                  'enum' in supported_attributes[attribute_code].keys() and \
-                                  isinstance(node['attributes_list'][endpoint_name][attribute_code],int) and \
-                                  node['attributes_list'][endpoint_name][attribute_code] >= 0 and \
-                                  node['attributes_list'][endpoint_name][attribute_code] < len(supported_attributes[attribute_code]['enum']):
-                                    if self.DEBUG:
-                                        print("\nWARNING, unexpectedly enums_lookup was not used for: ", attribute_code)
-                                    property_value = str(supported_attributes[attribute_code]['enum'][ node['attributes_list'][endpoint_name][attribute_code] ])
-                                    if 'title' in supported_attributes[attribute_code]:
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['title'] = str(supported_attributes[attribute_code]['title'])
+                                    # with the enums lookup this should not be necessary anymore
+                                    # TODO: Remove? or could override enums here from the supported dict, perhaps to get even nicer names
+                                    elif attribute_code.endswith('Enum') and \
+                                      attribute_code in supported_attributes and \
+                                      'enum' in supported_attributes[attribute_code].keys() and \
+                                      isinstance(node['attributes_list'][endpoint_name][attribute_code],int) and \
+                                      node['attributes_list'][endpoint_name][attribute_code] >= 0 and \
+                                      isinstance(supported_attributes[attribute_code]['enum'],list) and \
+                                      node['attributes_list'][endpoint_name][attribute_code] < len(supported_attributes[attribute_code]['enum']):
+                                        if self.DEBUG:
+                                            print("\nWARNING, unexpectedly enums_lookup was not used for: ", attribute_code)
+                                        if str(node['attributes_list'][endpoint_name][attribute_code]) in supported_attributes[attribute_code]['enum']:
+                                            if self.DEBUG:
+                                                print("setting property value to option that was found in enum: ", str(node['attributes_list'][endpoint_name][attribute_code]))
+                                            property_value = str(supported_attributes[attribute_code]['enum'][ int(node['attributes_list'][endpoint_name][attribute_code]) ])
+                                        #if 'title' in supported_attributes[attribute_code]:
+                                        #    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['title'] = str(supported_attributes[attribute_code]['title'])
                                 
+                                
+                                    # Make enum options nicer to read
+                                    if 'enum' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']:
+                                        uncameled_enum_options = []
+                                        if self.DEBUG:
+                                            print("BEFORE: camel case enum options: " + str(self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum']))
+                                        if str(property_value) in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum']:
+                                            property_value = uncamel(property_value).replace('_',' ')
+                                            if self.DEBUG:
+                                                print("uncameled the property value too: ", property_value)
+                                        for enum_option in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum']:
+                                            uncameled_enum_options.append(uncamel(enum_option).replace('_',' '))
+                                        if self.DEBUG:
+                                            print("AFTER: uncameled_enum_options: " + str(uncameled_enum_options))
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'] = uncameled_enum_options
                                         
+                                        if property_value == None:
+                                            property_value = 'None'
+                                        elif not str(property_value) in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum']:
+                                            if self.DEBUG:
+                                                print("\nERROR, did not find property_value in uncameled enum list, setting it to 'None': " + str(property_value))
+                                            property_value = 'None'
+                                            
+                                        # Ensure there is a 'None' enum option
+                                        if not 'None' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum']:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'].append('None')
+                                    
+                                    
+                                except Exception as ex:
+                                    if self.DEBUG:
+                                        print("Device: caught error adding enum lists: " + str(ex))
+                                        print(traceback.format_exc())
+                                
+                                
+                                #
+                                #  APPLY USER OVERRIDES
+                                #
+                                
+                                try:
+                                    if 'description_customizations' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'] = self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'] | self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description_customizations']
+                                
+                                except Exception as ex:
+                                    if self.DEBUG:
+                                        print("Device: caught error adding user customizations: " + str(ex))
+                                        print(traceback.format_exc())
+                                
+                                
+                                
+                                
+                                
+                                
                                 #
                                 # APPLY FROM PERSISTENT DATA
                                 #
+                                try:
+                                    # Apply any found capability dev@types to the thing we're creating
+                                    for dev_at_type in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
+                                        if not dev_at_type in self._type:
+                                            if self.DEBUG:
+                                                print("adding dev_at_type to thing: ", dev_at_type)
+                                            self._type.append(dev_at_type)
+                                        else:
+                                            if self.DEBUG:
+                                                print("dev_at_type has already been added to thing: ", dev_at_type)
                                 
-                                # Apply any found capability dev@types to the thing we're creating
-                                for dev_at_type in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
-                                    if not dev_at_type in self._type:
-                                        if self.DEBUG:
-                                            print("adding dev_at_type to thing: ", dev_at_type)
-                                        self._type.append(dev_at_type)
-                                    else:
-                                        if self.DEBUG:
-                                            print("dev_at_type has already been added to thing: ", dev_at_type)
+                                except Exception as ex:
+                                    print("Device: caught error applying dev@type to device: " + str(ex))
                                 
                                 
                             except Exception as ex:
-                                print("\ncaught error trying to upgrade @type: ", ex)
+                                if self.DEBUG:
+                                    print("\ncaught error trying to upgrade @type: ", ex)
+                                    print(traceback.format_exc())
                                 
                                 
                             try:
@@ -1114,15 +1320,16 @@ class MatterDevice(Device):
                                         print("\nWARNING: update_from_node: that property already exists, but the property_value was an unexpected type: ", property_id, property_value)
                                 
                             except Exception as ex:
-                                print("caught error creating or updating property: ", ex)
-                                
+                                if self.DEBUG:
+                                    print("device: caught error creating property: ", ex)
+                                    print(traceback.format_exc())
                                     
                     
                                         
                         except Exception as ex:
                             if self.DEBUG:
-                                print("Device: error in generating property: " + str(ex))
-                    
+                                print("Device: caught general error in generating property: " + str(ex))
+                                print(traceback.format_exc())
             else:
                 if self.DEBUG:
                     print("Device: error no attributes in node?: ", node)

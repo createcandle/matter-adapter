@@ -1,5 +1,6 @@
 # helper functions for Matter adapter
 
+#import re
 import sys
 import json
 import math
@@ -10,13 +11,83 @@ import chip.clusters.Objects as cluster_details
 #from chip.clusters.Objects import ChipClusters
 #from chip.clusters.Objects import GetClusterInfoById, ListClusterInfo, ListClusterCommands, ListClusterAttributes
 
-from chip.clusters.ClusterObjects import ALL_ATTRIBUTES, ALL_CLUSTERS #, ALL_EVENTS
+from chip.clusters.ClusterObjects import ALL_ATTRIBUTES, ALL_CLUSTERS, ALL_EVENTS
 from matter_server.client.models.device_types import ALL_TYPES
 
 #print("DIR cluster_details: ", dir(cluster_details))
 
 #print()
 #print("ChipClusters.ListClusterInfo: ", ChipClusters.ListClusterInfo())
+
+
+clusters_to_ignore = [
+    "Globals",
+    "Identify",
+    "Groups",
+    "Descriptor",
+    "Binding",
+    #"AccessControl",
+    "Actions",
+    "OtaSoftwareUpdateProvider",
+    "OtaSoftwareUpdateRequestor",
+    "LocalizationConfiguration",
+    "TimeFormatLocalization",
+    "UnitLocalization",
+    "PowerSourceConfiguration",
+    "GeneralCommissioning",
+    "NetworkCommissioning",
+    "DiagnosticLogs",
+    "GeneralDiagnostics",
+    "SoftwareDiagnostics",
+    "ThreadNetworkDiagnostics",
+    "WiFiNetworkDiagnostics",
+    "EthernetNetworkDiagnostics",
+    "TimeSynchronization",
+    "BridgedDeviceBasicInformation",
+    "AdministratorCommissioning",
+    "OperationalCredentials",
+    "GroupKeyManagement",
+    #"FixedLabel",
+    #"UserLabel",
+    "ProxyConfiguration",
+    "ProxyDiscovery",
+    "ProxyValid",
+    "IcdManagement",
+    "ScenesManagement",
+    "Messages",
+    "EnergyEvseMode",
+    "WiFiNetworkManagement",
+    "ThreadBorderRouterManagement",
+    "ThreadNetworkDirectory",
+    "WakeOnLan",
+    "Channel",
+    "TargetNavigator",
+    "ContentLauncher",
+    "ApplicationLauncher",
+    "ApplicationBasic",
+    "AccountLogin",
+    "ContentControl",
+    "ContentAppObserver",
+    "ZoneManagement",
+    #"CameraAvStreamManagement",
+    "CameraAvSettingsUserLevelManagement",
+    "WebRTCTransportProvider",
+    "WebRTCTransportRequestor",
+    "PushAvStreamTransport",
+    "EcosystemInformation",
+    "CommissionerControl",
+    "JointFabricDatastore",
+    "JointFabricAdministrator",
+    "TlsCertificateManagement",
+    "TlsClientManagement",
+    #"MeterIdentification",
+    "CommodityMetering",
+    "UnitTesting",
+    "FaultInjection",
+    "SampleMei",
+    ]
+
+
 
 
 # Turns color names into HEX color values. Useful with voice control
@@ -50,11 +121,25 @@ def colorNameToHex(color):
         return colors[color.lower()]
     else:
         print("colorNameToHex: no match. Returning white (#ffffff)")
-        return "#ffffff";
+        return "#ffffff"
 
 
 
 XYPoint = namedtuple('XYPoint', ['x', 'y'])
+
+
+def is_hex_color(color):
+    if isinstance(color,str):
+        color = color.strip().rstrip()
+        if (color.startswith('#') and len(color) == 7) or len(color) == 6:
+            valid_chars = ['1','2','3','4','5','6','7','8','9','0','A','B','C','D','E','F']
+            for i in range(len(color) - 1, len(color) - 7, -1):
+                print(i, "color[i]: ", color[i])
+                if color[i].upper() not in valid_chars:
+                    return False
+            return True
+    return False
+            
 
 # from: https://github.com/benknight/hue-python-rgb-converter/blob/master/rgbxy/__init__.py
 def hex_to_xy(hex):
@@ -111,7 +196,7 @@ def hex_to_blue(hex):
 
 def hex_to_rgb(h):
     """Converts a valid hex color string to an RGB array."""
-    rgb = (self.hex_to_red(h), self.hex_to_green(h), self.hex_to_blue(h))
+    rgb = (hex_to_red(h), hex_to_green(h), hex_to_blue(h))
     return rgb
 
 def rgb_to_hex(r, g, b):
@@ -160,6 +245,94 @@ def xy_to_hex(x, y, bri=1):
     except Exception as ex:
         print("Util: error in xy_to_hex: " + str(ex))
         return '#FFAA00' # orange
+
+
+#
+#   HSV - HUE SATURATION AND (BRIGHTNESS) VALUE
+#
+
+# from https://codeigo.com/python/convert-hex-to-rgb-and-hsv/
+def hex_to_hsv(h):
+    if str(h).startswith('#'):
+        h = str(h)[1:]
+    return rgb2hsv(hex_to_red(h),hex_to_green(h),hex_to_blue(h))
+
+def rgb2hsv(r, g, b):
+	# Normalize R, G, B values
+	r, g, b = r / 255.0, g / 255.0, b / 255.0
+ 
+	# h, s, v = hue, saturation, value
+	max_rgb = max(r, g, b)    
+	min_rgb = min(r, g, b)   
+	difference = max_rgb-min_rgb 
+ 
+	# if max_rgb and max_rgb are equal then h = 0
+	if max_rgb == min_rgb:
+    		h = 0
+	 
+	# if max_rgb==r then h is computed as follows
+	elif max_rgb == r:
+    		h = (60 * ((g - b) / difference) + 360) % 360
+ 
+	# if max_rgb==g then compute h as follows
+	elif max_rgb == g:
+    		h = (60 * ((b - r) / difference) + 120) % 360
+ 
+	# if max_rgb=b then compute h
+	elif max_rgb == b:
+    		h = (60 * ((r - g) / difference) + 240) % 360
+ 
+	# if max_rgb==zero then s=0
+	if max_rgb == 0:
+    		s = 0
+	else:
+    		s = (difference / max_rgb) * 100
+ 
+	# compute v
+	v = max_rgb * 100
+	# return rounded values of H, S and V
+	return tuple(map(round, (h, s, v)))
+ 
+#print(rgb2hsv(24, 12, 39))
+
+
+print("is_hex_color: ", is_hex_color('#FF0077'))
+hsv = hex_to_hsv('#FF0077')
+print("HSV OUTPUT: ", hsv)
+
+
+# HSV to RGB
+
+#scalar = float # a scale value (0.0 to 1.0)
+#def hsv_to_rgb( h:scalar, s:scalar, v:scalar, a:scalar ) -> tuple:
+def hsv_to_rgb( h, s, v, a):
+    if s:
+        if h == 1.0: h = 0.0
+        i = int(h*6.0); f = h*6.0 - i
+        
+        w = v * (1.0 - s)
+        q = v * (1.0 - s * f)
+        t = v * (1.0 - s * (1.0 - f))
+        
+        if i==0: return (v, t, w, a)
+        if i==1: return (q, v, w, a)
+        if i==2: return (w, v, t, a)
+        if i==3: return (w, q, v, a)
+        if i==4: return (t, w, v, a)
+        if i==5: return (v, w, q, a)
+    else: return (v, v, v, a)
+
+
+def hsv_to_hex(h,s,v=1,a=1):
+    rgba = hsv_to_rgb(h,s,v,a)
+    print("hsv_to_hex:  rgba: ", rgba)
+    return rgb_to_hex(rgba[0],rgba[1],rgba[2])
+
+
+
+
+
+
 
 
 
@@ -260,6 +433,39 @@ def get_commands_for_cluster_id(cluster_id):
 #ListClusterAttributes()
 
 
+
+def get_events_lookup():
+    events_lookup = {}
+    for key, value in ALL_EVENTS.items():
+        print("+", key)
+        
+        events_list = []
+        
+        
+        #print("-> ", type(value), str(value))
+        for key2 in value:
+            #print("key2: ", key2, value[key2].__name__)
+            events_list.append(value[key2].__name__)
+            #print("type(value[key2]): ", type(value[key2]), value[key2].__dict__)
+            #for key3 in value[key2].__dict__:
+            #    if(str(key3).startswith('__')):
+            #        continue
+            #    print("---> key3: ", key3)
+        
+        if len(events_list):
+            
+            events_lookup[humanize_cluster_id(int(key))] = events_list
+        #print("")
+        #print(">>", dir(value))
+        #for key2, value2 in value:
+        #    print("ALL_EVENTS key2,value2: ", key2, value2)
+        
+
+    #print("")
+    return events_lookup
+
+
+
 def get_enums_lookup():
     enums_lookup = {}
 
@@ -346,7 +552,6 @@ def process_node(node):
         attr_id = int(attr_id)
         
         
-        
         if cluster_id == 5: # "Scenes" cluster is not officially supported anymore. Even though IKEA still uses it?
             continue
         
@@ -393,6 +598,25 @@ def process_node(node):
             new_attributes[endpoint_name][attribute_path] = value
 
         endpoints[endpoint_id][cluster_name][attr_name] = value
+        if attr_name == 'AcceptedCommandList' and isinstance(value,list):
+            accepted_commands = get_commands_for_cluster_id(cluster_id)
+            if accepted_commands and attr_name in accepted_commands:
+                humanized_commands_list = {}
+                for command_name in list(accepted_commands[attr_name].keys()):
+                    if self.DEBUG:
+                        print("checking if command is supported: ", command_name)
+                    if 'id' in accepted_commands[attr_name] and accepted_commands[attr_name]['id'] in value:
+                        if self.DEBUG:
+                            print("process_node: COMMAND IS ACCEPTED: ", attribute_path, command_name)
+                        humanized_commands_list[str(accepted_commands[attr_name]['id'])] = command_name
+                    else:
+                        if self.DEBUG:
+                            print("process_node: COMMAND IS _NOT_ ACCEPTED: ", attribute_path, command_name)
+            
+            
+        
+        
+        
 
     # Augment device types
     for endpoint in endpoints.values():

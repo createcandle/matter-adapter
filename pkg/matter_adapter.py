@@ -49,12 +49,15 @@ from gateway_addon import Database, Adapter, Device, Property
 # Database - needed to read from the settings database. If your addon doesn't have any settings, then you don't need this.
 from .matter_device import MatterDevice
 
-from .matter_util import process_node,uncamel,humanize,humanize_cluster_id,get_enums_lookup,get_commands_for_cluster_id
+#from .matter_util import process_node, uncamel, humanize, humanize_cluster_id, get_enums_lookup, get_commands_for_cluster_id, clusters_to_ignore
+from .matter_util import *
 
 try:
     from .matter_adapter_api_handler import *
 except Exception as ex:
     print("Error, unable to load MatterAdapterApiHandler (which is used for UI extention): " + str(ex))
+
+import traceback
 
 
 # Not sure what this is used for, but leave it in.
@@ -195,6 +198,8 @@ class MatterAdapter(Adapter):
         self.discovered = []
         self.nodes = []
         
+        self.switch_events = ['Switch latched','Initial press','Long press','Short release','Long release','Multi press ongoing','Multi press complete']
+        
         self.certificates_updated = False
         self.busy_updating_certificates = False
         self.last_certificates_download_time = 0
@@ -205,7 +210,7 @@ class MatterAdapter(Adapter):
         self.busy_pairing = False
         self.pairing_phase = 0
         self.pairing_phase_message = 'Starting'
-        self.pairing_attempt = 0
+        self.pairing_attempt = -1
         
         self.brightness_transition_time = 0
         
@@ -221,12 +226,14 @@ class MatterAdapter(Adapter):
         # THREAD / OTBR
         self.found_thread_radio_again = False
         self.found_new_thread_radio = False
-        self.found_a_thread_radio = False
+        self.found_a_thread_radio_once = False
         self.thread_radio_went_missing = False
         self.thread_radio_is_alive_count = 0 # how many spinel messages have been received
         self.last_thread_radio_is_alive_timestamp = 0
+        self.last_time_otbr_started = time.time()
         self.otbr_started = False # This is the first stage, done by otbr-agent
         self.thread_set_active = False # This is the second stage, managed by ot-ctl
+        self.informed_matter_server_about_thread = False
         self.thread_running = False # becomes true when Thread is completely up
         self.thread_error = ''
         self.otbr_agent_process = None
@@ -237,9 +244,13 @@ class MatterAdapter(Adapter):
         self.extension_cable_recommended = False
         self.last_time_otbr_restarted = 0
         self.serial_before = '' # used to detect newly plugged in USB sticks by comparing before and after of lsusb
+        self.last_received_server_info = None
         
         self.enums_lookup = get_enums_lookup()
-        #print("self.enums_lookup: ", self.enums_lookup)
+        print("self.enums_lookup: ", self.enums_lookup)
+        
+        self.events_lookup = get_events_lookup()
+        print("self.events_lookup: ", self.events_lookup)
         
         self.completed_command_clusters = [] # Will be filled with cluster_id's that have already been lookup up through get_commands_for_cluster_id
         self.commands_lookup = {} # will be filled as needed by calling get_commands_for_cluster_id(). The first key is the cluster_name
@@ -407,7 +418,7 @@ class MatterAdapter(Adapter):
 
         if self.DEBUG:
             print("PWD:" + str(pwd))
-            print("initial self.thread_dataset: ", self.thread_dataset);
+            print("initial self.thread_dataset: ", self.thread_dataset)
             
 
 
@@ -716,13 +727,13 @@ class MatterAdapter(Adapter):
         self.found_new_thread_radio = found_new_thread_radio
 
         if self.found_thread_radio_again or self.found_new_thread_radio:
-            self.found_a_thread_radio = True
+            self.found_a_thread_radio_once = True
             if self.otbr_started == False:
                 self.start_otbr()
         else:
             #if self.DEBUG:
             #    print("\nNO THREAD RADIO FOUND\n")
-            if self.found_a_thread_radio:
+            if self.found_a_thread_radio_once:
                 self.thread_radio_went_missing = True
 
 
@@ -746,15 +757,6 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             print("in start_otbr")
         
-        self.really_start_otbr()
-        
-        
-        #sudo /home/pi/thread/otbr-agent --data-path /home/pi/.webthings/data/matter-adapter --syslog-disable --debug-level 7  --thread-ifname  wpan0 -B wlan0  spinel+hdlc+uart:///dev/ttyUSB0?uart-baudrate=460800
-
-
-
-    def really_start_otbr(self):
-
         try:
             #if self.shell == None:
             #    self.shell = subprocess.Popen(['/bin/bash'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -783,9 +785,9 @@ class MatterAdapter(Adapter):
                     self.thread_backbone_interface = 'uap0'
                 
                 if self.DEBUG:
-                    print("\n. . . . __really_start_otbr__ . . . . ")
+                    print("\n. . . . __start_otbr__ . . . . ")
                     print("self.otbr_agent_path: ", self.otbr_agent_path)
-                    print("really_start_otbr:  thread_radio_url: ", thread_radio_url)
+                    print("_start_otbr:  thread_radio_url: ", thread_radio_url)
                     print("self.thread_backbone_interface: ", self.thread_backbone_interface)
                     print("self.data_thread_dir_path: ", self.data_thread_dir_path)
                     
@@ -830,6 +832,13 @@ class MatterAdapter(Adapter):
                     
                 self.otbr_agent_process = subprocess.Popen(agent_command_array, stderr=subprocess.DEVNULL, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 #self.tcpdump = subprocess.Popen(["sudo","tcpdump","-i","any","'udp port 5353 and (host 224.0.0.251 or host ff02::fb)'","-n"], stderr=subprocess.DEVNULL, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                time.sleep(.1)
+                try:
+                    if self.otbr_agent_process and self.otbr_agent_process.poll() == None:
+                        self.last_time_otbr_started = time.time()
+                except Exception as ex:
+                    if self.DEBUG:
+                        print("caught error checking if otbr process is running: ", ex)
                 
                 
                 # sudo tcpdump -i any 'udp port 5353 and (host 224.0.0.251 or host ff02::fb)'
@@ -841,6 +850,7 @@ class MatterAdapter(Adapter):
                             break
                         msg = self.otbr_agent_process.stdout.readline()
                         decoded_message = str(msg.decode()).strip().rstrip()
+                        print("otbr decoded_message: ", decoded_message)
                         if len(decoded_message) > 1:
                             self.otbr_stdout_messages.append(decoded_message)
                         time.sleep(0.0001)
@@ -871,6 +881,8 @@ class MatterAdapter(Adapter):
                         print("self.otbr_agent_process has been created")
                     
                     if self.otbr_agent_process.poll() == None:
+                        if self.DEBUG:
+                            print("starting thread to read from OTBR stdout")
                         self.stdout_thread = threading.Thread(target=read_otbr_stdout)
                         self.stdout_thread.daemon = True
                         self.stdout_thread.start()
@@ -879,14 +891,39 @@ class MatterAdapter(Adapter):
             
             
             else:
-                print("really_start_otbr: self.self.otbr_agent_process was not None?")
-                
+                if self.DEBUG:
+                    print("_start_otbr: self.self.otbr_agent_process was not None?")
+                if self.last_thread_radio_is_alive_timestamp < time.time() - 120:
+                    if self.DEBUG:
+                        print("is has been over two minutes since the thread radio last responded")
+                        print("- self.otbr_started: ", self.otbr_started)
+                        print("- self.thread_radio_went_missing: ", self.thread_radio_went_missing)
+                        print("- self.found_thread_radio_again: ", self.found_thread_radio_again)
+                        print("- self.found_new_thread_radio: ", self.found_new_thread_radio)
+                        print("- self.thread_set_active: ", self.thread_set_active)
+                        print("- self.last_time_otbr_restarted: ", self.last_time_otbr_restarted)
+                    
+                    
+                    self.thread_error = 'The Thread radio is not responding'
+                    
+                    if self.last_time_otbr_started < time.time() - 120:
+                        self.last_time_otbr_started = time.time() - 60
+                        if self.DEBUG:
+                            print("Radio is not responsing? calling really_stop_otbr to try again")
+                        self.really_stop_otbr()
+                        
+                    #if self.thread_set_active == False:
+                    #    if self.DEBUG:
+                    #        print("calling really_stop_otbr to try again")
+                        
+            
+            
             
             #self.shell.stdin.write((str(command) + '\n').encode())
             #self.shell.stdin.flush()
         except Exception as ex:
             if self.DEBUG:
-                print("caught error in really_start_otbr: " + str(ex))
+                print("caught error in _start_otbr: " + str(ex))
                 
                 
     
@@ -1299,7 +1336,9 @@ class MatterAdapter(Adapter):
                 if message['event'] == 'server_info_updated':
                     if self.DEBUG:
                         self.s_print("\nRECEIVED server_info_updated MESSAGE\n")
-                
+                    
+                    if 'data' in message:
+                        self.last_received_server_info = message['data']
                     """
                     "event": "server_info_updated",
                         "data": {
@@ -1326,19 +1365,19 @@ class MatterAdapter(Adapter):
                 #        self.s_print("\nADAPTER: INCOMING NODE EVENT\n")
                 
                 elif message['event'] == 'attribute_updated':
-                    self.route_property_change(message['data'])
+                    self.handle_event(message)
                     
                 elif message['event'] == 'node_event':
                     if self.DEBUG:
                         self.s_print("\nADAPTER: INCOMING NODE OR PROPERTY CHANGE\n", message['event'], "\n", message)
                     #if 'attributes' in message['data']:
                     #    process_node(message['data'])
-                    self.route_property_change(message['data'])
+                    self.handle_event(message)
                 
                 elif message['event'] == 'node_updated':
                     if self.DEBUG:
                         print("attempting to feed node data into self.parse_node")
-                    self.parse_node(message['data'])
+                    self.parse_node(message)
                     
             
             elif 'fabric_id' in message and 'schema_version' in message and 'sdk_version' in message:
@@ -1860,9 +1899,11 @@ class MatterAdapter(Adapter):
         self.download_certs()
         
         self.pairing_attempt += 1
-        if self.pairing_attempt >= 4:
+        if self.pairing_attempt >= 3:
             self.pairing_failed = True
-            self.pairing_attempt = 0
+            self.pairing_phase = -1
+            self.pairing_attempt = -1
+            self.pairing_phase_message = 'All three pairing attempts failed'
             return
         
         if self.thread_dataset == '' and self.thread_radio_is_alive_count > 2:
@@ -2116,33 +2157,34 @@ class MatterAdapter(Adapter):
             #self.s_print("clock tick")
             # Check if there is output from the server process
             
-            if self.DEBUG:
-                dd += 1
-                if dd == 100:
-                    dd = 0
-                    #self.s_print("tick tock")
-                    passed_time = time.time() - last_tick_tock_time
-                    #print("actual seconds that passed: ", passed_time)
-                    last_tick_tock_time = time.time()
-                    
-                    if passed_time > 2:
+            dd += 1
+            if dd == 100:
+                dd = 0
+                #self.s_print("tick tock")
+                passed_time = time.time() - last_tick_tock_time
+                #print("actual seconds that passed: ", passed_time)
+                last_tick_tock_time = time.time()
+                
+                if passed_time > 2:
+                    if self.DEBUG:
                         print("\n\n\nWARNING, CLOCK WAS VERY DELAYED: ", passed_time, "\n\n\n")
+                
+                
+                # Check if the thread radio needs to be restarted
+                if self.last_thread_radio_is_alive_timestamp < time.time() - 300:
+                    self.find_thread_radio()
                     
-                    
-                    # Check if the thread radio needs to be restarted
-                    if self.last_thread_radio_is_alive_timestamp < time.time() - 300:
-                        self.find_thread_radio()
-                        
-                        if self.thread_radio_went_missing and self.found_thread_radio_again == False and self.found_new_thread_radio == False and self.otbr_started:
-                            if self.DEBUG:
-                                print("Thread radio was unplugged? Stopping OTBR")
-                            self.send_pairing_prompt("Thread radio was unplugged?")
-                            self.really_stop_otbr()
-                        elif self.thread_radio_went_missing and (self.found_thread_radio_again or self.found_new_thread_radio) and self.otbr_started == False and self.thread_set_active == False and self.otbr_agent_process == None and self.last_time_otbr_restarted < time.time() - 600:
-                            if self.DEBUG:
-                                print("auto-restarting the Thread border router to connect to the USB stick again")
-                            self.send_pairing_prompt("Thread radio was plugged in again?")
-                            self.start_otbr()
+                    if self.thread_radio_went_missing and self.found_thread_radio_again == False and self.found_new_thread_radio == False and self.otbr_started:
+                        if self.DEBUG:
+                            print("Thread radio was unplugged? Stopping OTBR")
+                        self.send_pairing_prompt("Thread radio was unplugged?")
+                        self.really_stop_otbr()
+                    elif self.thread_radio_went_missing and (self.found_thread_radio_again or self.found_new_thread_radio) and self.otbr_started == False and self.thread_set_active == False and self.otbr_agent_process == None and self.last_time_otbr_restarted < time.time() - 600:
+                        if self.DEBUG:
+                            print("auto-restarting the Thread border router to connect to the USB stick again")
+                        self.send_pairing_prompt("Thread radio was plugged in again?")
+                        self.start_otbr()
+                
                         
                             
                     
@@ -2199,6 +2241,10 @@ class MatterAdapter(Adapter):
                         self.thread_radio_went_missing = False
                         self.start_thread_mesh()
                 
+                    elif 'Wait for response timeout' in otbr_message:
+                        if self.DEBUG:
+                            print("\nWARNING, otbr got timeout - usb stick not responding?")
+                
 
             try:
                 for line in iter(self.server_process.stdout.readline,b''):
@@ -2224,6 +2270,12 @@ class MatterAdapter(Adapter):
                         self.send_pairing_prompt("Bluetooth commissioning failed")
                         self.pairing_phase_message = 'Bluetooth connection to Matter device could not be established'
                         self.pairing_phase = -1
+                        
+                    if 'Found unconnected device, removing' in line:
+                        self.pairing_phase_message = 'Removing unconnected device, likely from a previous failed pairing attempt'
+                        
+                    if "Error on commissioning step 'WiFiNetworkEnable'" in line:
+                        self.pairing_phase_message = 'Pairing failed because the WiFi network could not be enabled'
                         
                     if 'error.NodeInterviewFailed' in line:
                         if self.busy_pairing:
@@ -2264,12 +2316,13 @@ class MatterAdapter(Adapter):
                     if 'le-connection-abort-by-local' in line:
                         self.pairing_failed = True
                         self.busy_pairing = False
-                        self.send_pairing_prompt("Bluetooth got wireless interference. Try again?")
+                        self.send_pairing_prompt("Bluetooth got wireless interference.")
                         self.pairing_phase_message = 'Could not connect to new device via Bluetooth. Possibly because of wireless interference'
                         self.pairing_phase = -1
                     if 'address already in use' in line:
                         self.s_print("ERROR, THERE ALREADY IS A MATTER SERVER RUNNING")
-                    if 'Subscription succeeded with report interval' in line:
+                        
+                    if 'Subscription succeeded with report interval' in line or 'Re-Subscription succeeded' in line:
                         if self.DEBUG:
                             print("A device re-connected")
                         if '<Node:' in line:
@@ -2280,8 +2333,12 @@ class MatterAdapter(Adapter):
                                     device_id = 'matter-' + str(device_index)
                                     target_device = self.get_device(device_id)
                                     if target_device:
-                                        target_device.connected = True;
-                                        target_device.connected_notify(True);
+                                        target_device.connected = True
+                                        target_device.connected_notify(True)
+                        
+                        if self.thread_running and self.informed_matter_server_about_thread == False:
+                            self.informed_matter_server_about_thread = self.set_thread_dataset()                
+                                        
                             
                     if 'Subscription failed' in line and 'Timeout, resubscription attempt 3' in line: 
                         if self.DEBUG:
@@ -2295,8 +2352,8 @@ class MatterAdapter(Adapter):
                                     device_id = 'matter-' + str(device_index)
                                     target_device = self.get_device(device_id)
                                     if target_device:
-                                        target_device.connected = False;
-                                        target_device.connected_notify(False);
+                                        target_device.connected = False
+                                        target_device.connected_notify(False)
                     if 'is not (yet) available' in line:
                         self.send_pairing_prompt("Device not available (yet)")
                         if ' Node ' in line:
@@ -2306,8 +2363,8 @@ class MatterAdapter(Adapter):
                                 device_id = 'matter-' + str(device_index)
                                 target_device = self.get_device(device_id)
                                 if target_device:
-                                    target_device.connected = False;
-                                    target_device.connected_notify(False);
+                                    target_device.connected = False
+                                    target_device.connected_notify(False)
                                     
                     #output = self.server_process.stdout.readline()
                     #error_line = self.server_process.stderr.readline()
@@ -2362,36 +2419,68 @@ class MatterAdapter(Adapter):
 
 
     # handles events. In theory events tell you states from the past? But in practise there is some data in there.. which is not in attributes themselves for some reason.
-    def route_property_change(self,data):
+    def handle_event(self,message):
+        
+        if not 'data' in message or not 'event' in message:
+            if self.DEBUG:
+                print("handle_event: error, no data or event type in provided message")
+            return
+        
+        event = message['event']
+        data = message['data']
         if self.DEBUG:
-            print("in route_property_change. Data: " + str(data))
+            print("in handle_event.  event,data: ", event,"\n", data)
+            
         try:
             
             node_id = None
             endpoint = None
             endpoint_name = None
             value = None
+            cluster_id = None
             cluster_name = None
             attribute_name = None
-            short_type = None
+            attribute_code = None
+            #attribute_id = None # not used for anything at the moment
+            
             
             
                 
+            
+                
             if isinstance(data, list) and len(data) == 3 and isinstance(data[0],int) and isinstance(data[1],str) and '/' in data[1]:
+                print("event = attribute_updated? ", event)
                 node_id = data[0]
+                
                 value = data[2]
                 # three values: node ID, cluster and attribute, and the new value
                 endpoint = int(data[1].split('/')[0])
                 endpoint_name = 'Endpoint' + str(endpoint)
-                short_type = humanize(data[1])
+                cluster_id = int(data[1].split('/')[1])
+                #attribute_id = int(data[1].split('/')[2]) # not used for anything at the moment
+                attribute_code = humanize(data[1])
                 if self.DEBUG:
-                    print("short_type from humanize: ", short_type)
-                cluster_name = short_type.split('.Attributes.')[0]
-                attribute_name = short_type.split('.Attributes.')[1]
+                    print("attribute_code from humanize: ", attribute_code)
+                cluster_name = attribute_code.split('.Attributes.')[0]
+                attribute_name = attribute_code.split('.Attributes.')[1]
+                
+                
+                if clusters_to_ignore and cluster_name in clusters_to_ignore:
+                    if self.DEBUG:
+                        print("handle_event: skipping because cluster_name was in list of clusters_to_ignore: ", cluster_name)
+                
+                #if 'Diagnostics' in cluster_name:
+                #    if self.DEBUG:
+                #        print("handle_event: skipping diagnostics cluster")
+                #    return
+                
                 if attribute_name.isdigit():
                     if self.DEBUG:
-                        print("ERROR: route_property_change: attribute_name is digit")
+                        print("ERROR: handle_event: attribute_name is digit")
                     attribute_name = None
+                
+                
+                
             
             elif 'node_id' in data and 'value' in data and 'attribute_id' in data and 'endpoint_id' in data:
                 node_id = data['node_id']
@@ -2417,7 +2506,11 @@ class MatterAdapter(Adapter):
                         value = data['data'][data_attribute]
                         cluster_name = humanize_cluster_id(data['cluster_id'])
                         
-                        hacky_short_type = str(cluster_name) + '.Attributes.' + str(data_attribute)
+                        if clusters_to_ignore and cluster_name in clusters_to_ignore:
+                            if self.DEBUG:
+                                print("handle_event: skipping because cluster_name was in list of clusters_to_ignore: ", cluster_name)
+                        
+                        hacky_attribute_code = str(cluster_name) + '.Attributes.' + str(data_attribute)
                         attribute_name = str(data_attribute)
                         
                         if self.DEBUG:
@@ -2431,17 +2524,17 @@ class MatterAdapter(Adapter):
                             if not endpoint_name in self.persistent_data['nodez'][device_id]['attributes']:
                                 if self.DEBUG:
                                     print("unexpectedly, missing endpoint_name in persistent data? ", endpoint_name)
-                            else:
-                        
-                                if hacky_short_type in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
-                                    if self.DEBUG:
-                                        print("surprisingly, there is already an attribute with this hacky code: ", self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_short_type])
-                                else:
-                                    hacky_short_type = str(cluster_name) + 'Candle.Attributes.' + str(data_attribute)
                             
-                                    if hacky_short_type in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
+                            else:
+                                if hacky_attribute_code in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
+                                    if self.DEBUG:
+                                        print("surprisingly, there is already an attribute with this hacky code: ", self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code])
+                                else:
+                                    hacky_attribute_code = str(cluster_name) + 'Candle.Attributes.' + str(data_attribute)
+                            
+                                    if hacky_attribute_code in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
                                         if self.DEBUG:
-                                            print("this hacky property has already been created in persistent data: ", self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_short_type])
+                                            print("this hacky property has already been created in persistent data: ", self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code])
                                             
                                         device_id = 'matter-' + str(node_id)
                                         target_device = self.get_device(device_id)
@@ -2456,19 +2549,20 @@ class MatterAdapter(Adapter):
                                                 hacky_target_property.update( value )
                                             
                                     else:
-                                        short_type = hacky_short_type
+                                        attribute_code = hacky_attribute_code
                                         if self.DEBUG:
                                             print("\ncreating new hacky property\n")
-                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_short_type] = {'enabled':True,'property':{'description':{'title':uncamel(data_attribute).replace('_',' ') + ' ' + str(endpoint),'readOnly':True}},'hacky':True,'value': value, 'received_values':[value]}
+                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code] = {'enabled':True,'property':{'description':{'title':uncamel(data_attribute).replace('_',' ') + ' ' + str(endpoint),'readOnly':True}},'hacky':True,'value': value, 'received_values':[value]}
                                         if isinstance(value,int):
-                                            self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_short_type]['property']['description']['type'] = 'number'
+                                            self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['type'] = 'number'
                                         elif isinstance(value,str):
-                                            self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_short_type]['property']['description']['type'] = 'string'
+                                            self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['type'] = 'string'
                                         elif isinstance(value,bool):
-                                            self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_short_type]['property']['description']['type'] = 'boolean'
-                                
-                        
-                                
+                                            self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['type'] = 'boolean'
+                                        
+                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['attribute_code'] = attribute_code
+                                        
+                                        
                                         device_id = 'matter-' + str(node_id)
                                         target_device = self.get_device(device_id)
                                         if target_device:
@@ -2480,53 +2574,54 @@ class MatterAdapter(Adapter):
                 
             else:
                 if self.DEBUG:
-                    print("WARNING: route_property_change: getting parameters fell through")
+                    print("WARNING: handle_event: getting parameters fell through")
             
             if self.DEBUG:
-                print("route_property_change: node_id, attribute_name, value: ", node_id, attribute_name, value)
+                print("handle_event: node_id, attribute_name, value: ", node_id, attribute_name, value)
             
             if node_id and endpoint_name and attribute_name: # should value be allowed to be None?
                 device_id = 'matter-' + str(node_id)
                 target_device = self.get_device(device_id)
                 
-                if endpoint and short_type:
+                if endpoint and attribute_code:
                     endpoint_name = 'Endpoint' + str(endpoint)
                     if str(device_id) in self.persistent_data['nodez']:
                         if 'attributes' in self.persistent_data['nodez'][device_id] and endpoint_name in self.persistent_data['nodez'][device_id]['attributes']:
-                            if short_type == None:
+                            
+                            if attribute_code == None:
                                 if self.DEBUG:
-                                    print("route_property_change: short_type was None")
-                            elif str(short_type) in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
+                                    print("handle_event: attribute_code was None")
+                            
+                            elif str(attribute_code) in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
                                 if self.auto_enable_properties == True:
-                                    if 'enabled' in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)] and self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['enabled'] == False:
+                                    if 'enabled' in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)] and self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['enabled'] == False:
                                         if self.DEBUG:
-                                            print("route_property_change: auto-enabling a property: ", short_type)
+                                            print("handle_event: auto-enabling a property: ", attribute_code)
                                         self.should_save = True
-                                    self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['enabled'] = True
-                                    
+                                    self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['enabled'] = True
                                 
                                 # Keep track of the different type of variables that can be expected to be received
-                                if not 'received_values' in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]:
-                                    self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['received_values'] = []
-                                elif len(self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['received_values']) > 10:
+                                if not 'received_values' in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]:
+                                    self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'] = []
+                                elif len(self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values']) > 10:
                                     if self.DEBUG:
-                                        print("route_property_change: trimming received values list back to 10 items")
-                                    self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['received_values'] = self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['received_values'][-9:]
+                                        print("handle_event: trimming received values list back to 10 items")
+                                    self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'] = self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'][-9:]
                                 
                                 # Keep track of how many decimal points any numbers being sent will have, at maximum
                                 # Also keep track of the smallest and largest number ever received. Useful to find out of percentages need to be scaled from 255, for example
                                 # It is a privacy risk, so these values should not be exposed to the user, through it may be temping to use such values when displaying graph axis
                                 if value != None and isinstance(value,(int,float)):
-                                    if not 'max_decimals_received' in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]:
-                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['max_decimals_received'] = -1
-                                    if not 'max_value_received' in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]:
-                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['max_value_received'] = value
-                                    elif value > self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['max_value_received']:
-                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['max_value_received'] = value
-                                    if not 'min_value_received' in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]:
-                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['min_value_received'] = value
-                                    elif value < self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['min_value_received']:
-                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['min_value_received'] = value
+                                    if not 'max_decimals_received' in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]:
+                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['max_decimals_received'] = -1
+                                    if not 'max_value_received' in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]:
+                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['max_value_received'] = value
+                                    elif value > self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['max_value_received']:
+                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['max_value_received'] = value
+                                    if not 'min_value_received' in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]:
+                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['min_value_received'] = value
+                                    elif value < self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['min_value_received']:
+                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['min_value_received'] = value
                                     decimals = None
                                     if '.' in str(value):
                                         parts = str(value).split('.')
@@ -2543,23 +2638,34 @@ class MatterAdapter(Adapter):
                                     if self.DEBUG:
                                         print("decimals: ", decimals)
                                 
-                                    if decimals != None and decimals > self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['max_decimals_received']:
-                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['max_decimals_received'] = decimals
+                                    if decimals != None and decimals > self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['max_decimals_received']:
+                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['max_decimals_received'] = decimals
+                                
+                                    
+                                    
                                 
                                 if value != None and isinstance(value,(str,int,float,bool)):
-                                    if not value in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['received_values']:
+                                    if not value in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values']:
                                         if self.DEBUG:
-                                            print("route_property_change: appending not seen before value to received_values: ", value)
-                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['received_values'].append(value)
+                                            print("handle_event: appending not seen before value to received_values: ", value)
+                                        self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'].append(value)
                                     else:
                                         if self.DEBUG:
-                                            print("route_property_change: that value has been received before: ", value)
+                                            print("handle_event: that value has been received before: ", value)
+                                    
+                                    # Privacy risk to update the actual value
+                                    #self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['value'] = value
+                                            
                                 if self.DEBUG:
-                                    print("route_property_change: received values:  device_id,endpoint_name,short_type,values: ", device_id, endpoint_name, short_type, self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(short_type)]['received_values'])
+                                    print("handle_event: received values:  device_id,endpoint_name,attribute_code,values: ", device_id, endpoint_name, attribute_code, self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'])
+                            
+                            
+                            
+                            
                             
                 if target_device == None:
                     if self.DEBUG:
-                        print("\nERROR: route_property_change: missing device: ", device_id)
+                        print("\nERROR: handle_event: missing device: ", device_id)
                 else:
                     property_id = 'property-' + str(endpoint_name) + '-'+ str(cluster_name) + '-' + str(attribute_name)
                     if self.DEBUG:
@@ -2568,23 +2674,73 @@ class MatterAdapter(Adapter):
                     
                     if target_property == None:
                         if self.DEBUG:
-                            print("route_property_change: found thing, but missing property: ", property_id)
+                            print("handle_event: found thing, but missing property: ", property_id)
                         if 'attributes' in data and len(data['attributes'].keys()) > 2 and 'Endpoint' in str(list(data['attributes'].keys())): # TODO: Very hacky, should check these assumptions too
                             if self.DEBUG:
-                                print("route_property_change: attempting update_from_node... with potential node data: ", data)
+                                print("handle_event: attempting update_from_node... with potential node data: ", data)
                             target_device.update_from_node(data)
                         else:
                             if self.DEBUG:
-                                print("\nWARNING, there is no way to add the missing property now\n")
+                                print("\nWARNING, there is no way to add the missing property now\ndata: ", data)
+                            self.should_save = True
                     else:
                         if self.DEBUG:
-                            print("found existing property. calling property.update with value: ", value)
+                            print("handle_event: found existing property. calling property.update with value: ", value)
                         target_property.update( value )
+                        
+                    
+                    # Also create and/or update event property if it exists
+                    if isinstance(cluster_name,str) and cluster_name in self.events_lookup:
+                        if isinstance(attribute_code,str) and isinstance(attribute_name,str):
+                            event_attribute_code = str(attribute_name) + 'Event'
+                            event_property_id = 'property-' + str(endpoint_name) + '-'+ str(cluster_name) + '-CurrentEvent'
+                            if self.DEBUG:
+                                print("handle_event: event_property_id: ", event_property_id)
+                            
+                            target_event_property = target_device.find_property(event_property_id)
+                            if target_event_property:
+                                if self.DEBUG:
+                                    print("handle_event: found event property")
+                                    print("possible events for cluster: ", cluster_name, self.events_lookup[cluster_name])
+                        
+                                if 'event_id' in data and isinstance(data['event_id'],int) and data['event_id'] >= 0 and data['event_id'] < len(self.events_lookup[cluster_name]):
+                                    target_event_property.update( self.events_lookup[cluster_name][data['event_id']] )
+                                    
+                                    
+                                    #'Switch.Attributes.CurrentPosition':
+                                    """
+                                    0x00 SwitchLatched INFO V LS
+                                    0x01 InitialPress INFO V MS
+                                    0x02 LongPress INFO V MSL
+                                    0x03 ShortRelease INFO V MSR
+                                    0x04 LongRelease INFO V MSL
+                                    0x05 MultiPressOngoing
+                                    0x06 MultiPressComplete
+                                    """
+                                    
+                                    #if attribute_code == 'Switch.Attributes.CurrentPosition' and data['event_id'] < len(self.switch_events):
+                                    #    target_event_property.update( self.switch_events[data['event_id']] )
+                        
+                                        
+                        
+                                else:
+                                    target_event_property.update( 'None' )
+                                    if self.DEBUG:
+                                        print("handle_event: no event id, so setting event property to None")
+                            else:
+                                if self.DEBUG:
+                                    print("handle_event: did not find CurrentEvent property")
+                        else:
+                            if self.DEBUG:
+                                print("handle_event: cannot even attempt to update event property as attribute_code or attribute_name was not a string: ", attribute_code, attribute_name)    
+                        
                         
             
                     
         except Exception as ex:
-            print("Error in route_property_change: " + str(ex))
+            if self.DEBUG:
+                print("caught error in handle_event: " + str(ex))
+                print(traceback.print_exc())
 
         """
         OLD:
@@ -2623,21 +2779,38 @@ class MatterAdapter(Adapter):
             #    print("parse nodes: number: " + str(node_number))
             #node = self.nodes[node_number]
             
-            if not 'node_id' in node:
+            event = None
+            if 'event' in node:
+                event = node['event']
+            
+            node_id = None
+            if 'node_id' in node:
+                node_id = node['node_id']
+            elif 'data' in node and 'node_id' in node['data']:
+                node_id = node['data']['node_id']
+                
+                
+            if node_id == None:
                 if self.DEBUG:
-                    print("\nERROR: parse_node: no node_id in node data: ", node)
+                    print("\nERROR: parse_node: no node_id in node or node['data']: ", node)
                 return
-            node_id = node['node_id']
+                
             device_id = 'matter-' + str(node_id)
             
             if self.DEBUG:
                 print("\n\nparse_node: device_id: " + str(device_id))
                 #print("node: \n", json.dumps(dataclass_to_dict(node),indent=2))
                 
+                
+            if not 'attributes' in node and 'data' in node and 'attributes' in node['data']:
+                if self.DEBUG:
+                    print("pulling a switch to make node['data'] the new node")
+                node = node['data']    
+                
             
             if 'attributes' in node:
-                if self.DEBUG:
-                    print("parse_node: node before: \n", json.dumps(node,indent=2))
+                #if self.DEBUG:
+                    #print("parse_node: node before: \n", json.dumps(node,indent=2))
                     #print('parse_node: NODE BEFORE...')
                     #print("\nparse_node: end of node before\n\n\n\n\n\n\n\n")
                 
@@ -2648,17 +2821,18 @@ class MatterAdapter(Adapter):
                         endpoint_id = int(endpoint_id)
                         attr_id = int(attr_id)
                         if not cluster_id in self.completed_command_clusters:
-                            command_lookup_table = get_commands_for_cluster_id(cluster_id);
+                            command_lookup_table = get_commands_for_cluster_id(cluster_id)
                             if command_lookup_table and len(list(command_lookup_table.keys())):
                                 self.commands_lookup = self.commands_lookup | command_lookup_table
                                 self.completed_command_clusters.append(cluster_id)
                                 if self.DEBUG:
-                                    print("self.completed_command_clusters is now: ", self.completed_command_clusters);
+                                    print("self.completed_command_clusters is now: ", self.completed_command_clusters)
                             #else:
                             #    if self.DEBUG:
                             #        print("\nERROR, get_commands_for_cluster_id did not return a valid dict")
                 except Exception as ex:
-                    print("caught error looping over node in order to get all commands: ", ex)
+                    if self.DEBUG:
+                        print("caught error looping over node in order to get all commands: ", ex)
                 
                     
                 process_node(node)
@@ -2697,6 +2871,18 @@ class MatterAdapter(Adapter):
                     print("parse_node: target_device has already been created. Attempting to call it's update_from_node method.")
                 target_device.update_from_node(node)
                 self.handle_device_added(target_device)
+                    
+            if 'available' in node and isinstance(node['available'],bool):
+                if self.DEBUG:
+                    print("parse_node: node.available: ", node['available'])
+                target_device = self.get_device(device_id)
+                if target_device:
+                    if self.DEBUG:
+                        print("parse_node: OK, calling connected_notify on device with state: ", node['available'])
+                    target_device.connected_notify(node['available'])
+                else:
+                    if self.DEBUG:
+                        print("\nWARNING: parse_node: unexpectedly device was still not created.  device_id: ", device_id)
                     
         except Exception as ex:
             if self.DEBUG:
@@ -2881,12 +3067,23 @@ class MatterAdapter(Adapter):
         try:
             # We don't have to delete the thing in the addon, but we can.
             obj = self.get_device(device_id)
-            self.handle_device_removed(obj) # Remove from device dictionary
-            if self.DEBUG:
-                print("User removed thing")
+            if obj:
+                self.handle_device_removed(obj) # Remove from device dictionary
+                if self.DEBUG:
+                    print("User removed thing")
+            else:
+                if self.DEBUG:
+                    print("could not find thing to remove")
+            
+            if 'nodez' in self.persistent_data and matter_id in self.persistent_data['nodez']:
+                del self.persistent_data['nodez'][matter_id]
+                self.should_save = True
+            
+            self.remove_node(device_id)
+            
         except Exception as ex:
             if self.DEBUG:
-                print("Could not remove thing from devices: " + str(ex))
+                print("caught error in remove thing: " + str(ex))
 
 
 
@@ -2927,10 +3124,16 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             print("in remove_node. node_id: " + str(node_id))
         
+        if self.client_connected == False:
+            if self.DEBUG:
+                print("remove_node: ERROR, client is not connected") # TODO: assuming that the matter server can even remove devices from thread
+            return False
+        
         self.get_nodes()
         time.sleep(3)
         matter_id = 'matter-' + str(node_id)
-            
+        
+        
         if matter_id in self.nodes:
             if self.DEBUG:
                 print("remove_node: Node seems to exist, will delete it")
@@ -2946,9 +3149,9 @@ class MatterAdapter(Adapter):
         
         else:
             if self.DEBUG:
-                print("remove_node: node doesn't seem to exist (already deleted?). Skipping delete")
+                print("\nERROR, remove_node: node doesn't seem to exist (already deleted?). Skipping delete")
             self.device_was_deleted = True # pretend it was just deleted
-            
+
         return True
         
               

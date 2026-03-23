@@ -124,8 +124,7 @@ class MatterDevice(Device):
                 # This is a virtual attribute that it not in the Matter spec
                 'Switch.Attributes.CurrentPositionEvent':{
                     'readOnly': True,
-                    'type':'string',
-                    'enum':self.adapter.switch_events},
+                    'type':'string'},
                     
                 'BooleanState.Attributes.StateValue':{
                     'title':'State',
@@ -915,9 +914,10 @@ class MatterDevice(Device):
                                     break
                                 
                                 
+                                if attribute_code.endswith('.RecentEvent')
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['readOnly'] = True
                                 
-                                
-                                if attribute_code == 'OnOff.Attributes.OnOff':
+                                elif attribute_code == 'OnOff.Attributes.OnOff':
                                     if not 'OnOffSwitch' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
                                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('OnOffSwitch')
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'OnOffProperty'

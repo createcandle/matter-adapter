@@ -8,3 +8,4 @@ click
 click-option-group
 xmltodict
 orjson
+tzdata

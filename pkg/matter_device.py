@@ -4,11 +4,24 @@ from gateway_addon import Device, Action
 from .matter_property import MatterProperty
 
 #from .matter_util import xy_to_hex, uncamel, number_to_boolean_list, clusters_to_ignore, hsv_to_hex
-from .matter_util import *
+
 #from matter_server.common.helpers.util import dataclass_from_dict,dataclass_to_dict,create_attribute_path_from_attribute
 #from matter_server.common.helpers.util import create_attribute_path_from_attribute
 
+try:
+    from matter_server.common.helpers.util import dataclass_from_dict,dataclass_to_dict
+    #from matter_server.common.models.api_command import APICommand
+    from matter_server.common.models import APICommand
+    #from matter_server.common.models.message import CommandMessage
+    from matter_server.common.models import CommandMessage
+    #from matter_server.common.json_utils import CHIPJSONDecoder, CHIPJSONEncoder
+    #from matter_server.vendor.chip.clusters import Objects as clusters
+except Exception as ex:
+    print("Error loading matter_server parts: " + str(ex))
+
 import chip.clusters.Objects as cluster_details
+
+from .matter_util import *
 
 import traceback
 
@@ -38,6 +51,10 @@ class MatterDevice(Device):
         self.title = 'Matter device'
         self.description = 'A Matter device'
         self._type = [] # holds capabilities
+        self.added_actions = []
+        
+        self.attribute_code_list = []
+        self.attributes = None
         
         # Improve device title
         try:
@@ -57,6 +74,10 @@ class MatterDevice(Device):
             print("device: caught error generating better device title: ", ex)
         
         self.node = node
+        if not 'node_id' in node:
+            if self.DEBUG:
+                print("\n\nERROR: DEVICE: no node_id in node data! Aborting device creation")
+            return False
         self.node_id = node['node_id']
         self.data_mute = False
         
@@ -172,17 +193,18 @@ class MatterDevice(Device):
                     'percent':True},
                     
                 'ColorControl.Attributes.CurrentHue':{
-                    'title':'Hue',
+                    'title':'Color',
                     'readOnly': False, 
-                    'type':'integer'}, # light color
+                    'type':'string',
+                    '@type':'ColorProperty',
+                    'dev@type':'ColorControl'}, # light color
                 
                 #'ColorControl.Attributes.ColorMode':{
                 #    'readOnly': False, 
                 #    'type':'string'}, # light color
-                'ColorControl.Attributes.CurrentX':{
-                    'title':'Color',
-                    'readOnly': False, 
-                    'type':'string'}, # color X coordinate. Y value will be loaded too if this one is an attribute
+                #'ColorControl.Attributes.CurrentX':{
+                #    'title':'Color position',
+                #    'readOnly': False}, # color X coordinate. Y value will be loaded too if this one is an attribute
                 'ColorControl.Attributes.ColorTemperatureMireds':{
                     'title':'Color temperature',
                     'readOnly': False, 
@@ -291,7 +313,8 @@ class MatterDevice(Device):
                 for endpoint_name in list(node['attributes_list'].keys()):
                     if self.DEBUG:
                         print("checking endpoint: ", endpoint_name)
-                        
+                    
+                   
                     if not endpoint_name in self.adapter.persistent_data['nodez'][device_id]['attributes']:
                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name] = {}
                     
@@ -328,6 +351,11 @@ class MatterDevice(Device):
                             
                             cluster_name = str(attribute_code.split('.Attributes.')[0])
                             
+                            if str(cluster_name).isdigit():
+                                if self.DEBUG:
+                                    print("skipping cluster_name that is a number: ", cluster_name)
+                                continue
+                                
                             if cluster_name in clusters_to_ignore:
                                 if self.DEBUG:
                                     print("skipping cluster: ", cluster_name)
@@ -419,6 +447,14 @@ class MatterDevice(Device):
                                 #    if self.DEBUG:
                                 #        print("this attribute already has an enabled state: ", self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'])
                             
+                                # Override enabled state based on user preference
+                                if 'customizations' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]:
+                                    if 'enabled' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['customizations']:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] = bool(self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['customizations']['enabled'])
+                                        if self.DEBUG:
+                                            print("device: early loop: user has overridden the enabled state of this attribute: ", attribute_code)
+                            
+                            
                                 
                                 # GET VENDOR NAME, PRODUCT NAME, AND UNIQUE ID
                         
@@ -489,8 +525,8 @@ class MatterDevice(Device):
                                             self.adapter.should_save = True
                                         
                                         for command_name in list(self.adapter.commands_lookup[cluster_name].keys()):
-                                            if self.DEBUG:
-                                                print("checking if command is supported: ", command_name)
+                                            #if self.DEBUG:
+                                            #    print("checking if command is supported: ", command_name)
                                             if 'id' in self.adapter.commands_lookup[cluster_name][command_name] and self.adapter.commands_lookup[cluster_name][command_name]['id'] in node['attributes_list'][endpoint_name][attribute_code]:
                                                 if self.DEBUG:
                                                     print("COMMAND IS ACCEPTED: ", command_name)
@@ -499,6 +535,11 @@ class MatterDevice(Device):
                                                 if not command_name in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['accepted_commands']:
                                                     self.adapter.should_save = True
                                                 self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['accepted_commands'][command_name] = self.adapter.commands_lookup[cluster_name][command_name]
+                                                
+                                                if str(command_name).lower() == 'toggle' and not 'toggle' in self.added_actions:
+                                                    self.added_actions.append('toggle')
+                                                    self.add_action("Toggle", {'endpoint_id':int(endpoint_name.replace('Endpoint',''))});
+                                                
                                             else:
                                                 if self.DEBUG:
                                                     print("COMMAND IS _NOT_ ACCEPTED: ", command_name)
@@ -534,6 +575,9 @@ class MatterDevice(Device):
                     if self.DEBUG:
                         print("endpoint_name again: ", endpoint_name)
                     for attribute_code in list(self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name].keys()):
+                        
+                        if not attribute_code in self.attribute_code_list:
+                            self.attribute_code_list.append(attribute_code)
                         
                         property_value = None
                         
@@ -816,6 +860,8 @@ class MatterDevice(Device):
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'string'
                                     
                                 # TODO: does the controller automatically add forms?
+                                # Should it be added to description in the first place?
+                                # There don't seem to be forms in the device.
                                 #description["forms"] = [{"href": "properties/" + str(property_id)}]
             
                                 
@@ -987,6 +1033,17 @@ class MatterDevice(Device):
                                             
                                         # COLOR 
                                         try:
+                                            
+                                            enhanced_color_modes = ['Hue & saturation','X and Y','Color temperature','Enhanced hue & saturation']
+                                            if attribute_code == 'ColorControl.Attributes.EnhancedColorMode':
+                                                if isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode'],int) and node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode'] >= 0 and node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode'] < len(enhanced_color_modes):
+                                                    property_value = enhanced_color_modes[ int(node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode']) ]
+                                                    if self.DEBUG:
+                                                        print("Color was last set in mode: ", property_value)
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['readOnly'] = True
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'string'
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type']['enum'] = enhanced_color_modes
+                                            
                                             if self.DEBUG:
                                                 print("colorControl: property_value before: ", property_value)
                                             # for the basic non-enhanced hue it seems the value can range between 0 and 254 (int8)
@@ -1010,9 +1067,15 @@ class MatterDevice(Device):
                                                             self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('ColorControl')
                                                     
                                                     
-                                            # Turn XY Color in HEX color when parsing the X color
+                                            # Turn XY Color in HEX color when parsing the X color, but only if there is a hue attribute
+                                            
                                             elif attribute_code == 'ColorControl.Attributes.CurrentX': # and not str(property_value).startswith('#')
-                                                if 'ColorControl.Attributes.CurrentY' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
+                                                
+                                                if 'ColorControl.Attributes.CurrentHue' in node['attributes_list'][endpoint_name]:
+                                                    if self.DEBUG:
+                                                        print("skipping ColorControl.Attributes.CurrentX because ColorControl.Attributes.CurrentHue exists")
+                                                        
+                                                elif 'ColorControl.Attributes.CurrentY' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
                                                     # Get Y value too
                                                     color_x_value = node['attributes_list'][endpoint_name]['ColorControl.Attributes.CurrentX']
                                                     color_y_value = node['attributes_list'][endpoint_name]['ColorControl.Attributes.CurrentY']
@@ -1031,10 +1094,7 @@ class MatterDevice(Device):
                                                     if isinstance(property_value,str) and not property_value.startswith('#') and len(property_value) == 6:
                                                         property_value = '#' + property_value
                                     
-                                        
-                                            if attribute_code == 'ColorControl.Attributes.CurrentX':
-                                                # Does it have CurrentHue attribute?
-                                                if 'ColorControl.Attributes.CurrentHue' in node['attributes_list'][endpoint_name] and 'ColorControl.Attributes.CurrentSaturation' in node['attributes_list'][endpoint_name]:
+                                                    # Only allow it to be the main color capability if there is no CurrentHue attribute
                                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'ColorProperty'
                                                     if not 'ColorControl' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
                                                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('ColorControl')
@@ -1220,6 +1280,10 @@ class MatterDevice(Device):
                                             print("AFTER: uncameled_enum_options: " + str(uncameled_enum_options))
                                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'] = uncameled_enum_options
                                         
+                                        # Ensure there is a 'None' enum option
+                                        if not 'None' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum']:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'].append('None')
+                                    
                                         if property_value == None:
                                             property_value = 'None'
                                         elif not str(property_value) in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum']:
@@ -1227,9 +1291,7 @@ class MatterDevice(Device):
                                                 print("\nERROR, did not find property_value in uncameled enum list, setting it to 'None': " + str(property_value))
                                             property_value = 'None'
                                             
-                                        # Ensure there is a 'None' enum option
-                                        if not 'None' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum']:
-                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'].append('None')
+                                        
                                     
                                     
                                 except Exception as ex:
@@ -1239,10 +1301,11 @@ class MatterDevice(Device):
                                 
                                 
                                 #
-                                #  APPLY USER OVERRIDES
+                                #  APPLY USER OVERRIDES TO PROPERTY
                                 #
                                 
                                 try:
+                                    
                                     if 'description_customizations' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']:
                                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'] = self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'] | self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description_customizations']
                                 
@@ -1291,7 +1354,9 @@ class MatterDevice(Device):
                                     print("CREATING PROPERTY FROM: " + str(self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']) + "\n\n")
                                     print("-- with value: ", property_value)
                                 # Add the MatterProperty to this device
-                            
+                                
+                                self.attributes = self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]
+                                
                                 if not property_id in self.properties:
                                     if 'type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']:
                                         self.properties[property_id] = MatterProperty(
@@ -1353,8 +1418,138 @@ class MatterDevice(Device):
             
         except Exception as ex:
             if self.DEBUG:
-                print("caught general error adding properties to thing: " + str(ex))
+                print("debug: caught general error adding properties to thing: " + str(ex))
 
         if self.DEBUG:
-            print("thing has been created.")
+            print("debug: thing has been created.")
 
+
+
+
+
+    def perform_action(self,action_object):
+        if self.DEBUG:
+            print("\n\ndebug: in perform_action\n\n")
+        try:
+            
+            command = None
+            command_name = None
+
+            endpoint_id = None
+            
+            if not isinstance(self.node_id,int):
+                print("\nERROR: perform_action: self.node_id is not an integer: ", self.node_id)
+                return
+            
+            
+            if self.DEBUG:
+                print("debug: in perform_action.  dir(action_object): ", str(dir(action_object)))
+            action_dict = action_object.as_dict()
+            if self.DEBUG:
+                print("debug: action_dict: ", str(action_dict))
+            if 'endpoint_id' in action_dict:
+                endpoint_id = int(action_dict['endpoint_id'])
+            
+            if endpoint_id == None:
+                if self.DEBUG:
+                    print("\nERROR: perform_action: no endpoint_id in action_dict: ", action_dict)
+                return
+        
+            if type(self.adapter.persistent_data['volume']) == int and action_dict and action_dict['name']:
+                if self.DEBUG:
+                    print("debug: performing action.  action_dict.name: ", action_dict['name'])
+                
+                if action_dict['name'] == 'Toggle':
+                    command = clusters.OnOff.Commands.Toggle()
+                else:
+                    if self.DEBUG:
+                        print("matter adapter debug: unexpected action: ", str(action_dict))
+        
+            else:
+                if self.DEBUG:
+                    print("debug: perform_action: bad action")
+            
+            if command != None:
+                try:
+                    command_name = command.__class__.__name__
+                    if self.DEBUG:
+                        print("perform_action: command_name from command: ", command_name)
+                except:
+                    if self.DEBUG:
+                        print("\nERROR: perform_action: getting command_name failed")
+                    try:
+                        command_name = command.__name__
+                    except:
+                        if self.DEBUG:
+                            print("\nERROR: perform_action: getting command_name failed twice")
+                        
+                
+                if command_name == None:
+                    if self.DEBUG:
+                        print("\nERROR: perform_action: aborting action: getting command_name failed")
+                    return
+                
+                
+                
+                
+                if self.DEBUG:
+                    #print("set_value: dir of command: ", dir(command))
+                    print("debug: perform_action: node_id: ", self.node_id)
+                    print("debug: perform_action: self.details['endpoint']: ", self.details['endpoint'])
+                    print("debug: perform_action: command.cluster_id", command.cluster_id)
+                    print("debug: perform_action: command.command_id", command.command_id)
+                    print("debug: perform_action: command_name: ", command_name)
+                    
+                    
+                
+                #command = clusters.OnOff.Commands.Toggle() # test
+                payload = dataclass_to_dict(command)
+                if self.DEBUG:
+                    print("debug: perform_action: set_value: payload: payload,payload.keys(): ", payload, payload.keys())
+                #if len(payload.keys()):
+                if self.DEBUG:
+                    print("\n\ndebug: perform_action: Forwarding value to Matter server. payload as dict: " + str(payload))
+                
+                message = {
+                    "message_id": "action_command",
+                    "command": "device_command",
+                    "args": {
+                        "node_id": int(self.node_id),
+                        "endpoint_id": int(endpoint_id),
+                        "payload": payload,
+                        "cluster_id": int(command.cluster_id),
+                        "command_name": str(command_name)
+                    }
+                  }
+            
+                
+                if message != None:
+                    
+                    # send device command
+                    if self.DEBUG:
+                        dump = json.dumps(message, sort_keys=True, indent=4, separators=(',', ': '))
+                        if self.DEBUG:
+                            print("\n.\n) ) )\n.\ndebug: perform_action: sending change value message to the Matter network: " + str(dump))
+                    json_message = json.dumps(message)
+                    
+                    if self.device.adapter.ws:
+                        
+                        action_object.start()
+                        
+                        was_sent = self.device.adapter.ws.send(json_message)
+                        if self.DEBUG:
+                            print("debug: perform_action: message sent? was_sent: ", was_sent)
+                        #self.update(value)
+                        
+                        # Hopefully a new event message will arrive so that the value gets set
+                        time.sleep(.1)
+                        action_object.finish()
+                
+                
+                
+            
+        except Exception as ex:
+            if self.DEBUG:
+                print("debug: perform_action: caught error in perform action: ", str(ex))
+        
+        

@@ -55,7 +55,7 @@ from .matter_util import *
 try:
     from .matter_adapter_api_handler import *
 except Exception as ex:
-    print("Error, unable to load MatterAdapterApiHandler (which is used for UI extention): " + str(ex))
+    self.s_print("Error, unable to load MatterAdapterApiHandler (which is used for UI extention): " + str(ex))
 
 import traceback
 
@@ -154,7 +154,7 @@ class MatterAdapter(Adapter):
         verbose -- whether or not to enable verbose logging
         """
         
-        print("Starting Matter adapter init")
+        #print("Starting Matter adapter init")
 
         self.ready = False # set this to True once the init process is complete.
         self.addon_id = 'matter-adapter'
@@ -162,6 +162,9 @@ class MatterAdapter(Adapter):
         
         self.name = self.__class__.__name__ # TODO: is this needed?
         Adapter.__init__(self, self.addon_id, self.addon_id, verbose=verbose)
+
+        
+        self.s_print_lock = Lock()
 
         # set up some variables
         self.DEBUG = False
@@ -218,7 +221,6 @@ class MatterAdapter(Adapter):
         self.last_found_pairing_code = ''
         self.device_was_deleted = False # set to True is a device is deleted from the Matter fabric
         
-        self.s_print_lock = Lock()
         
         self.add_hacky_properties = True
         
@@ -250,10 +252,7 @@ class MatterAdapter(Adapter):
         self.noise_delta = 0 # hot many instances of noise were counted during 5 seconds
         
         self.enums_lookup = get_enums_lookup()
-        print("self.enums_lookup: ", self.enums_lookup)
-        
         self.events_lookup = get_events_lookup()
-        print("self.events_lookup: ", self.events_lookup)
         
         self.completed_command_clusters = [] # Will be filled with cluster_id's that have already been lookup up through get_commands_for_cluster_id
         self.commands_lookup = {} # will be filled as needed by calling get_commands_for_cluster_id(). The first key is the cluster_name
@@ -285,7 +284,7 @@ class MatterAdapter(Adapter):
         #self.candle_wifi_password = ""
         potential_candle_wifi_ssid = ""
         potential_candle_wifi_ssid = run_command('sudo cat /etc/wpa_supplicant/wpa_supplicant.conf | grep ssid')
-        print("potential_candle_wifi_ssid: " + str(potential_candle_wifi_ssid))
+        self.s_print("potential_candle_wifi_ssid: " + str(potential_candle_wifi_ssid))
         
         # get Candle's current WiFi SSID
         count = 0
@@ -295,7 +294,7 @@ class MatterAdapter(Adapter):
         if count == 2:
             potential_candle_wifi_ssid = potential_candle_wifi_ssid.split('"')[1::2]
             if len(potential_candle_wifi_ssid) == 1:
-                print("potential_candle_wifi_ssid after split: " + str(potential_candle_wifi_ssid))
+                self.s_print("potential_candle_wifi_ssid after split: " + str(potential_candle_wifi_ssid))
                 potential_candle_wifi_ssid = potential_candle_wifi_ssid[0]
                 potential_candle_wifi_ssid = potential_candle_wifi_ssid.rstrip()
                 if len(potential_candle_wifi_ssid) > 1:
@@ -303,16 +302,16 @@ class MatterAdapter(Adapter):
                 
         # get Candle's current WiFi password
         potential_candle_wifi_password = run_command('sudo cat /etc/wpa_supplicant/wpa_supplicant.conf | grep psk')
-        print("potential_candle_wifi_password: " + str(potential_candle_wifi_password))
-        print("len(potential_candle_wifi_password): " + str(len(potential_candle_wifi_password)))
+        self.s_print("potential_candle_wifi_password: " + str(potential_candle_wifi_password))
+        self.s_print("len(potential_candle_wifi_password): " + str(len(potential_candle_wifi_password)))
         if len(potential_candle_wifi_password) > 9:
             potential_candle_wifi_password = potential_candle_wifi_password.replace('psk=','')
-            print("potential_candle_wifi_password: " + str(potential_candle_wifi_password))
+            self.s_print("potential_candle_wifi_password: " + str(potential_candle_wifi_password))
             potential_candle_wifi_password = potential_candle_wifi_password.rstrip()
             self.candle_wifi_password = potential_candle_wifi_password
         
-        print("Candle's WiFi SSID: " + str(self.candle_wifi_ssid))
-        print("Candle's WiFi password: " + str(self.candle_wifi_password))
+        self.s_print("Candle's WiFi SSID: " + str(self.candle_wifi_ssid))
+        self.s_print("Candle's WiFi password: " + str(self.candle_wifi_password))
         """
         
         #print("user profile: " + str(self.user_profile))
@@ -345,19 +344,19 @@ class MatterAdapter(Adapter):
         if os.path.isfile(str(self.otbr_agent_path)):
             os.system('chmod +x ' + str(self.otbr_agent_path))
         else:
-            print("\nERROR, otbr-agent is missing!\n")
+            self.s_print("\nERROR, otbr-agent is missing!\n")
             return
             
         if os.path.isfile(str(self.ot_ctl_path)):
             os.system('chmod +x ' + str(self.ot_ctl_path))
         else:
-            print("\nERROR, ot-ctl is missing!\n")
+            self.s_print("\nERROR, ot-ctl is missing!\n")
             return
             
         if os.path.isfile(str(self.chip_tool_path)):
             os.system('chmod +x ' + str(self.chip_tool_path))
         else:
-            print("\nERROR, chip-tool is missing!\n")
+            self.s_print("\nERROR, chip-tool is missing!\n")
             return
             
         if os.path.isfile(str(self.otbr_web_path)):
@@ -396,11 +395,11 @@ class MatterAdapter(Adapter):
             with open(self.persistence_file_path) as f:
                 self.persistent_data = json.load(f)
                 if self.DEBUG:
-                    print('self.persistent_data was loaded from file: ' + str(self.persistent_data))
+                    self.s_print('self.persistent_data was loaded from file: ' + str(self.persistent_data))
                     
         except:
             if self.DEBUG:
-                print("Could not load persistent data (if you just installed the add-on then this is normal)")
+                self.s_print("Could not load persistent data (if you just installed the add-on then this is normal)")
 
 
 
@@ -417,31 +416,31 @@ class MatterAdapter(Adapter):
         try:
             self.add_from_config()
         except Exception as ex:
-            print("Error loading config: " + str(ex))
+            self.s_print("Error loading config: " + str(ex))
 
         if self.DEBUG:
-            print("PWD:" + str(pwd))
-            print("initial self.thread_dataset: ", self.thread_dataset)
-            
-
+            self.s_print("PWD:" + str(pwd))
+            self.s_print("initial self.thread_dataset: ", self.thread_dataset)
+            self.s_print("\nself.enums_lookup: ", self.enums_lookup)
+            self.s_print("\nself.events_lookup: ", self.events_lookup)
 
         # Override vendor ID
         if len(self.vendor_id) > 2 and len(self.vendor_id) < 7:
             if os.path.exists(self.chip_factory_ini_file_path):
                 
                 if os.path.exists(self.chip_factory_ini_file_path):
-                    if self.DEBUG:
-                        print("\nWARNING, replacing vendor-id in chip_factory.ini with: " + str(self.vendor_id) + ", in: " + str(self.chip_factory_ini_file_path))
+                    #if self.DEBUG:
+                    #    self.s_print("\nWARNING, replacing vendor-id in chip_factory.ini with: " + str(self.vendor_id) + ", in: " + str(self.chip_factory_ini_file_path))
                     os.system("sed -i 's/.*vendor-id=*.*/vendor-id=" + str(self.vendor_id) + "/' " + str(self.chip_factory_ini_file_path))
                 
                 if os.path.isfile('/data/chip_factory.ini'):
-                    if self.DEBUG:
-                        print("\nWARNING, replacing vendor-id in chip_factory.ini with: " + str(self.vendor_id) + ", in: /boot/chip_factory.ini")
+                    #if self.DEBUG:
+                    #    self.s_print("\nWARNING, replacing vendor-id in chip_factory.ini with: " + str(self.vendor_id) + ", in: /boot/chip_factory.ini")
                     os.system("sed -i 's/.*vendor-id=*.*/vendor-id=" + str(self.vendor_id) + "/' /data/chip_factory.ini")
                 
                 if os.path.exists(self.data_chip_factory_ini_file_path):
-                    if self.DEBUG:
-                        print("\nWARNING, replacing vendor-id in chip_factory.ini with: " + str(self.vendor_id) + ", in: " + str(self.data_chip_factory_ini_file_path))
+                    #if self.DEBUG:
+                    #    self.s_print("\nWARNING, replacing vendor-id in chip_factory.ini with: " + str(self.vendor_id) + ", in: " + str(self.data_chip_factory_ini_file_path))
                     os.system("sed -i 's/.*vendor-id=*.*/vendor-id=" + str(self.vendor_id) + "/' " + str(self.data_chip_factory_ini_file_path))
         
         # Now we check if all the values that should exist actually do
@@ -493,13 +492,13 @@ class MatterAdapter(Adapter):
         # Start the API handler. This will allow the user interface to connect
         try:
             if self.DEBUG:
-                print("starting api handler")
+                self.s_print("starting api handler")
             self.api_handler = MatterAPIHandler(self, verbose=True)
             if self.DEBUG:
-                print("Adapter: API handler initiated")
+                self.s_print("Adapter: API handler initiated")
         except Exception as e:
             if self.DEBUG:
-                print("Error, failed to start API handler: " + str(e))
+                self.s_print("Error, failed to start API handler: " + str(e))
 
 
         # Create the thing
@@ -512,29 +511,32 @@ class MatterAdapter(Adapter):
             self.handle_device_added(matter_device)
             
             if self.DEBUG:
-                print("matter_device created")
+                self.s_print("matter_device created")
                 
             # You can set the device to connected or disconnected. If it's in disconnected state the thing will visually be a bit more transparent.
             self.devices['matter-thing'].connected = True
             self.devices['matter-thing'].connected_notify(True)
 
         except Exception as ex:
-            print("Could not create internet_radio_device: " + str(ex))
+            self.s_print("Could not create internet_radio_device: " + str(ex))
         """
         
         
         # Make sure storage path exists
         if not os.path.isdir(self.data_path):
-            print("creating matter_server storage path: " + str(self.data_path))
+            if self.DEBUG:
+                self.s_print("creating matter_server storage path: " + str(self.data_path))
             os.mkdir(self.data_path)
             
         if not os.path.isdir(self.certs_dir_path):
-            print("making certificates directory")
+            if self.DEBUG:
+                self.s_print("making certificates directory")
             os.system('mkdir -p ' + self.certs_dir_path)
 
         # /data
         if not os.path.exists("/data"):
-            print("Error! Could not find /data, which the server will be looking for")
+            if self.DEBUG:
+                self.s_print("Error! Could not find /data, which the server will be looking for")
             while self.running:
                 time.sleep(1)
         
@@ -546,7 +548,7 @@ class MatterAdapter(Adapter):
         
             # Start client thread
             if self.DEBUG:
-                print("Init: starting the client thread")
+                self.s_print("Init: starting the client thread")
             
             try:
                 self.t = threading.Thread(target=self.client_thread)
@@ -554,19 +556,19 @@ class MatterAdapter(Adapter):
                 self.t.start()
             except Exception as ex:
                 if self.DEBUG:
-                    print("Error starting the client thread: " + str(ex))
-                    print(traceback.format_exc())
+                    self.s_print("Error starting the client thread: " + str(ex))
+                    self.s_print(traceback.format_exc())
         
             # Start clock thread
             if self.DEBUG:
-                print("Init: starting the clock thread")
+                self.s_print("Init: starting the clock thread")
             try:
                 self.ct = threading.Thread(target=self.clock)
                 self.ct.daemon = True
                 self.ct.start()
             except Exception as ex:
                 if self.DEBUG:
-                    print("Error starting the clock thread: " + str(ex))
+                    self.s_print("Error starting the clock thread: " + str(ex))
         
         
 
@@ -579,7 +581,7 @@ class MatterAdapter(Adapter):
         
             pwd = run_command('pwd')
             if self.DEBUG:
-                print("PWD after chdir: " + str(pwd))
+                self.s_print("PWD after chdir: " + str(pwd))
         
         
             #time.sleep(60)
@@ -597,50 +599,50 @@ class MatterAdapter(Adapter):
         
     def add_from_config(self):
         """ This retrieves the addon settings from the controller """
-        print("in add_from_config")
+        self.s_print("in add_from_config")
         try:
             database = Database(self.addon_id)
             if not database.open():
-                print("Error. Could not open settings database")
+                self.s_print("Error. Could not open settings database")
                 return
 
             config = database.load_config()
             database.close()
 
         except:
-            print("Error. Failed to open settings database. Closing proxy.")
+            self.s_print("Error. Failed to open settings database. Closing proxy.")
             self.close_proxy() # this will purposefully "crash" the addon. It will then we restarted in two seconds, in the hope that the database is no longer locked by then
             return
             
         try:
             if not config:
-                print("Warning, no config.")
+                self.s_print("Warning, no config.")
                 return
 
             # Let's start by setting the user's preference about debugging, so we can use that preference to output extra debugging information
             if 'Debugging' in config:
                 self.DEBUG = bool(config['Debugging'])
                 if self.DEBUG:
-                    print("Debugging enabled")
+                    self.s_print("Debugging enabled")
 
             if self.DEBUG:
-                print("matter adapter config: ", str(config)) # Print the entire config data
+                self.s_print("matter adapter config: ", str(config)) # Print the entire config data
 
             if "Do not use Hotspot as WiFi network for devices" in config:
                 self.use_hotspot = not bool(config["Do not use Hotspot as WiFi network for devices"])
                 if self.DEBUG:
-                    print("Use hotspot preference was in settings: " + str(self.use_hotspot))
+                    self.s_print("Use hotspot preference was in settings: " + str(self.use_hotspot))
                     
             if "Vendor ID" in config:
                 if len(config["Vendor ID"]) > 2:
                     self.vendor_id = str(config["Vendor ID"])
                     if self.DEBUG:
-                        print("Vendor ID override was in settings: " + str(self.vendor_id))
+                        self.s_print("Vendor ID override was in settings: " + str(self.vendor_id))
                     
             if 'Brightness transition duration' in config:
                 self.brightness_transition_time = int(config["Brightness transition duration"])
                 if self.DEBUG:
-                    print("Brightness transition preference was in settings: " + str(self.brightness_transition_time))
+                    self.s_print("Brightness transition preference was in settings: " + str(self.brightness_transition_time))
                     
             if 'Thread dataset' in config:
                 raw_dataset = str(config["Thread dataset"]).strip().rstrip()
@@ -648,21 +650,21 @@ class MatterAdapter(Adapter):
                     self.thread_dataset = raw_dataset
                     self.persistent_data['thread_dataset'] = raw_dataset
                     if self.DEBUG:
-                        print("Thread dataset preference was in settings, and long enough.  self.thread_dataset is now: " + str(self.thread_dataset))
+                        self.s_print("Thread dataset preference was in settings, and long enough.  self.thread_dataset is now: " + str(self.thread_dataset))
                 else:
                     if self.DEBUG:
-                        print("Thread dataset preference was in settings, but not long enough: -->" + str(raw_dataset) + "<--")
+                        self.s_print("Thread dataset preference was in settings, but not long enough: -->" + str(raw_dataset) + "<--")
             
             if 'Thread channel' in config:
                 self.thread_channel = int(config["Thread channel"])
                 if self.DEBUG:
-                    print("Thread channel preference was in settings: " + str(self.thread_channel))
+                    self.s_print("Thread channel preference was in settings: " + str(self.thread_channel))
                     
             
             
                     
         except Exception as ex:
-            print("caught error in add_from_config: " + str(ex))
+            self.s_print("caught error in add_from_config: " + str(ex))
 
 
     """
@@ -673,9 +675,9 @@ class MatterAdapter(Adapter):
             if output == '' and process.poll() is not None:
                 break
             if output:
-                print("STD OUT CAPTURED: " + str( output.strip() ))
+                self.s_print("STD OUT CAPTURED: " + str( output.strip() ))
         if self.DEBUG:
-            print("run_process: beyond the while loop")
+            self.s_print("run_process: beyond the while loop")
         rc = process.poll()
         return rc
     """
@@ -697,7 +699,7 @@ class MatterAdapter(Adapter):
                     if not line in self.serial_before:
                         self.persistent_data['thread_radio_serial_port'] = line
                         if self.DEBUG:
-                            print("Found a new thread radio: ", line)
+                            self.s_print("Found a new thread radio: ", line)
                         found_new_thread_radio = True
                         self.serial_before = ''
                         self.should_save = True
@@ -709,7 +711,7 @@ class MatterAdapter(Adapter):
                         if str(self.persistent_data['thread_radio_serial_port']) == str(line).strip().rstrip():
                             if self.found_thread_radio_again == False and self.otbr_started == False:
                                 if self.DEBUG:
-                                    print("Found the thread radio again")
+                                    self.s_print("Found the thread radio again")
                             found_thread_radio_again = True
                             break
                     
@@ -721,7 +723,7 @@ class MatterAdapter(Adapter):
                             self.persistent_data['thread_radio_serial_port'] = line
                             if self.otbr_started == False:
                                 if self.DEBUG:
-                                    print("Found a new thread radio: ", line)
+                                    self.s_print("Found a new thread radio: ", line)
                                 self.should_save = True
                             found_new_thread_radio = True
                             break
@@ -735,7 +737,7 @@ class MatterAdapter(Adapter):
                 self.start_otbr()
         else:
             #if self.DEBUG:
-            #    print("\nNO THREAD RADIO FOUND\n")
+            #    self.s_print("\nNO THREAD RADIO FOUND\n")
             if self.found_a_thread_radio_once:
                 self.thread_radio_went_missing = True
 
@@ -746,7 +748,7 @@ class MatterAdapter(Adapter):
         if isinstance(current_iptables,str):
             if not 'wpan0' in current_iptables:
                 if self.DEBUG:
-                    print("add_otbr_iptables: adding wpan0 masquerade iptables")
+                    self.s_print("add_otbr_iptables: adding wpan0 masquerade iptables")
                     
                 # OpenThread NAT64
                 os.system('sudo iptables -t mangle -A PREROUTING -i wpan0 -j MARK --set-mark 0x1001')
@@ -758,7 +760,7 @@ class MatterAdapter(Adapter):
 
     def start_otbr(self):
         if self.DEBUG:
-            print("in start_otbr")
+            self.s_print("in start_otbr")
         
         try:
             #if self.shell == None:
@@ -788,19 +790,19 @@ class MatterAdapter(Adapter):
                     self.thread_backbone_interface = 'uap0'
                 
                 if self.DEBUG:
-                    print("\n. . . . __start_otbr__ . . . . ")
-                    print("self.otbr_agent_path: ", self.otbr_agent_path)
-                    print("_start_otbr:  thread_radio_url: ", thread_radio_url)
-                    print("self.thread_backbone_interface: ", self.thread_backbone_interface)
-                    print("self.data_thread_dir_path: ", self.data_thread_dir_path)
+                    self.s_print("\n. . . . __start_otbr__ . . . . ")
+                    self.s_print("self.otbr_agent_path: ", self.otbr_agent_path)
+                    self.s_print("_start_otbr:  thread_radio_url: ", thread_radio_url)
+                    self.s_print("self.thread_backbone_interface: ", self.thread_backbone_interface)
+                    self.s_print("self.data_thread_dir_path: ", self.data_thread_dir_path)
                     
                 if not os.path.isfile(str(self.otbr_agent_path)):
                     if self.DEBUG:
-                        print("\nERORR, self.otbr_agent_path file did not exist: ", self.otbr_agent_path)
+                        self.s_print("\nERORR, self.otbr_agent_path file did not exist: ", self.otbr_agent_path)
                     return
                 if not os.path.isdir(str(self.data_thread_dir_path)):
                     if self.DEBUG:
-                        print("\nERORR, self.data_thread_dir_path dir did not exist: ", self.data_thread_dir_path)
+                        self.s_print("\nERORR, self.data_thread_dir_path dir did not exist: ", self.data_thread_dir_path)
                     return
                 
                 #os.system('sudo sysctl "net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1"')
@@ -830,8 +832,8 @@ class MatterAdapter(Adapter):
                 #
                 
                 if self.DEBUG:
-                    print("\n\nOTBR agent_command_array: ", str(agent_command_array), "\n\n")
-                    print("\n\nTHREAD AGENT COMMAND:\n\n" + str( " ".join(agent_command_array) ) + "\n\n")
+                    self.s_print("\n\nOTBR agent_command_array: ", str(agent_command_array), "\n\n")
+                    self.s_print("\n\nTHREAD AGENT COMMAND:\n\n" + str( " ".join(agent_command_array) ) + "\n\n")
                     
                 self.otbr_agent_process = subprocess.Popen(agent_command_array, stderr=subprocess.DEVNULL, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 #self.tcpdump = subprocess.Popen(["sudo","tcpdump","-i","any","'udp port 5353 and (host 224.0.0.251 or host ff02::fb)'","-n"], stderr=subprocess.DEVNULL, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -841,7 +843,7 @@ class MatterAdapter(Adapter):
                         self.last_time_otbr_started = time.time()
                 except Exception as ex:
                     if self.DEBUG:
-                        print("caught error checking if otbr process is running: ", ex)
+                        self.s_print("caught error checking if otbr process is running: ", ex)
                 
                 
                 # sudo tcpdump -i any 'udp port 5353 and (host 224.0.0.251 or host ff02::fb)'
@@ -858,22 +860,22 @@ class MatterAdapter(Adapter):
                             self.otbr_stdout_messages.append(decoded_message)
                         time.sleep(0.0001)
                     if self.DEBUG:
-                        print("WARNING, otbr_agent_process read_stdout closed")
+                        self.s_print("WARNING, otbr_agent_process read_stdout closed")
                     
                     if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
                         if self.DEBUG:
-                            print("read_otbr_stdout: calling self.otbr_agent_process.terminate()")
+                            self.s_print("read_otbr_stdout: calling self.otbr_agent_process.terminate()")
                         self.otbr_agent_process.terminate()
                         time.sleep(0.2)
                         if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
                             if self.DEBUG:
-                                print("read_otbr_stdout: resorting to calling self.otbr_agent_process.kill()")
+                                self.s_print("read_otbr_stdout: resorting to calling self.otbr_agent_process.kill()")
                             self.otbr_agent_process.kill()
                             time.sleep(0.1)
                         
                             if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
                                 if self.DEBUG:
-                                    print("read_otbr_stdout: resorting to pkill to stop self.otbr_agent_process")
+                                    self.s_print("read_otbr_stdout: resorting to pkill to stop self.otbr_agent_process")
                                 os.system('sudo pkill -f otbr-agent')
                     self.otbr_agent_process = None
                     
@@ -881,30 +883,30 @@ class MatterAdapter(Adapter):
                 
                 if self.otbr_agent_process:
                     if self.DEBUG:
-                        print("self.otbr_agent_process has been created")
+                        self.s_print("self.otbr_agent_process has been created")
                     
                     if self.otbr_agent_process.poll() == None:
                         if self.DEBUG:
-                            print("starting thread to read from OTBR stdout")
+                            self.s_print("starting thread to read from OTBR stdout")
                         self.stdout_thread = threading.Thread(target=read_otbr_stdout)
                         self.stdout_thread.daemon = True
                         self.stdout_thread.start()
                 else:
-                    print("error, self.otbr_agent_process subprocess was not created? ", self.otbr_agent_process)
+                    self.s_print("error, self.otbr_agent_process subprocess was not created? ", self.otbr_agent_process)
             
             
             else:
                 if self.DEBUG:
-                    print("_start_otbr: self.self.otbr_agent_process was not None?")
+                    self.s_print("_start_otbr: self.self.otbr_agent_process was not None?")
                 if self.last_thread_radio_is_alive_timestamp < time.time() - 120:
                     if self.DEBUG:
-                        print("is has been over two minutes since the thread radio last responded")
-                        print("- self.otbr_started: ", self.otbr_started)
-                        print("- self.thread_radio_went_missing: ", self.thread_radio_went_missing)
-                        print("- self.found_thread_radio_again: ", self.found_thread_radio_again)
-                        print("- self.found_new_thread_radio: ", self.found_new_thread_radio)
-                        print("- self.thread_set_active: ", self.thread_set_active)
-                        print("- self.last_time_otbr_restarted: ", self.last_time_otbr_restarted)
+                        self.s_print("is has been over two minutes since the thread radio last responded")
+                        self.s_print("- self.otbr_started: ", self.otbr_started)
+                        self.s_print("- self.thread_radio_went_missing: ", self.thread_radio_went_missing)
+                        self.s_print("- self.found_thread_radio_again: ", self.found_thread_radio_again)
+                        self.s_print("- self.found_new_thread_radio: ", self.found_new_thread_radio)
+                        self.s_print("- self.thread_set_active: ", self.thread_set_active)
+                        self.s_print("- self.last_time_otbr_restarted: ", self.last_time_otbr_restarted)
                     
                     
                     self.thread_error = 'The Thread radio is not responding'
@@ -912,12 +914,12 @@ class MatterAdapter(Adapter):
                     if self.last_time_otbr_started < time.time() - 120:
                         self.last_time_otbr_started = time.time() - 60
                         if self.DEBUG:
-                            print("Radio is not responsing? calling really_stop_otbr to try again")
+                            self.s_print("Radio is not responsing? calling really_stop_otbr to try again")
                         self.really_stop_otbr()
                         
                     #if self.thread_set_active == False:
                     #    if self.DEBUG:
-                    #        print("calling really_stop_otbr to try again")
+                    #        self.s_print("calling really_stop_otbr to try again")
                         
             
             
@@ -926,7 +928,7 @@ class MatterAdapter(Adapter):
             #self.shell.stdin.flush()
         except Exception as ex:
             if self.DEBUG:
-                print("caught error in _start_otbr: " + str(ex))
+                self.s_print("caught error in _start_otbr: " + str(ex))
                 
                 
     
@@ -969,40 +971,40 @@ class MatterAdapter(Adapter):
     
     def start_thread_mesh(self):
         if self.DEBUG:
-            print("in start_thread_mesh")
+            self.s_print("in start_thread_mesh")
         dataset_loaded = False
         
         ip_link_show_output = str(run_command('ip link show'))
         if self.DEBUG:
-            print("start_thread_mesh:  ip_link_show_output: \n" + str(ip_link_show_output))
+            self.s_print("start_thread_mesh:  ip_link_show_output: \n" + str(ip_link_show_output))
             
         if os.path.isfile(self.ot_ctl_path) and 'wpan0' in ip_link_show_output:
             
             if self.DEBUG:
-                print("start_thread_mesh: calling add_otbr_iptables")
+                self.s_print("start_thread_mesh: calling add_otbr_iptables")
             self.add_otbr_iptables()
             
             if self.DEBUG:
-                print("start_thread_mesh: setting txpower to 8")
+                self.s_print("start_thread_mesh: setting txpower to 8")
             txpower_output = self.run_ot_ctl_command('txpower 8')
             if self.DEBUG:
-                print("txpower_output: ", txpower_output)
+                self.s_print("txpower_output: ", txpower_output)
             
             
             initial_thread_state = str(self.run_ot_ctl_command('state')).rstrip()
             if self.DEBUG:
-                print("initial_thread_state: \n" + str(initial_thread_state))
+                self.s_print("initial_thread_state: \n" + str(initial_thread_state))
                 
             
             if 'leader' in initial_thread_state or 'router' in initial_thread_state:
                 if self.DEBUG:
-                    print("\nThread is already running?!\n" + str(initial_thread_state))
+                    self.s_print("\nThread is already running?!\n" + str(initial_thread_state))
             
                 if str(self.run_ot_ctl_command('thread stop')).rstrip() == 'Done':
                     if str(self.run_ot_ctl_command('ifconfig down')).rstrip() == 'Done':
                         # eh?
                         if self.DEBUG:
-                            print("start_thread_mesh: brought down thread first")
+                            self.s_print("start_thread_mesh: brought down thread first")
                             
             self.thread_running = False
             
@@ -1013,17 +1015,17 @@ class MatterAdapter(Adapter):
                 if str(self.run_ot_ctl_command('dataset init tlvs ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
                 #if str(self.run_ot_ctl_command('dataset init active ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
                     initial_dataset = str(self.run_ot_ctl_command('dataset')).rstrip()
-                    print("loaded initial_dataset? ", initial_dataset)
+                    self.s_print("loaded initial_dataset? ", initial_dataset)
                     
                     if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
                         if self.DEBUG:
-                            print("start_thread_mesh: OK, loaded and comitted existing thread dataset")
+                            self.s_print("start_thread_mesh: OK, loaded and comitted existing thread dataset")
                         dataset_loaded = True
                         
                     #if str(self.run_ot_ctl_command('dataset networkname CandleThread')).rstrip() == 'Done':
                         #if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
                         #    if self.DEBUG:
-                        #        print("channel set")
+                        #        self.s_print("channel set")
                         
             
             if dataset_loaded == False:
@@ -1038,10 +1040,10 @@ class MatterAdapter(Adapter):
                                     if str(self.run_ot_ctl_command('dataset networkkey ' + str(networkkey))).rstrip() == 'Done': #11112233445566778899DEAD1111DEAD
                                         #if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
                                         #    if self.DEBUG:
-                                        #        print("channel set")
+                                        #        self.s_print("channel set")
                                         if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
                                             if self.DEBUG:
-                                                print("start_thread_mesh: OK, called dataset commit active on brand new thread dataset")
+                                                self.s_print("start_thread_mesh: OK, called dataset commit active on brand new thread dataset")
                                             dataset_loaded = True
                                         
                                     
@@ -1054,29 +1056,29 @@ class MatterAdapter(Adapter):
                 
                 if self.DEBUG:
                     dataset_check = str(self.run_ot_ctl_command('dataset')).rstrip()
-                    print("DATASET LOADED\ndataset_check: \n" + dataset_check)
+                    self.s_print("DATASET LOADED\ndataset_check: \n" + dataset_check)
                 
                 thread_state = str(self.run_ot_ctl_command('state')).rstrip()
                 if self.DEBUG:
-                    print("thread state: \n" + str(thread_state))
+                    self.s_print("thread state: \n" + str(thread_state))
                     
                 
                 if 'leader' in thread_state or 'router' in thread_state:
                     self.thread_running = True
                     if self.DEBUG:
-                        print("\nOK - Thread is already up and running\n" + str(thread_state))
+                        self.s_print("\nOK - Thread is already up and running\n" + str(thread_state))
                 
                 elif 'isabled' in thread_state or 'etached' in thread_state:
                     if self.DEBUG:
-                        print("\nWARNING, dataset loaded, but thread started in disabled or detached state. Attempting to bring it up.")
+                        self.s_print("\nWARNING, dataset loaded, but thread started in disabled or detached state. Attempting to bring it up.")
                     if str(self.run_ot_ctl_command('ifconfig up')).rstrip() == 'Done':
                         if str(self.run_ot_ctl_command('thread start')).rstrip() == 'Done':
                             self.thread_running = True
                             if self.DEBUG:
-                                print("\nOK, Thread has now fully started\n")
+                                self.s_print("\nOK, Thread has now fully started\n")
                 else:
                     if self.DEBUG:
-                        print("\nchecking if thread has started fell through.  thread_state: \n" + str(thread_state))
+                        self.s_print("\nchecking if thread has started fell through.  thread_state: \n" + str(thread_state))
                     time.sleep(1)
                     self.thread_set_active = False
                     
@@ -1084,7 +1086,7 @@ class MatterAdapter(Adapter):
                 if self.thread_running:
                     active_dataset = self.run_ot_ctl_command('dataset active -x')
                     if self.DEBUG:
-                        print("dataset loaded, in theory. dataset active -x: " + str(active_dataset))
+                        self.s_print("dataset loaded, in theory. dataset active -x: " + str(active_dataset))
                     
                     if isinstance(active_dataset,str) and 'Done' in active_dataset and len(active_dataset) > 40:
                         self.thread_dataset = str(active_dataset).replace('Done','').strip().rstrip()
@@ -1094,11 +1096,11 @@ class MatterAdapter(Adapter):
                             time.sleep(1)
                             self.thread_set_active = False
                             if self.DEBUG:
-                                print("\nERROR, thread_dataset from dataset active -x was too short to be valid: ", self.thread_dataset)
+                                self.s_print("\nERROR, thread_dataset from dataset active -x was too short to be valid: ", self.thread_dataset)
                             return
                         
                         if self.DEBUG:
-                            print("self.thread_dataset: -->" + str(self.thread_dataset) + "<--")
+                            self.s_print("self.thread_dataset: -->" + str(self.thread_dataset) + "<--")
                         self.set_thread_dataset()
                 
                         if not 'thread_dataset' in self.persistent_data:
@@ -1108,40 +1110,40 @@ class MatterAdapter(Adapter):
                         elif 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 10:
                             if str(self.thread_dataset) == str(self.persistent_data['thread_dataset']):
                                 if self.DEBUG:
-                                    print("OK, the thread dataset is still the same")
+                                    self.s_print("OK, the thread dataset is still the same")
                             else:
                                 if self.DEBUG:
-                                    print("\nERROR, thread dataset is different from version in persistent data!")
-                                    print(str(self.thread_dataset) + " != " + str(self.persistent_data['thread_dataset']) + "\n")
+                                    self.s_print("\nERROR, thread dataset is different from version in persistent data!")
+                                    self.s_print(str(self.thread_dataset) + " != " + str(self.persistent_data['thread_dataset']) + "\n")
                                 if len(self.thread_dataset) < len(self.persistent_data['thread_dataset']):
                                     self.thread_dataset = ''
                     else:
                         if self.DEBUG:
-                            print("\nERROR, active thread dataset is way too short: " + str(active_dataset))
+                            self.s_print("\nERROR, active thread dataset is way too short: " + str(active_dataset))
             
                 else:
                     if self.DEBUG:
-                        print("\nERROR, could not get thread to run!\n")
+                        self.s_print("\nERROR, could not get thread to run!\n")
                     time.sleep(1)
                     self.thread_set_active = False
             else:
                 if self.DEBUG:
-                    print("\nERROR, no Thread dataset loaded!\n")
+                    self.s_print("\nERROR, no Thread dataset loaded!\n")
                 time.sleep(1)
                 self.thread_set_active = False
             
             if self.thread_running and self.DEBUG:    
-                print("__THREAD DETAILS__")             
-                print(str(self.run_ot_ctl_command('dataset active -x')))
-                print(str(self.run_ot_ctl_command('netdata show')))
-                print(str(self.run_ot_ctl_command('ipaddr')))
-                print("")
-                print(str(run_command('sudo sysctl -a | grep .wpan0.')))
-                print("")
+                self.s_print("__THREAD DETAILS__")             
+                self.s_print(str(self.run_ot_ctl_command('dataset active -x')))
+                self.s_print(str(self.run_ot_ctl_command('netdata show')))
+                self.s_print(str(self.run_ot_ctl_command('ipaddr')))
+                self.s_print("")
+                self.s_print(str(run_command('sudo sysctl -a | grep .wpan0.')))
+                self.s_print("")
                 
                 
         else:
-            print("\nERROR, start_thread_mesh: ot-ctl does not exist, or 'wpan0' not in ip link show\nself.ot_ctl_path: " + str(self.ot_ctl_path) + "\n" + str(ip_link_show_output) + "\n\n")
+            self.s_print("\nERROR, start_thread_mesh: ot-ctl does not exist, or 'wpan0' not in ip link show\nself.ot_ctl_path: " + str(self.ot_ctl_path) + "\n" + str(ip_link_show_output) + "\n\n")
             time.sleep(1)
             self.thread_set_active = False
     
@@ -1149,17 +1151,17 @@ class MatterAdapter(Adapter):
     
     def parse_mt_pairing_code(self,code):
         if self.DEBUG:
-            print("in parse_mt_pairing_code. code: ", code)
+            self.s_print("in parse_mt_pairing_code. code: ", code)
         parsed_output = None
         if isinstance(code,str) and code.upper().startswith('MT:') and os.path.isfile(self.chip_tool_path):
             if self.DEBUG:
-                print("parse_mt_pairing_code: attempting decode")
+                self.s_print("parse_mt_pairing_code: attempting decode")
             parsed_output = self.run_chip_tool_command('payload parse-setup-payload ' + str(code))
             if self.DEBUG:
-                print("parse_mt_pairing_code:  parsed_output: ", parsed_output)
+                self.s_print("parse_mt_pairing_code:  parsed_output: ", parsed_output)
         else:
             if self.DEBUG:
-                print("ERROR: parse_mt_pairing_code: invalid parameters.  code: ", code)
+                self.s_print("ERROR: parse_mt_pairing_code: invalid parameters.  code: ", code)
         return parsed_output
                 
     
@@ -1170,18 +1172,18 @@ class MatterAdapter(Adapter):
             self.run_ot_ctl_command('ifconfig down')
             self.thread_running = False
             if self.DEBUG:
-                print("really_stop_otbr: called ot-ctl thread stop and ot-ctl ifconfig down")
+                self.s_print("really_stop_otbr: called ot-ctl thread stop and ot-ctl ifconfig down")
             if self.otbr_agent_process and self.otbr_agent_process != None:
                 self.otbr_agent_process.terminate()
                 time.sleep(0.5)
                 if self.otbr_agent_process and self.otbr_agent_process.poll() == None:
                     if self.DEBUG:
-                        print("warning, otbr_agent_process is still alive after .terminate()")
+                        self.s_print("warning, otbr_agent_process is still alive after .terminate()")
                     self.otbr_agent_process.kill()
                     time.sleep(0.1)
                     if self.otbr_agent_process and self.otbr_agent_process.poll() == None:
                         if self.DEBUG:
-                            print("\nERROR, otbr_agent_process is still alive after .kill(). Calling pkill..")
+                            self.s_print("\nERROR, otbr_agent_process is still alive after .kill(). Calling pkill..")
                         os.system('sudo pkill -f otbr-agent')
         self.otbr_agent_process = None
         self.otbr_started = False
@@ -1194,7 +1196,7 @@ class MatterAdapter(Adapter):
     def load_hotspot_config(self):
         """ This retrieves the HOTSPOT addon settings from the controller """
         if self.DEBUG:
-            print("load_hotspot_config")
+            self.s_print("load_hotspot_config")
             
         
         if self.nmcli_installed and os.path.isfile('/boot/firmware/candle_hotspot.txt'):
@@ -1211,8 +1213,8 @@ class MatterAdapter(Adapter):
                 self.hotspot_password = ''
                 
             if self.DEBUG:
-                print("load_hotspot_config:  self.hotspot_ssid is now: -->" + str(self.hotspot_ssid) + "<--")
-                print("load_hotspot_config:  self.hotspot_password is now: -->" + str(self.hotspot_password) + "<--")
+                self.s_print("load_hotspot_config:  self.hotspot_ssid is now: -->" + str(self.hotspot_ssid) + "<--")
+                self.s_print("load_hotspot_config:  self.hotspot_password is now: -->" + str(self.hotspot_password) + "<--")
                     
         #elif self.nmcli_installed and not os.path.isfile('/boot/firmware/candle_hotspot.txt'):
         #    self.hotspot_ssid = None
@@ -1226,41 +1228,41 @@ class MatterAdapter(Adapter):
             try:
                 database = Database('hotspot')
                 if not database.open():
-                    print("Error. Could not open hotspot settings database")
+                    self.s_print("Error. Could not open hotspot settings database")
                     return False
 
                 config = database.load_config()
                 database.close()
 
             except Exception as ex:
-                print("Error. Failed to open Hotspot settings database: ", ex)
+                self.s_print("Error. Failed to open Hotspot settings database: ", ex)
                 return False
             
             try:
                 if not config:
-                    print("Warning, no hotspot config.")
+                    self.s_print("Warning, no hotspot config.")
                     return False
 
                 # Hotspot name
                 try:
                     if 'Hotspot name' in config:
                         if self.DEBUG:
-                            print("-Hotspot name is present in the config data.")
+                            self.s_print("-Hotspot name is present in the config data.")
                         self.hotspot_ssid = str(config['Hotspot name'])
                 except Exception as ex:
-                    print("Error loading hotspot name from config: " + str(ex))
+                    self.s_print("Error loading hotspot name from config: " + str(ex))
         
                 # Hotspot password
                 try:
                     if 'Hotspot password' in config:
                         if self.DEBUG:
-                            print("-Hotspot password is present in the config data.")
+                            self.s_print("-Hotspot password is present in the config data.")
                         self.hotspot_password = str(config['Hotspot password'])
                 except Exception as ex:
-                    print("Error loading hotspot password from config: " + str(ex))
+                    self.s_print("Error loading hotspot password from config: " + str(ex))
         
             except Exception as ex:
-                print("Error in load_hotspot_config: " + str(ex))
+                self.s_print("Error in load_hotspot_config: " + str(ex))
 
 
 
@@ -1279,7 +1281,7 @@ class MatterAdapter(Adapter):
             #url = f"http://127.0.0.1:{self.port}/ws"
             url = "ws://127.0.0.1:" + str(self.port) + "/ws"
             if self.DEBUG:
-                print("attempting to open websocked connection to matter server. URL: " + str(url))
+                self.s_print("attempting to open websocked connection to matter server. URL: " + str(url))
                 #websocket.enableTrace(True)
             #else:
             websocket.enableTrace(False)
@@ -1301,17 +1303,17 @@ class MatterAdapter(Adapter):
             
             """
         except Exception as ex:
-            print("\nERROR, caught general error in client thread: " + str(ex))
+            self.s_print("\nERROR, caught general error in client thread: " + str(ex))
         
         
         
     def on_ping(self):
         if self.DEBUG:
-            print("ping")
+            self.s_print("ping")
     
     def on_pong(self):
         if self.DEBUG:
-            print("pong")
+            self.s_print("pong")
         
     def on_message(self, ws, message="{}"):
         if self.DEBUG:
@@ -1322,7 +1324,7 @@ class MatterAdapter(Adapter):
             
             message = json.loads(message)
             #if self.DEBUG:
-            #    print("parsed message: " + str(message))
+            #    self.s_print("parsed message: " + str(message))
             
             
             if 'event' in message.keys():
@@ -1379,12 +1381,18 @@ class MatterAdapter(Adapter):
                 
                 elif message['event'] == 'node_updated':
                     if self.DEBUG:
-                        print("attempting to feed node data into self.parse_node")
+                        self.s_print("attempting to feed node data into self.parse_node")
                     self.parse_node(message)
                     
             
             elif 'fabric_id' in message and 'schema_version' in message and 'sdk_version' in message:
                 self.client_connected = True
+                
+                # Set the wifi credentials
+                self.set_wifi_credentials()
+                
+                # Set the thread credentials
+                self.set_thread_dataset()
                 
                 # Start listening
                 if self.DEBUG:
@@ -1396,8 +1404,7 @@ class MatterAdapter(Adapter):
                         })
                       )
                       
-                # Set the wifi credentials
-                self.set_wifi_credentials()
+                
                 
                 # Get diagnostic data
                 #if self.DEBUG:
@@ -1432,9 +1439,9 @@ class MatterAdapter(Adapter):
                     
                     #try:
                     #    classy = dataclass_from_dict(SuccessResultMessage,message)
-                    #    print("classy: ", classy)
+                    #    self.s_print("classy: ", classy)
                     #except Exception as ex:
-                    #    print("caught error transforming message to human-readable version: ", ex)
+                    #    self.s_print("caught error transforming message to human-readable version: ", ex)
                     
                     
                     if self.DEBUG:
@@ -1516,7 +1523,7 @@ class MatterAdapter(Adapter):
                     if self.DEBUG:
                         self.s_print("\nRECEIVED ERROR MESSAGE\nerror_code: " + str(message['error_code']) )
                         if 'details' in message:
-                            print("Error details: ", message['details'])
+                            self.s_print("Error details: ", message['details'])
                         
                     """
                         INVALID_COMMAND = 1
@@ -1527,7 +1534,7 @@ class MatterAdapter(Adapter):
                         
                     if message['message_id'] == "device_command":
                         if self.DEBUG:
-                            print("Error was from trying to change a device value")
+                            self.s_print("Error was from trying to change a device value")
                         
                     elif message['message_id'] == 'commission_with_code':
                         if self.DEBUG:
@@ -1550,11 +1557,11 @@ class MatterAdapter(Adapter):
             elif 'error_code' in message:
                 self.pairing_failed = True
                 if self.DEBUG:
-                    print("message contained an error code: ", message['error_code'])
+                    self.s_print("message contained an error code: ", message['error_code'])
                 
                 if 'details' in message:
                     if self.DEBUG:
-                        print("Error details: " + str(message['details']))
+                        self.s_print("Error details: " + str(message['details']))
         
                 #self.should_save = True
         
@@ -1606,7 +1613,7 @@ class MatterAdapter(Adapter):
                     self.s_print("Error in get_nodes: client was not connected yet")
                 
         except Exception as ex:
-            print("Error in get_nodes: " + str(ex))
+            self.s_print("Error in get_nodes: " + str(ex))
         
         return False
 
@@ -1749,7 +1756,7 @@ class MatterAdapter(Adapter):
                 self.s_print("download_certs_output: " + str(download_certs_output))
             
                 if 'Failed to resolve' in str(download_certs_output):
-                    print("\nFAILED TO DOWNLOAD CERTIFICATES\n")
+                    self.s_print("\nFAILED TO DOWNLOAD CERTIFICATES\n")
             
             self.busy_updating_certificates = False
             if download_certs_output != None:
@@ -1793,7 +1800,7 @@ class MatterAdapter(Adapter):
                 """
                 if self.candle_wifi_ssid != "" and self.candle_wifi_password != "":
                     if self.DEBUG:
-                        print("SHARING CANDLE'S WIFI CREDENTIALS")
+                        self.s_print("SHARING CANDLE'S WIFI CREDENTIALS")
                     wifi_message = {
                             "message_id": "set_wifi_credentials",
                             "command": "set_wifi_credentials",
@@ -1805,7 +1812,7 @@ class MatterAdapter(Adapter):
                 else:
 
                 if self.DEBUG:
-                    print("SHARING WIFI CREDENTIALS")
+                    self.s_print("SHARING WIFI CREDENTIALS")
                 """
                 wifi_message = {
                         "message_id": "set_wifi_credentials",
@@ -1851,7 +1858,7 @@ class MatterAdapter(Adapter):
                 """
                 if self.candle_wifi_ssid != "" and self.candle_wifi_password != "":
                     if self.DEBUG:
-                        print("SHARING CANDLE'S WIFI CREDENTIALS")
+                        self.s_print("SHARING CANDLE'S WIFI CREDENTIALS")
                     wifi_message = {
                             "message_id": "set_wifi_credentials",
                             "command": "set_wifi_credentials",
@@ -1863,7 +1870,7 @@ class MatterAdapter(Adapter):
                 else:
 
                 if self.DEBUG:
-                    print("SHARING WIFI CREDENTIALS")
+                    self.s_print("SHARING WIFI CREDENTIALS")
                 """
                 thread_message = {
                         "message_id": "set_thread_dataset",
@@ -1902,41 +1909,42 @@ class MatterAdapter(Adapter):
         self.download_certs()
         
         self.pairing_attempt += 1
-        if self.pairing_attempt >= 3:
+        if self.pairing_attempt >= 4:
             self.pairing_failed = True
             self.pairing_phase = -1
             self.pairing_attempt = -1
             self.pairing_phase_message = 'All three pairing attempts failed'
+            self.busy_pairing = False
             return
         
         if self.thread_dataset == '' and self.thread_radio_is_alive_count > 2:
             if self.DEBUG:
-                print("\nERROR: start_matter_pairing: no self.thread_dataset yet!\n")
+                self.s_print("\nERROR: start_matter_pairing: no self.thread_dataset yet!\n")
             
             #if self.thread_dataset == '':
             #    if self.DEBUG:
-            #        print("\nWARNING: start_matter_pairing: self.thread_dataset was still empty, but thread radio seems to be alive. Attempting to get thread dataset.")
+            #        self.s_print("\nWARNING: start_matter_pairing: self.thread_dataset was still empty, but thread radio seems to be alive. Attempting to get thread dataset.")
             #    active_dataset = self.run_ot_ctl_command('dataset active -x')
             #    if isinstance(active_dataset,str) and 'Done' in active_dataset:
             #        self.thread_dataset = str(active_dataset).replace('Done','').strip().rstrip()
         
         if self.DEBUG:
-            print("start_matter_pairing: self.thread_dataset: ", self.thread_dataset)
+            self.s_print("start_matter_pairing: self.thread_dataset: ", self.thread_dataset)
         
         # TODO call chip-tool binary directly if need be, or as a fall-back
         #if str(code).upper().startswith('MT:'):
         #    expanded_code = self.parse_mt_pairing_code(code)
-        #    print("start_matter_pairing: expanded_code: ", expanded_code)
+        #    self.s_print("start_matter_pairing: expanded_code: ", expanded_code)
         
         is_thread_device = False
         
         if is_thread_device and self.last_found_pairing_code and len(str(self.thread_dataset)) > 40:
             try:
                 if self.DEBUG:
-                    print("\n\nstart_matter_pairing: attempting to decode self.last_found_pairing_code: \n->" + str(self.last_found_pairing_code) + "<--")
+                    self.s_print("\n\nstart_matter_pairing: attempting to decode self.last_found_pairing_code: \n->" + str(self.last_found_pairing_code) + "<--")
                 decoded_pairing_code = self.parse_mt_pairing_code(str(self.last_found_pairing_code))
                 if self.DEBUG:
-                    print('start_matter_pairing: decoded_pairing_code: \n\n', decoded_pairing_code, '\n\n')
+                    self.s_print('start_matter_pairing: decoded_pairing_code: \n\n', decoded_pairing_code, '\n\n')
                 
                 if isinstance(decoded_pairing_code,str) and 'Long discriminator:' in decoded_pairing_code and 'Passcode:' in decoded_pairing_code:
                     
@@ -1953,16 +1961,16 @@ class MatterAdapter(Adapter):
                     passcode = passcode.strip().rstrip().strip().rstrip()
                     
                     if self.DEBUG:
-                        print('start_matter_pairing:  vendor_id: -->' + str(vendor_id) + '<--', len(vendor_id))
-                        print('start_matter_pairing:  discriminator: -->' + str(discriminator) + '<--', len(discriminator))
-                        print('start_matter_pairing:  passcode: -->' + str(passcode) + '<--', len(passcode))
+                        self.s_print('start_matter_pairing:  vendor_id: -->' + str(vendor_id) + '<--', len(vendor_id))
+                        self.s_print('start_matter_pairing:  discriminator: -->' + str(discriminator) + '<--', len(discriminator))
+                        self.s_print('start_matter_pairing:  passcode: -->' + str(passcode) + '<--', len(passcode))
                 
                     if len(discriminator) == 4 and len(passcode) == 8:
                         
                         # ./chip-tool pairing ble-thread 1301 hex:[LONGHEX] 20202021 3840
                         pairing_command = 'pairing ble-thread ' + str(self.persistent_data['thing_index']) + ' hex:' + str(self.thread_dataset) + ' ' + str(passcode) + ' ' + str(discriminator)
                         if self.DEBUG:
-                            print("\n\npairing_command: " + str(pairing_command) + "\n\n")
+                            self.s_print("\n\npairing_command: " + str(pairing_command) + "\n\n")
                             
                         self.persistent_data['thing_index'] += 1
                         self.should_save = True
@@ -1982,21 +1990,21 @@ class MatterAdapter(Adapter):
                         
                         pairing_output = self.run_chip_tool_command(pairing_command)
                         if self.DEBUG:
-                            print("\n\n--->\n\nun_chip_tool_command pairing_output: " + str(pairing_output))
+                            self.s_print("\n\n--->\n\nun_chip_tool_command pairing_output: " + str(pairing_output))
                         
                         return True
                         
                     else:
                         if self.DEBUG:
-                            print("discriminator and passcode were of unexpected length: ", len(discriminator), len(passcode))
+                            self.s_print("discriminator and passcode were of unexpected length: ", len(discriminator), len(passcode))
                 
                 else:
                     if self.DEBUG:
-                        print("ERROR, was unable to decode the pairing code? ", decoded_pairing_code)
+                        self.s_print("ERROR, was unable to decode the pairing code? ", decoded_pairing_code)
                 # ./chip-tool pairing ble-thread 1301 hex:[LONGHEX] 20202021 3840
                     
             except Exception as ex:
-                print("start_matter_pairing: caught error trying to unpack matter pairing code: ", ex)
+                self.s_print("start_matter_pairing: caught error trying to unpack matter pairing code: ", ex)
             
             return False
         
@@ -2009,7 +2017,7 @@ class MatterAdapter(Adapter):
         try:
             if self.client_connected:
                 if self.DEBUG:
-                    print("start_pairing: Client is connected, so sending commissioning code to Matter server.")
+                    self.s_print("start_pairing: Client is connected, so sending commissioning code to Matter server.")
         
                 self.busy_pairing = True
                 self.pairing_phase_message = 'Setting credentials'
@@ -2024,11 +2032,16 @@ class MatterAdapter(Adapter):
                 
                 if self.pairing_attempt == 2:
                     self.pairing_phase_message = 'Turning of WiFi temporarily in an attempt to limit Bluetooth interference'
+                    self.turn_wifi_back_on_at = time.time() + 45
+                    time.sleep(3) # TODO: Dodgy
+                if self.pairing_attempt == 3:
+                    self.pairing_phase_message = 'Turning of WiFi temporarily in an attempt to limit Bluetooth interference'
                     self.turn_wifi_back_on_at = time.time() + 15
                     time.sleep(3) # TODO: Dodgy
                     
+                    
                 self.pairing_phase = 6
-                if self.pairing_attempt == 2:
+                if self.pairing_attempt == 2 or self.pairing_attempt == 3:
                     run_command('nmcli radio wifi off')
                     time.sleep(1)
                 self.pairing_phase = 8
@@ -2064,7 +2077,7 @@ class MatterAdapter(Adapter):
                 
                 
                 if self.DEBUG:
-                    print("\nstart_matter_pairing: sending this message: \n", json.dumps(message,indent=4))
+                    self.s_print("\nstart_matter_pairing: sending this message: \n", json.dumps(message,indent=4))
                 
                 # Send pairing message
                 if message != None:
@@ -2084,7 +2097,7 @@ class MatterAdapter(Adapter):
             self.s_print("caught error in start_pairing: " + str(ex))
             self.pairing_phase_message = 'An unexpected error occured while trying to start pairing'
         self.pairing_phase = 0
-        self.busy_pairing = False
+        #self.busy_pairing = False
         return False
 
     
@@ -2178,7 +2191,7 @@ class MatterAdapter(Adapter):
                 
                 if passed_time > 2:
                     if self.DEBUG:
-                        print("\n\n\nWARNING, CLOCK WAS VERY DELAYED: ", passed_time, "\n\n\n")
+                        self.s_print("\n\n\nWARNING, CLOCK WAS VERY DELAYED: ", passed_time, "\n\n\n")
                 
                 
                 # Check if the thread radio needs to be restarted
@@ -2187,12 +2200,12 @@ class MatterAdapter(Adapter):
                     
                     if self.thread_radio_went_missing and self.found_thread_radio_again == False and self.found_new_thread_radio == False and self.otbr_started:
                         if self.DEBUG:
-                            print("Thread radio was unplugged? Stopping OTBR")
+                            self.s_print("Thread radio was unplugged? Stopping OTBR")
                         self.send_pairing_prompt("Thread radio was unplugged?")
                         self.really_stop_otbr()
                     elif self.thread_radio_went_missing and (self.found_thread_radio_again or self.found_new_thread_radio) and self.otbr_started == False and self.thread_set_active == False and self.otbr_agent_process == None and self.last_time_otbr_restarted < time.time() - 600:
                         if self.DEBUG:
-                            print("auto-restarting the Thread border router to connect to the USB stick again")
+                            self.s_print("auto-restarting the Thread border router to connect to the USB stick again")
                         self.send_pairing_prompt("Thread radio was plugged in again?")
                         self.start_otbr()
                 
@@ -2212,7 +2225,7 @@ class MatterAdapter(Adapter):
             
             if len(self.otbr_stdout_messages):
                 if self.DEBUG and self.thread_radio_is_alive_count < 100:
-                    print("\nclock: total otbr_stdout_messages length: ", len(self.otbr_stdout_messages))
+                    self.s_print("\nclock: total otbr_stdout_messages length: ", len(self.otbr_stdout_messages))
                     
                 wpan_check = str(run_command('ip link show | grep wpan0'))
                 if 'state ' in wpan_check:
@@ -2221,47 +2234,47 @@ class MatterAdapter(Adapter):
                 if 'state DOWN' in wpan_check:
                     bring_up_wpan0_output = str(run_command('sudo ip link set wpan0 up'))
                     if self.DEBUG:
-                        print("bring_up_wpan0_output: ", bring_up_wpan0_output)
+                        self.s_print("bring_up_wpan0_output: ", bring_up_wpan0_output)
                     
                     
                 while len(self.otbr_stdout_messages):
                     otbr_message = self.otbr_stdout_messages.pop(0)
                     if self.DEBUG and self.thread_radio_is_alive_count < 100:
-                        print("clock: otbr_message: ", otbr_message)
+                        self.s_print("clock: otbr_message: ", otbr_message)
                     
                     if 'Received spinel frame' in otbr_message:
                         self.thread_radio_is_alive_count += 1
                         self.last_thread_radio_is_alive_timestamp = int(time.time())
                         if self.DEBUG and self.thread_radio_is_alive_count < 100:
-                            print("self.thread_radio_is_alive_count: ", self.thread_radio_is_alive_count)
+                            self.s_print("self.thread_radio_is_alive_count: ", self.thread_radio_is_alive_count)
                     
                     if 'failed set request 0x12 status: -110' in otbr_message:
                         if self.DEBUG:
-                            print("the Thread radio may need to use an extension cord")
+                            self.s_print("the Thread radio may need to use an extension cord")
                         self.thread_error = 'You may need to use a USB extension cable for your Thread dongle'
                         self.extension_cable_recommended = True
                     elif 'Failed to communicate with RCP' in otbr_message:
                         if self.DEBUG:
-                            print("\nERROR, spotted message indicating the thread radio isn't responding")
+                            self.s_print("\nERROR, spotted message indicating the thread radio isn't responding")
                         self.thread_error = 'The Thread radio is not responding'
                     
                     elif ('SrpAdvProxy---: Started' in otbr_message or 'Evaluating routing policy' in otbr_message or self.thread_radio_is_alive_count > 20) and self.thread_set_active == False:
                         if self.DEBUG:
-                            print("calling start_thread_mesh from clock")
+                            self.s_print("calling start_thread_mesh from clock")
                         self.thread_set_active = True
                         self.thread_radio_went_missing = False
                         self.start_thread_mesh()
                 
                     elif '... noise:-128' in otbr_message:
-                        if self.DEBUG:
-                            print("\nThread radio is receiving a lot of noise?")
+                        #if self.DEBUG:
+                        #    self.s_print("Thread radio is receiving a lot of noise?")
                         self.noise_counter += 1
                         #self.thread_error = 'The thread radio is receiving a lot of noise. You may need to use a USB extension cable for your Thread dongle'
                         #self.extension_cable_recommended = True
                 
                     elif 'Wait for response timeout' in otbr_message:
                         if self.DEBUG:
-                            print("\nWARNING, otbr got timeout - usb stick not responding?")
+                            self.s_print("\nWARNING, otbr got timeout - usb stick not responding?")
                 
 
             try:
@@ -2303,11 +2316,21 @@ class MatterAdapter(Adapter):
                             self.pairing_phase = -1
                             self.pairing_phase_message = 'Interviewing the Matter device failed'
                     if 'Commission with code failed for node' in line:
-                        self.pairing_failed = True
-                        self.busy_pairing = False
-                        self.send_pairing_prompt("Interviewing Matter device officially failed")
-                        self.pairing_phase_message = 'Pairing failed'
-                        self.pairing_phase = -1
+                        if self.pairing_attempt < 4:
+                            if self.DEBUG:
+                                self.s_print("Pairing failed, but will try again")
+                            self.send_pairing_prompt("Pairing failed.. Trying again..")
+                            self.pairing_phase_message = 'Pairing failed.. Trying again..'
+                            self.pairing_phase = 0
+                            self.start_matter_pairing()
+                        else:
+                            self.pairing_failed = True
+                            self.busy_pairing = False
+                            self.send_pairing_prompt("Interviewing Matter device officially failed")
+                            self.pairing_phase_message = 'Pairing failed'
+                            self.pairing_phase = -1
+                        
+                        
                     if 'Established secure session with Device' in line:
                         self.send_pairing_prompt("Connected to new device...")
                         self.pairing_phase_message = 'Secure connection to Matter device established'
@@ -2342,7 +2365,7 @@ class MatterAdapter(Adapter):
                         
                     if 'Subscription succeeded with report interval' in line or 'Re-Subscription succeeded' in line:
                         if self.DEBUG:
-                            print("A device re-connected")
+                            self.s_print("A device re-connected")
                         if '<Node:' in line:
                             device_index = line.split('<Node:')[1]
                             if '>' in device_index:
@@ -2360,7 +2383,7 @@ class MatterAdapter(Adapter):
                             
                     if 'Subscription failed' in line and 'Timeout, resubscription attempt 3' in line: 
                         if self.DEBUG:
-                            print("A device seems to have become unavailable")
+                            self.s_print("A device seems to have become unavailable")
                         # <Node:20>
                         if '<Node:' in line:
                             device_index = line.split('<Node:')[1]
@@ -2408,17 +2431,17 @@ class MatterAdapter(Adapter):
 
     
     #def something_happened(self, message):
-    #    print("\n\nBINGO\nin something_happened. Message: " + str(message))
+    #    self.s_print("\n\nBINGO\nin something_happened. Message: " + str(message))
 
     #def client_unsubscribe(self, message):
-    #    print("\n\nBINGO\n client_unsubscribe happened. Message: " + str(message))
+    #    self.s_print("\n\nBINGO\n client_unsubscribe happened. Message: " + str(message))
     
     
     # NOT USED?
     async def run_matter(self):
         """Run the Matter server."""
         if self.DEBUG:
-            print("\nin run_matter")
+            self.s_print("\nin run_matter")
         
         # Start Matter Server
         await self.server.start()
@@ -2430,7 +2453,7 @@ class MatterAdapter(Adapter):
 
     async def handle_stop(self, loop: asyncio.AbstractEventLoop):
         if self.DEBUG:
-            print("\nin handle_stop for matter.server")
+            self.s_print("\nin handle_stop for matter.server")
         """Handle server stop."""
         await self.server.stop()
 
@@ -2441,13 +2464,13 @@ class MatterAdapter(Adapter):
         
         if not 'data' in message or not 'event' in message:
             if self.DEBUG:
-                print("handle_event: error, no data or event type in provided message")
+                self.s_print("handle_event: error, no data or event type in provided message")
             return
         
         event = message['event']
         data = message['data']
         if self.DEBUG:
-            print("in handle_event.  event,data: ", event,"\n", data)
+            self.s_print("in handle_event.  event,data: ", event,"\n", data)
             
         try:
             
@@ -2478,23 +2501,23 @@ class MatterAdapter(Adapter):
                 #attribute_id = int(data[1].split('/')[2]) # not used for anything at the moment
                 attribute_code = humanize(data[1])
                 if self.DEBUG:
-                    print("attribute_code from humanize: ", attribute_code)
+                    self.s_print("attribute_code from humanize: ", attribute_code)
                 cluster_name = attribute_code.split('.Attributes.')[0]
                 attribute_name = attribute_code.split('.Attributes.')[1]
                 
                 
                 if clusters_to_ignore and cluster_name in clusters_to_ignore:
                     if self.DEBUG:
-                        print("handle_event: skipping because cluster_name was in list of clusters_to_ignore: ", cluster_name)
+                        self.s_print("handle_event: skipping because cluster_name was in list of clusters_to_ignore: ", cluster_name)
                 
                 #if 'Diagnostics' in cluster_name:
                 #    if self.DEBUG:
-                #        print("handle_event: skipping diagnostics cluster")
+                #        self.s_print("handle_event: skipping diagnostics cluster")
                 #    return
                 
                 if attribute_name.isdigit():
                     if self.DEBUG:
-                        print("ERROR: handle_event: attribute_name is digit")
+                        self.s_print("ERROR: handle_event: attribute_name is digit")
                     attribute_name = None
                 
                 
@@ -2512,7 +2535,7 @@ class MatterAdapter(Adapter):
                 for data_attribute in data['data']:
                     if not 'previous' in data_attribute.lower() and isinstance(data['data'][data_attribute],(str,int,float,bool)):
                         if self.DEBUG:
-                            print("Found something potentually useful in data['data']: ", data_attribute, data['data'][data_attribute])
+                            self.s_print("Found something potentually useful in data['data']: ", data_attribute, data['data'][data_attribute])
                         
                         # "Events are records of past state transitions such as a light device's on-off attribute changing from on to off."
                         # - source: https://docs.silabs.com/matter/latest/matter-api-reference/event
@@ -2526,50 +2549,50 @@ class MatterAdapter(Adapter):
                         
                         if clusters_to_ignore and cluster_name in clusters_to_ignore:
                             if self.DEBUG:
-                                print("handle_event: skipping because cluster_name was in list of clusters_to_ignore: ", cluster_name)
+                                self.s_print("handle_event: skipping because cluster_name was in list of clusters_to_ignore: ", cluster_name)
                         
                         hacky_attribute_code = str(cluster_name) + '.Attributes.' + str(data_attribute)
                         attribute_name = str(data_attribute)
                         
                         if self.DEBUG:
-                            print("hacky device_id: ", device_id)
-                            print("hacky endpoint_name: ", endpoint_name)
+                            self.s_print("hacky device_id: ", device_id)
+                            self.s_print("hacky endpoint_name: ", endpoint_name)
                         
                         if not device_id in self.persistent_data['nodez']:
                             if self.DEBUG:
-                                print("unexpectedly, missing device_id in persistent data? ", device_id)
+                                self.s_print("unexpectedly, missing device_id in persistent data? ", device_id)
                         else:
                             if not endpoint_name in self.persistent_data['nodez'][device_id]['attributes']:
                                 if self.DEBUG:
-                                    print("unexpectedly, missing endpoint_name in persistent data? ", endpoint_name)
+                                    self.s_print("unexpectedly, missing endpoint_name in persistent data? ", endpoint_name)
                             
                             else:
                                 if hacky_attribute_code in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
                                     if self.DEBUG:
-                                        print("surprisingly, there is already an attribute with this hacky code: ", self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code])
+                                        self.s_print("surprisingly, there is already an attribute with this hacky code: ", self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code])
                                 else:
                                     hacky_attribute_code = str(cluster_name) + 'Candle.Attributes.' + str(data_attribute)
                             
                                     if hacky_attribute_code in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
                                         if self.DEBUG:
-                                            print("this hacky property has already been created in persistent data: ", self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code])
+                                            self.s_print("this hacky property has already been created in persistent data: ", self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code])
                                             
                                         device_id = 'matter-' + str(node_id)
                                         target_device = self.get_device(device_id)
                                         if target_device:
                                             hacky_property_id = 'property-' + str(endpoint_name) + '-'+ str(cluster_name) + 'Candle-' + str(data_attribute)
                                             if self.DEBUG:
-                                                print("hacky_property_id: ", hacky_property_id)
+                                                self.s_print("hacky_property_id: ", hacky_property_id)
                                             hacky_target_property = target_device.find_property(hacky_property_id)
                                             if hacky_target_property:
                                                 if self.DEBUG:
-                                                    print("OK, found hacky property. Will update it to: ", value)
+                                                    self.s_print("OK, found hacky property. Will update it to: ", value)
                                                 hacky_target_property.update( value )
                                             
                                     else:
                                         attribute_code = hacky_attribute_code
                                         if self.DEBUG:
-                                            print("\ncreating new hacky property\n")
+                                            self.s_print("\ncreating new hacky property\n")
                                         self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code] = {'enabled':True,'property':{'description':{'title':uncamel(data_attribute).replace('_',' ') + ' ' + str(endpoint),'readOnly':True}},'hacky':True,'value': value, 'received_values':[value]}
                                         if isinstance(value,int):
                                             self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['type'] = 'number'
@@ -2585,17 +2608,17 @@ class MatterAdapter(Adapter):
                                         target_device = self.get_device(device_id)
                                         if target_device:
                                             if self.DEBUG:
-                                                print("calling reparse_node so that the new hacky property will immediately be created")
+                                                self.s_print("calling reparse_node so that the new hacky property will immediately be created")
                                             target_device.reparse_node()
                         
                             
                 
             else:
                 if self.DEBUG:
-                    print("WARNING: handle_event: getting parameters fell through")
+                    self.s_print("WARNING: handle_event: getting parameters fell through")
             
             if self.DEBUG:
-                print("handle_event: node_id, attribute_name, value: ", node_id, attribute_name, value)
+                self.s_print("handle_event: node_id, attribute_name, value: ", node_id, attribute_name, value)
             
             if node_id and endpoint_name and attribute_name: # should value be allowed to be None?
                 device_id = 'matter-' + str(node_id)
@@ -2608,13 +2631,13 @@ class MatterAdapter(Adapter):
                             
                             if attribute_code == None:
                                 if self.DEBUG:
-                                    print("handle_event: attribute_code was None")
+                                    self.s_print("handle_event: attribute_code was None")
                             
                             elif str(attribute_code) in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
                                 if self.auto_enable_properties == True:
                                     if 'enabled' in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)] and self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['enabled'] == False:
                                         if self.DEBUG:
-                                            print("handle_event: auto-enabling a property: ", attribute_code)
+                                            self.s_print("handle_event: auto-enabling a property: ", attribute_code)
                                         self.should_save = True
                                     self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['enabled'] = True
                                 
@@ -2623,7 +2646,7 @@ class MatterAdapter(Adapter):
                                     self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'] = []
                                 elif len(self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values']) > 10:
                                     if self.DEBUG:
-                                        print("handle_event: trimming received values list back to 10 items")
+                                        self.s_print("handle_event: trimming received values list back to 10 items")
                                     self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'] = self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'][-9:]
                                 
                                 # Keep track of how many decimal points any numbers being sent will have, at maximum
@@ -2654,7 +2677,7 @@ class MatterAdapter(Adapter):
                                         decimals = 0
                                     #decimals = str(number)[::-1].find('.')
                                     if self.DEBUG:
-                                        print("decimals: ", decimals)
+                                        self.s_print("decimals: ", decimals)
                                 
                                     if decimals != None and decimals > self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['max_decimals_received']:
                                         self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['max_decimals_received'] = decimals
@@ -2663,17 +2686,17 @@ class MatterAdapter(Adapter):
                                 if value != None and isinstance(value,(str,int,float,bool)):
                                     if not value in self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values']:
                                         if self.DEBUG:
-                                            print("handle_event: appending not seen before value to received_values: ", value)
+                                            self.s_print("handle_event: appending not seen before value to received_values: ", value)
                                         self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'].append(value)
                                     else:
                                         if self.DEBUG:
-                                            print("handle_event: that value has been received before: ", value)
+                                            self.s_print("handle_event: that value has been received before: ", value)
                                     
                                     # Privacy risk to update the actual value
                                     #self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['value'] = value
                                             
                                 if self.DEBUG:
-                                    print("handle_event: received values:  device_id,endpoint_name,attribute_code,values: ", device_id, endpoint_name, attribute_code, self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'])
+                                    self.s_print("handle_event: received values:  device_id,endpoint_name,attribute_code,values: ", device_id, endpoint_name, attribute_code, self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'])
                 
                 
                 
@@ -2681,27 +2704,27 @@ class MatterAdapter(Adapter):
                 
                 if target_device == None:
                     if self.DEBUG:
-                        print("\nERROR: handle_event: missing device: ", device_id)
+                        self.s_print("\nERROR: handle_event: missing device: ", device_id)
                 else:
                     property_id = 'property-' + str(endpoint_name) + '-'+ str(cluster_name) + '-' + str(attribute_name)
                     if self.DEBUG:
-                        print("looking for property with property_id: ", property_id)
+                        self.s_print("looking for property with property_id: ", property_id)
                     target_property = target_device.find_property(property_id)
                     
                     if target_property == None:
                         if self.DEBUG:
-                            print("handle_event: found thing, but missing property: ", property_id)
+                            self.s_print("handle_event: found thing, but missing property: ", property_id)
                         if 'attributes' in data and len(data['attributes'].keys()) > 2 and 'Endpoint' in str(list(data['attributes'].keys())): # TODO: Very hacky, should check these assumptions too
                             if self.DEBUG:
-                                print("handle_event: attempting update_from_node... with potential node data: ", data)
+                                self.s_print("handle_event: attempting update_from_node... with potential node data: ", data)
                             target_device.update_from_node(data)
                         else:
                             if self.DEBUG:
-                                print("\nWARNING, there is no way to add the missing property now\ndata: ", data)
+                                self.s_print("\nWARNING, there is no way to add the missing property now\ndata: ", data)
                             self.should_save = True
                     else:
                         if self.DEBUG:
-                            print("handle_event: found existing property. calling property.update with value: ", value)
+                            self.s_print("handle_event: found existing property. calling property.update with value: ", value)
                         target_property.update( value )
                         
                     
@@ -2710,13 +2733,13 @@ class MatterAdapter(Adapter):
                         
                         event_property_id = 'property-' + str(endpoint_name) + '-'+ str(cluster_name) + '-RecentEvent'
                         if self.DEBUG:
-                            print("handle_event: event_property_id: ", event_property_id)
+                            self.s_print("handle_event: event_property_id: ", event_property_id)
                         
                         target_event_property = target_device.find_property(event_property_id)
                         if target_event_property:
                             if self.DEBUG:
-                                print("handle_event: found event property")
-                                print("possible events for cluster: ", cluster_name, self.events_lookup[cluster_name])
+                                self.s_print("handle_event: found event property")
+                                self.s_print("possible events for cluster: ", cluster_name, self.events_lookup[cluster_name])
                     
                             if 'event_id' in data and isinstance(data['event_id'],int) and data['event_id'] >= 0 and data['event_id'] < len(self.events_lookup[cluster_name]):
                                 target_event_property.update( self.events_lookup[cluster_name][data['event_id']] )
@@ -2741,18 +2764,18 @@ class MatterAdapter(Adapter):
                             else:
                                 target_event_property.update( 'None' )
                                 if self.DEBUG:
-                                    print("handle_event: no event id, so setting event property to None")
+                                    self.s_print("handle_event: no event id, so setting event property to None")
                         else:
                             if self.DEBUG:
-                                print("handle_event: did not find RecentEvent property")
+                                self.s_print("handle_event: did not find RecentEvent property")
                         
                         
             
                     
         except Exception as ex:
             if self.DEBUG:
-                print("caught error in handle_event: " + str(ex))
-                print(traceback.print_exc())
+                self.s_print("caught error in handle_event: " + str(ex))
+                self.s_print(traceback.print_exc())
 
         """
         OLD:
@@ -2779,7 +2802,7 @@ class MatterAdapter(Adapter):
     # Create new devices from Matter nodes
     def parse_nodes(self):
         if self.DEBUG:
-            print("in parse_nodes. self.nodes length: " + str(len(self.nodes)))
+            self.s_print("in parse_nodes. self.nodes length: " + str(len(self.nodes)))
         for node in list(self.nodes):
             self.parse_node(node)
             
@@ -2788,7 +2811,7 @@ class MatterAdapter(Adapter):
         
         try:
             #if self.DEBUG:
-            #    print("parse nodes: number: " + str(node_number))
+            #    self.s_print("parse nodes: number: " + str(node_number))
             #node = self.nodes[node_number]
             
             event = None
@@ -2804,19 +2827,19 @@ class MatterAdapter(Adapter):
                 
             if node_id == None:
                 if self.DEBUG:
-                    print("\nERROR: parse_node: no node_id in node or node['data']: ", node)
+                    self.s_print("\nERROR: parse_node: no node_id in node or node['data']: ", node)
                 return
                 
             device_id = 'matter-' + str(node_id)
             
             if self.DEBUG:
-                print("\n\nparse_node: device_id: " + str(device_id))
+                self.s_print("\n\nparse_node: device_id: " + str(device_id))
                 #print("node: \n", json.dumps(dataclass_to_dict(node),indent=2))
                 
                 
             if not 'attributes' in node and 'data' in node and 'attributes' in node['data']:
                 if self.DEBUG:
-                    print("pulling a switch to make node['data'] the new node")
+                    self.s_print("pulling a switch to make node['data'] the new node")
                 node = node['data']    
                 
             
@@ -2838,23 +2861,23 @@ class MatterAdapter(Adapter):
                                 self.commands_lookup = self.commands_lookup | command_lookup_table
                                 self.completed_command_clusters.append(cluster_id)
                                 if self.DEBUG:
-                                    print("self.completed_command_clusters is now: ", self.completed_command_clusters)
+                                    self.s_print("self.completed_command_clusters is now: ", self.completed_command_clusters)
                             #else:
                             #    if self.DEBUG:
-                            #        print("\nERROR, get_commands_for_cluster_id did not return a valid dict")
+                            #        self.s_print("\nERROR, get_commands_for_cluster_id did not return a valid dict")
                 except Exception as ex:
                     if self.DEBUG:
-                        print("caught error looping over node in order to get all commands: ", ex)
+                        self.s_print("caught error looping over node in order to get all commands: ", ex)
                 
                     
                 process_node(node)
             
                 if self.DEBUG:
-                    print("parse_node: node after: \n", json.dumps(node,indent=2))
+                    self.s_print("parse_node: node after: \n", json.dumps(node,indent=2))
             
             else:
                 if self.DEBUG:
-                    print("\nERROR: parse_node: aborting, no attributes in node data?: ", node)
+                    self.s_print("\nERROR: parse_node: aborting, no attributes in node data?: ", node)
                 return
             
             
@@ -2867,38 +2890,38 @@ class MatterAdapter(Adapter):
         
             if not 'node_id' in node:
                 if self.DEBUG:
-                    print("\nERROR: parse_node: node_id is missing from node data after process_node: ", node)
+                    self.s_print("\nERROR: parse_node: node_id is missing from node data after process_node: ", node)
                 return
                 
             target_device = self.get_device(device_id)
             if target_device == None:
                 if self.DEBUG:
-                    print("parse_node: this device does not exist yet. It must be created.")
+                    self.s_print("parse_node: this device does not exist yet. It must be created.")
                 
                 new_device = MatterDevice(self, device_id, node)
                 self.handle_device_added(new_device)
                 
             else:
                 if self.DEBUG:
-                    print("parse_node: target_device has already been created. Attempting to call it's update_from_node method.")
+                    self.s_print("parse_node: target_device has already been created. Attempting to call it's update_from_node method.")
                 target_device.update_from_node(node)
                 self.handle_device_added(target_device)
                     
             if 'available' in node and isinstance(node['available'],bool):
                 if self.DEBUG:
-                    print("parse_node: node.available: ", node['available'])
+                    self.s_print("parse_node: node.available: ", node['available'])
                 target_device = self.get_device(device_id)
                 if target_device:
                     if self.DEBUG:
-                        print("parse_node: OK, calling connected_notify on device with state: ", node['available'])
+                        self.s_print("parse_node: OK, calling connected_notify on device with state: ", node['available'])
                     target_device.connected_notify(node['available'])
                 else:
                     if self.DEBUG:
-                        print("\nWARNING: parse_node: unexpectedly device was still not created.  device_id: ", device_id)
+                        self.s_print("\nWARNING: parse_node: unexpectedly device was still not created.  device_id: ", device_id)
                     
         except Exception as ex:
             if self.DEBUG:
-                print("error in parse_node: " + str(ex))
+                self.s_print("error in parse_node: " + str(ex))
             
             
         """
@@ -2966,7 +2989,7 @@ class MatterAdapter(Adapter):
     def set_state(self,state):
         try:
             if self.DEBUG:
-                print("in set_state with state: " + str(state))
+                self.s_print("in set_state with state: " + str(state))
         
             # saves the new state in the persistent data file, so that the addon can restore the correct state if it restarts
             self.persistent_data['state'] = state
@@ -2980,10 +3003,10 @@ class MatterAdapter(Adapter):
             try:
                 self.devices['matter-thing'].properties['state'].update( state )
             except Exception as ex:
-                print("error setting state on thing: " + str(ex))
+                self.s_print("error setting state on thing: " + str(ex))
         
         except Exception as ex:
-            print("error in set_state: " + str(ex))
+            self.s_print("error in set_state: " + str(ex))
                 
         
 
@@ -2998,43 +3021,43 @@ class MatterAdapter(Adapter):
         timeout -- Timeout in seconds at which to quit pairing
         """
         if self.DEBUG:
-            print("in start_pairing. Timeout: " + str(timeout))
+            self.s_print("in start_pairing. Timeout: " + str(timeout))
         
         
     def cancel_pairing(self):
         """ Happens when the user cancels the pairing process."""
         # This happens when the user cancels the pairing process, or if it times out.
         if self.DEBUG:
-            print("in cancel_pairing")
+            self.s_print("in cancel_pairing")
         
 
     def unload(self):
         """ Shuts down the addon """
         if self.DEBUG:
-            print("Stopping matter addon")
+            self.s_print("Stopping matter addon")
         
         self.running = False
         
         if self.server_process and self.server_process.poll() == None:
             if self.DEBUG:
-                print("doing .terminate() of matter_server")
+                self.s_print("doing .terminate() of matter_server")
             self.server_process.terminate()
             time.sleep(.5)
         if self.server_process and self.server_process.poll() == None:
             if self.DEBUG:
-                print("unload: resorting to .kill() of matter_server")
+                self.s_print("unload: resorting to .kill() of matter_server")
             self.server_process.kill()
             time.sleep(.2)
         if self.server_process and self.server_process.poll() == None:
             if self.DEBUG:
-                print("unload: doing pkill of matter_server")
+                self.s_print("unload: doing pkill of matter_server")
             os.system('sudo pkill -f matter_server.server')
         
         try:
             run_loop = asyncio.get_running_loop()
             run_loop.stop()
         except Exception as ex:
-            print("Error getting asyncio loop: " + str(ex))
+            self.s_print("Error getting asyncio loop: " + str(ex))
         
         self.really_stop_otbr()
         
@@ -3050,7 +3073,7 @@ class MatterAdapter(Adapter):
         #try:
         #    self.devices['matter-thing'].properties['status'].update( "Bye")
         #except Exception as ex:
-        #    print("Error setting status on thing: " + str(ex))
+        #    self.s_print("Error setting status on thing: " + str(ex))
         
         # Tell the controller to show the device as disconnected. This isn't really necessary, as the controller will do this automatically.
         #self.devices['matter-thing'].connected_notify(False)
@@ -3067,7 +3090,7 @@ class MatterAdapter(Adapter):
         
         # does it reach this?
         if self.DEBUG:
-            print("matter adapter: goodbye\n\n")
+            self.s_print("matter adapter: goodbye\n\n")
         return True
 
 
@@ -3075,17 +3098,17 @@ class MatterAdapter(Adapter):
     def remove_thing(self, device_id):
         """ Happens when the user deletes the thing."""
         if self.DEBUG:
-            print("user deleted the thing")
+            self.s_print("user deleted the thing")
         try:
             # We don't have to delete the thing in the addon, but we can.
             obj = self.get_device(device_id)
             if obj:
                 self.handle_device_removed(obj) # Remove from device dictionary
                 if self.DEBUG:
-                    print("User removed thing")
+                    self.s_print("User removed thing")
             else:
                 if self.DEBUG:
-                    print("could not find thing to remove")
+                    self.s_print("could not find thing to remove")
             
             if 'nodez' in self.persistent_data and matter_id in self.persistent_data['nodez']:
                 del self.persistent_data['nodez'][matter_id]
@@ -3095,7 +3118,7 @@ class MatterAdapter(Adapter):
             
         except Exception as ex:
             if self.DEBUG:
-                print("caught error in remove thing: " + str(ex))
+                self.s_print("caught error in remove thing: " + str(ex))
 
 
 
@@ -3106,27 +3129,27 @@ class MatterAdapter(Adapter):
     
     def save_persistent_data(self):
         if self.DEBUG:
-            print("Saving to persistence data store")
+            self.s_print("Saving to persistence data store")
 
         try:
             if not os.path.isfile(self.persistence_file_path):
                 open(self.persistence_file_path, 'a').close()
                 if self.DEBUG:
-                    print("Created an empty persistence file")
+                    self.s_print("Created an empty persistence file")
             else:
                 if self.DEBUG:
-                    print("Persistence file existed. Will try to save to it.")
+                    self.s_print("Persistence file existed. Will try to save to it.")
 
             out_file = open(str(self.persistence_file_path), "w") 
             json.dump(self.persistent_data, out_file, indent = 4) 
             out_file.close()
             if self.DEBUG:
-                print("persistent data saved to: " + str(self.persistence_file_path))
+                self.s_print("persistent data saved to: " + str(self.persistence_file_path))
             return True
 
         except Exception as ex:
             if self.DEBUG:
-                print("Error: could not store data in persistent store: " + str(ex) )
+                self.s_print("Error: could not store data in persistent store: " + str(ex) )
         
         return False
 
@@ -3134,11 +3157,11 @@ class MatterAdapter(Adapter):
     
     def remove_node(self, node_id):
         if self.DEBUG:
-            print("in remove_node. node_id: " + str(node_id))
+            self.s_print("in remove_node. node_id: " + str(node_id))
         
         if self.client_connected == False:
             if self.DEBUG:
-                print("remove_node: ERROR, client is not connected") # TODO: assuming that the matter server can even remove devices from thread
+                self.s_print("remove_node: ERROR, client is not connected") # TODO: assuming that the matter server can even remove devices from thread
             return False
         
         self.get_nodes()
@@ -3148,7 +3171,7 @@ class MatterAdapter(Adapter):
         
         if matter_id in self.nodes:
             if self.DEBUG:
-                print("remove_node: Node seems to exist, will delete it")
+                self.s_print("remove_node: Node seems to exist, will delete it")
             message = {
                     "message_id": "remove_node",
                     "command": "remove_node",
@@ -3161,7 +3184,7 @@ class MatterAdapter(Adapter):
         
         else:
             if self.DEBUG:
-                print("\nERROR, remove_node: node doesn't seem to exist (already deleted?). Skipping delete")
+                self.s_print("\nERROR, remove_node: node doesn't seem to exist (already deleted?). Skipping delete")
             self.device_was_deleted = True # pretend it was just deleted
 
         return True
@@ -3170,7 +3193,7 @@ class MatterAdapter(Adapter):
     def run_chip_tool_command(self, cmd, timeout_seconds=10):
         try:
             if not os.path.isfile(self.chip_tool_path):
-                print("\nERROR, run_chip_tool_command: chip_tool is missing: ", self.chip_tool_path)
+                self.s_print("\nERROR, run_chip_tool_command: chip_tool is missing: ", self.chip_tool_path)
                 return None
             my_env = get_env()
             
@@ -3184,7 +3207,7 @@ class MatterAdapter(Adapter):
             
             command = str(self.chip_tool_path) + ' ' + str(cmd) # export LD_LIBRARY_PATH=' + str(self.addon_thread_dir_path) + ' ' +
             if self.DEBUG:
-                print("run_chip_tool_command: \n" + str(command))
+                self.s_print("run_chip_tool_command: \n" + str(command))
             #op = subprocess.run('sudo ' + str(self.ot_ctl_path) + ' ' + str(cmd) + ' --storage-directory ' + str(self.data_thread_dir_path), timeout=timeout_seconds, env=my_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
             op = subprocess.run(command, timeout=timeout_seconds, env=my_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
 
@@ -3195,14 +3218,14 @@ class MatterAdapter(Adapter):
                     return str(op.stderr).rstrip()
 
         except Exception as ex:
-            print("caught error in run_chip_tool_command: "  + str(ex))
+            self.s_print("caught error in run_chip_tool_command: "  + str(ex))
             return None
         
         
     def run_ot_ctl_command(self, cmd, timeout_seconds=10):
         try:
             if not os.path.isfile(self.ot_ctl_path):
-                print("\nERROR, run_ot_ctl_command: ot-ctl is missing: ", self.ot_ctl_path)
+                self.s_print("\nERROR, run_ot_ctl_command: ot-ctl is missing: ", self.ot_ctl_path)
                 return None
             my_env = get_env()
             
@@ -3217,7 +3240,7 @@ class MatterAdapter(Adapter):
                 command = command + ' --storage-directory ' + str(data_path)
             
             if self.DEBUG:
-                print("run_ot_ctl_command: \n" + str(command))
+                self.s_print("run_ot_ctl_command: \n" + str(command))
             #op = subprocess.run('sudo ' + str(self.ot_ctl_path) + ' ' + str(cmd) + ' --storage-directory ' + str(self.data_thread_dir_path), timeout=timeout_seconds, env=my_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
             op = subprocess.run(command, timeout=timeout_seconds, env=my_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
 
@@ -3228,18 +3251,18 @@ class MatterAdapter(Adapter):
                     return str(op.stderr).rstrip()
 
         except Exception as ex:
-            print("caught error in run_ot_ctl_command: "  + str(ex))
+            self.s_print("caught error in run_ot_ctl_command: "  + str(ex))
             return None
     
     # Loop over all the items in the list, which is stored inside the adapter instance.
     """
     def delete_item(self,name):
-        print("in delete_item. Name: " + str(name))
+        self.s_print("in delete_item. Name: " + str(name))
         for i in range(len(self.items_list)):
             if self.items_list[i]['name'] == name:
                 # Found it
                 del self.items_list[i]
-                print("deleted item from list")
+                self.s_print("deleted item from list")
                 return True
                 
         # If we end up there, the name wasn't found in the list
@@ -3258,7 +3281,7 @@ def run_command(cmd, timeout_seconds=30):
                 return str(p.stderr).rstrip()
 
     except Exception as ex:
-        print("caught error in run_command: "  + str(ex))
+        self.s_print("caught error in run_command: "  + str(ex))
         return None
 
 

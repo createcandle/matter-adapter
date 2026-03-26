@@ -4,7 +4,7 @@
 	      	super('matter-adapter');
       		
             this.debug = false; // if enabled, show more output in the console
-            this.stop_regenerating = false;
+            //this.stop_regenerating = false;
 			
             this.id = 'matter-adapter';
             
@@ -163,7 +163,26 @@
                 });
                 */
                 
-                
+                // Title easter egg
+				const title_el = this.view.querySelector('#extension-matter-adapter-title');
+				if(!title_el){
+					if(this.debug){
+						console.error("matter adapter: no title el found content not loaded!");
+					}
+					return
+				}
+				
+                title_el.addEventListener('click', (event) => {
+					if(this.view.classList.contains('extension-matter-adapter-title-easter-egg')){
+						this.view.classList.remove('extension-matter-adapter-title-easter-egg');
+					}else{
+						this.view.classList.add('extension-matter-adapter-title-easter-egg');
+					}
+					
+                });
+				
+				
+				
                 // Commission_with_code
                 // Start pairing button press
                 this.view.querySelector('#extension-matter-adapter-start-normal-pairing-button').addEventListener('click', (event) => {
@@ -541,9 +560,11 @@
                 
             
                 // Easter egg when clicking on the title
-    			this.view.querySelector('#extension-matter-adapter-title').addEventListener('click', () => {
+    			/*
+				this.view.querySelector('#extension-matter-adapter-title').addEventListener('click', () => {
     				this.show();
     			});
+				*/
                 
     			this.view.querySelector('#extension-matter-adapter-refresh-paired-list-button').addEventListener('click', () => {
     				this.view.querySelector('#extension-matter-adapter-refresh-paired-list-button').classList.add('extension-matter-adapter-hidden');
@@ -551,9 +572,9 @@
                     this.get_init_data();
     			});
     			
-				this.view.querySelector('#extension-matter-adapter-stop-refreshing-list-button').addEventListener('click', () => {
-					this.stop_regenerating = true;
-				});
+				//this.view.querySelector('#extension-matter-adapter-stop-refreshing-list-button').addEventListener('click', () => {
+				//	this.stop_regenerating = true;
+				//});
 				
 				this.view.querySelector('#extension-matter-adapter-reset-customizations-button').addEventListener('click', () => {
 					if(confirm("Are you sure you want to forget all device customizations?")){
@@ -737,7 +758,7 @@
 						{'action':'get_main_poll'}
 					).then((body) => { 
 						if(this.debug){
-		                    console.log("matter adapter: debug: get_main_poll: response body: ", body);
+		                    //console.log("matter adapter: debug: get_main_poll: response body: ", body);
 		                }
 						
 						this.parse_body(body);
@@ -1158,6 +1179,10 @@
 					if(this.debug){
 						console.warn("body.noise_delta: ", body.noise_delta);
 					}
+					const noise_el = this.view.querySelector('#extension-matter-adapter-thread-radio-noise');
+					if(noise_el){
+						noise_el.textContent = body.noise_delta;
+					}
 				}
 				
             }
@@ -1527,9 +1552,9 @@
 			try {
 				
 				// Used for debugging
-				if(this.stop_regenerating){
-					return
-				}
+				//if(this.stop_regenerating){
+				//	return
+				//}
 				
 				if(this.debug){
                     console.log("matter adapter debug: in regenerating_items.  this.nodez: ", this.nodez);
@@ -2128,12 +2153,12 @@
 									}
 									
 									
-									for (const [short_type, attribute] of Object.entries(attributes_list)) {
-										const attribute_class_name = 'extension-matter-adapter-item-attribute-' + short_type.replaceAll('.Attributes.','-');
+									for (const [attribute_code, attribute] of Object.entries(attributes_list)) {
+										const attribute_class_name = 'extension-matter-adapter-item-attribute-' + attribute_code.replaceAll('.Attributes.','-');
 										//console.log("attribute_class_name: ", attribute_class_name);
 										
-										const cluster_name = short_type.split('.Attributes.')[0];
-										const attribute_name = short_type.split('.Attributes.')[1];
+										const cluster_name = attribute_code.split('.Attributes.')[0];
+										const attribute_name = attribute_code.split('.Attributes.')[1];
 										
 										let attribute_header_el = null;
 										let attribute_el = endpoint_el.querySelector("." + attribute_class_name);
@@ -2156,7 +2181,7 @@
 												attribute['value'] = '?';
 											}
 											
-											attribute_title_el.innerHTML = '<span class="extension-matter-adapter-item-details-attribute-title-cluster">' + short_type.replace('.Attributes.',' - </span><span>') + '</span><span class="extension-matter-adapter-item-details-attribute-value">' + attribute['value'] + '</span>';
+											attribute_title_el.innerHTML = '<span class="extension-matter-adapter-item-details-attribute-title-cluster">' + attribute_code.replace('.Attributes.',' - </span><span>') + '</span><span class="extension-matter-adapter-item-details-attribute-value">' + attribute['value'] + '</span>';
 											attribute_header_el.appendChild(attribute_title_el);
 											
 											attribute_el.appendChild(attribute_header_el);
@@ -2164,11 +2189,12 @@
 											endpoint_el.appendChild(attribute_el);
 										}
 										
+										
 										if(typeof attribute['enabled'] == 'boolean'){
 											let enabled_checkbox_el = attribute_el.querySelector('.extension-matter-adapter-item-details-attribute-enabled-checkbox');
 											if(!enabled_checkbox_el && attribute_header_el){
 												
-												const unique_id = 'extension-matter-adapter-unique-' + thing_id + '-' + endpoint_name + '-' + short_type.replace('.Attributes.','-');
+												const unique_id = 'extension-matter-adapter-unique-' + thing_id + '-' + endpoint_name + '-' + attribute_code.replace('.Attributes.','-');
 												//console.log("unique_id: ", unique_id);
 												
 												enabled_checkbox_el = document.createElement('input');
@@ -2184,7 +2210,7 @@
 															'action':'change_attribute',
 															'thing_id':thing_id, 
 															'endpoint_name':endpoint_name, 
-															'short_type':short_type, 
+															'attribute_code':attribute_code, 
 															'attribute':'enabled', 
 															'value':enabled_checkbox_el.checked
 														}
@@ -2217,7 +2243,10 @@
 												
 												
 											}
-											if(typeof attribute['enabled'] == 'boolean'){
+											if(typeof attribute['customizations'] != 'undefined' && typeof attribute['customizations']['enabled'] == 'boolean'){
+												enabled_checkbox_el.checked = attribute['customizations']['enabled'];
+											}
+											else if(typeof attribute['enabled'] == 'boolean'){
 												enabled_checkbox_el.checked = attribute['enabled'];
 											}
 											else{
@@ -2234,27 +2263,33 @@
 										}
 										
 										if(attribute_name == 'AcceptedCommandList'){
-											console.log("spotted AcceptedCommandList, does it have accepted_commands? ");
-											console.log("typeof attribute['accepted_commands']: ", attribute['accepted_commands']);
-										}
-										
-										// Add list of accepted commands
-										if(typeof attribute['accepted_commands'] != 'undefined' && attribute['accepted_commands'] != null && Array.isArray(attribute['accepted_commands'])){
-											console.warn("FOUND ACCEPTED COMMANDS: ", attribute['accepted_commands']);
-											let accepted_commands_el = attribute_el.querySelector('.extension-matter-adapter-item-details-accepted-commands');
-											if(!accepted_commands_el){
-												accepted_commands_el = document.createElement('div');
-												accepted_commands_el.classList.add('extension-matter-adapter-item-details-accepted-commands');
-												accepted_commands_el.classList.add('extension-matter-adapter-area');
-												accepted_commands_el.classList.add('extension-matter-adapter-show-if-developer');
+											//console.log("spotted AcceptedCommandList, does it have accepted_commands? ", typeof attribute['accepted_commands']);
+											// Add list of accepted commands
+											if(typeof attribute['accepted_commands'] != 'undefined' && attribute['accepted_commands'] != null){
+												//console.warn("FOUND ACCEPTED COMMANDS: ", attribute['accepted_commands']);
 												
-												for(let ac = 0; ac < attribute['accepted_commands'].length; ac++){
-													const accepted_command_el = document.createElement('span');
-													accepted_command_el.textContent = attribute['accepted_commands'][ac];
-													accepted_commands_el.appendChild(accepted_command_el);
+												let accepted_commands_el = attribute_el.querySelector('.extension-matter-adapter-item-details-accepted-commands');
+												if(!accepted_commands_el){
+													//console.warn("creating new accepted commands list");
+													const accepted_commands_list = Object.keys(attribute['accepted_commands']);
+													
+													accepted_commands_el = document.createElement('div');
+													accepted_commands_el.classList.add('extension-matter-adapter-item-details-accepted-commands');
+													accepted_commands_el.classList.add('extension-matter-adapter-area');
+													accepted_commands_el.classList.add('extension-matter-adapter-show-if-developer');
+												
+													for(let ac = 0; ac < accepted_commands_list.length; ac++){
+														const accepted_command_el = document.createElement('span');
+														accepted_command_el.textContent = accepted_commands_list[ac];
+														accepted_commands_el.appendChild(accepted_command_el);
+													}
+													attribute_el.appendChild(accepted_commands_el);
 												}
+												
 											}
 										}
+										
+										
 										
 										
 										if(typeof attribute['property'] != 'undefined' && attribute['property'] != null && typeof attribute['property']['description'] == 'object' && attribute['property']['description'] != null){
@@ -2291,7 +2326,7 @@
 																		'action':'change_attribute',
 																		'thing_id':thing_id, 
 																		'endpoint_name':endpoint_name, 
-																		'short_type':short_type, 
+																		'attribute_code':attribute_code, 
 																		'path':'description',
 																		'attribute':'title', 
 																		'value':value_input_el.value
@@ -2302,7 +2337,9 @@
 												                        console.log("matter adapter debug: change_attribute response: ", body);
 																	}
 											                        if(body.state == true){
-											                            console.log("change_attribute response was OK");
+											                            if(this.debug){
+																			console.log("matter adapter debug: change_attribute response was OK");
+																		}
 																		value_input_el.classList.add('extension-matter-adapter-green-bg');
 																		setTimeout(() => {
 																			value_input_el.classList.remove('extension-matter-adapter-green-bg');
@@ -2327,6 +2364,7 @@
 													}
 													else{
 														const value_el = document.createElement('span');
+														value_el.classList.add('extension-matter-adapter-item-details-property-description-value');
 														value_el.textContent = property_details;
 														property_at_el.appendChild(value_el);
 													}
@@ -3022,12 +3060,12 @@
 			
 			function decode_base_38(encoded_part){
 				const char_array = encoded_part.split("").map(char => char.charCodeAt(0) - 48);
-				console.log("get_vendor_from_mt_code: char_array: ", char_array);
+				//console.log("get_vendor_from_mt_code: char_array: ", char_array);
 				let total_decimal = 0;
 				for (let ca = 0; ca < char_array.length; ca++) {
 					total_decimal += char_array[ca] * Math.pow(38, (char_array.length - ca) - 1);
 				}
-				console.log("get_vendor_from_mt_code: total_decimal: ", total_decimal);
+				//console.log("get_vendor_from_mt_code: total_decimal: ", total_decimal);
 				return total_decimal.toString();
 			}
 			
@@ -3081,7 +3119,7 @@
 			const decoded_mt_code = base38Decode(encoded_part)
 			
 			
-			console.log("get_vendor_from_mt_code: decoded_mt_code: ", decoded_mt_code);
+			//console.log("get_vendor_from_mt_code: decoded_mt_code: ", decoded_mt_code);
 
 	        function get_bits(encoded_part, starting_position=3, desired_length=16) {
 				let output = 0;
@@ -3103,7 +3141,7 @@
 	        }
 			
             const raw_vendor_id = get_bits(decoded_mt_code);
-			console.log("get_vendor_from_mt_code: raw vendor_id: ", raw_vendor_id);
+			//console.log("get_vendor_from_mt_code: raw vendor_id: ", raw_vendor_id);
             return this.vendor_id_lookup(raw_vendor_id);
 			
 		}

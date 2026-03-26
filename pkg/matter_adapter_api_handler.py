@@ -396,6 +396,9 @@ class MatterAPIHandler(APIHandler):
                         try:
                             thing_id = str(request.body['thing_id'])
                             endpoint_name = str(request.body['endpoint_name'])
+                            if not 'attribute_code' in request.body:
+                                if self.DEBUG:
+                                    print("ERROR: change_attribute: missing attribute_code")
                             attribute_code = str(request.body['attribute_code'])
                             attribute = str(request.body['attribute'])
                             value = request.body['value']

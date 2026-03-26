@@ -106,6 +106,11 @@ class MatterProperty(Property):
             print("property: set_value to: " + str(value))
         try:
             
+            
+            if self.device.attributes:
+                if self.DEBUG:
+                    print("property: set_value: self.device.attributes.keys(): ", self.device.attributes.keys())
+            
             # Data Mute is a little different
             if self.id == 'matter-data_mute':
                 self.device.data_mute = bool(value)
@@ -154,7 +159,8 @@ class MatterProperty(Property):
                             if self.DEBUG:
                                 print("set_value:  value -> percentage: ", value, percentage)
                             
-                            command = clusters.LevelControl.Commands.MoveToLevelWithOnOff(
+                            #command = clusters.LevelControl.Commands.MoveToLevelWithOnOff(
+                            command = clusters.LevelControl.Commands.MoveToLevel(
                                         level=percentage,
                                         transitionTime=self.device.adapter.brightness_transition_time,
                                         )
@@ -192,8 +198,8 @@ class MatterProperty(Property):
                             print("HSV COLOR OUTPUT FROM HEX: ", value, hsv)
                             
                             command = clusters.ColorControl.Commands.MoveToHueAndSaturation(
-                                    Hue=int(hsv[0]),
-                                    Saturation=int(sv[1]),
+                                    hue=int(hsv[0]),
+                                    saturation=int(hsv[1]),
                                     TransitionTime=self.device.adapter.brightness_transition_time,
                                 )
                         
@@ -212,8 +218,8 @@ class MatterProperty(Property):
                                 print("color xy_tuple: ", xy_tuple)
                                 
                             command = clusters.ColorControl.Commands.MoveToColor(
-                                        ColorX=int(xy_tuple.x),
-                                        ColorY=int(xy_tuple.y),
+                                        colorX=int(xy_tuple.x),
+                                        colorY=int(xy_tuple.y),
                                         TransitionTime=self.device.adapter.brightness_transition_time,
                                     )
                         
@@ -223,10 +229,10 @@ class MatterProperty(Property):
                         
                         elif isinstance(value,str) and not str(value).isdigit():
                             if self.DEBUG:
-                                print("trying if the string is a color name: ", valuex)
-                            value = colorNameToHex(value)
-                            if value.startswith('#'):
-                                xy_tuple = hex_to_xy(value) # translate hex to x + y (and brightness? Which is discarded?)
+                                print("trying if the string is a color name: ", value)
+                            value_color_to_hex = colorNameToHex(value)
+                            if value_color_to_hex.startswith('#'):
+                                xy_tuple = hex_to_xy(value_color_to_hex) # translate hex to x + y (and brightness? Which is discarded?)
                                 if self.DEBUG:
                                     print("color xy_tuple: ", xy_tuple)
                                 
@@ -314,9 +320,10 @@ class MatterProperty(Property):
                         json_message = json.dumps(message)
                         
                         if self.device.adapter.ws:
-                            self.device.adapter.ws.send(json_message)
+                            was_sent = self.device.adapter.ws.send(json_message)
                             if self.DEBUG:
-                                print("message sent?")
+                                print("message sent? was_sent: ", was_sent)
+                            self.update(value)
                 
                 """
                 client: on_message: {
@@ -376,7 +383,8 @@ class MatterProperty(Property):
                     elif str(value) == 'Off':
                         value = False
                     else:
-                        value = None
+                        if self.DEBUG:
+                            print("OnOff update value: ", value)
                         
                 elif attribute_name == 'CurrentPosition':
                     if str(value) == 'On':
@@ -468,6 +476,10 @@ class MatterProperty(Property):
                         
         except Exception as ex:
             print("ERROR: property: update: caught error while trying ensure value is in correct format: ", self.id, ex)
+        
+        if self.DEBUG:
+            print("PROPERTY UPDATE: FINAL VALUE: ", type(value), value)
+        
         
         if value != self.value:
             self.value = value

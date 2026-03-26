@@ -134,7 +134,7 @@ def is_hex_color(color):
         if (color.startswith('#') and len(color) == 7) or len(color) == 6:
             valid_chars = ['1','2','3','4','5','6','7','8','9','0','A','B','C','D','E','F']
             for i in range(len(color) - 1, len(color) - 7, -1):
-                print(i, "color[i]: ", color[i])
+                #print(i, "color[i]: ", color[i])
                 if color[i].upper() not in valid_chars:
                     return False
             return True
@@ -145,7 +145,7 @@ def is_hex_color(color):
 def hex_to_xy(hex):
     try:
         hex = str(hex).replace('#', '')
-        print("hex_to_xy: parsing hex: " + str(hex))
+        #print("hex_to_xy: parsing hex: " + str(hex))
         #self, red_i, green_i, blue_i
     
         red_i = hex_to_red(hex)
@@ -178,7 +178,7 @@ def hex_to_xy(hex):
 
         return xy_point
     except Exception as ex:
-        print("Util: error in hex_to_xy: " + str(ex))
+        print("Util: caught error in hex_to_xy: " + str(ex))
         return XYPoint(0.5, 0.5) # Wild guess..
         
 
@@ -201,6 +201,25 @@ def hex_to_rgb(h):
 
 def rgb_to_hex(r, g, b):
     """Converts RGB to hex."""
+    
+    r = int(r)
+    g = int(g)
+    b = int(b)
+    
+    if r < 0:
+        r = 0
+    if g < 0:
+        g = 0
+    if b < 0:
+        b = 0
+    
+    if r > 255:
+        r = 255
+    if g > 255:
+        g = 255
+    if b > 255:
+        b = 255
+    
     return '%02x%02x%02x' % (r, g, b)
 
 
@@ -437,12 +456,8 @@ def get_commands_for_cluster_id(cluster_id):
 def get_events_lookup():
     events_lookup = {}
     for key, value in ALL_EVENTS.items():
-        print("+", key)
-        
+        #print("+", key)
         events_list = []
-        
-        
-        #print("-> ", type(value), str(value))
         for key2 in value:
             #print("key2: ", key2, value[key2].__name__)
             events_list.append(value[key2].__name__)
@@ -451,17 +466,12 @@ def get_events_lookup():
             #    if(str(key3).startswith('__')):
             #        continue
             #    print("---> key3: ", key3)
-        
         if len(events_list):
-            
             events_lookup[humanize_cluster_id(int(key))] = events_list
         #print("")
         #print(">>", dir(value))
         #for key2, value2 in value:
         #    print("ALL_EVENTS key2,value2: ", key2, value2)
-        
-
-    #print("")
     return events_lookup
 
 

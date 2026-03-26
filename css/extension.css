@@ -67,6 +67,30 @@
 	margin:0 auto;
 }
 
+#extension-matter-adapter-view.extension-matter-adapter-title-easter-egg #extension-matter-adapter-title{
+	text-align:right;
+	background-size: 4.5rem;
+	background-image: url('../images/mine-icon.svg');
+	color:#ff2929;
+}
+
+#extension-matter-adapter-view.extension-matter-adapter-title-easter-egg::after {
+	content:'';
+	opacity:.1;
+	height:5rem;
+	width:100vw;
+	position:absolute;
+	top:0;
+	left:0;
+	background-color: white;
+	pointer-events:none;
+  --mask:
+    radial-gradient(54.08px at 50% calc(100% - 75px),#000 99%,#0000 101%) calc(50% - 60px) 0/120px 100%,
+    radial-gradient(54.08px at 50% calc(100% + 45px),#0000 99%,#000 101%) 50% calc(100% - 30px)/120px 100% repeat-x;
+  -webkit-mask: var(--mask);
+          mask: var(--mask);
+}
+
 
 /* Main menu item */
 #main-menu #extension-matter-adapter-menu-item {
@@ -175,6 +199,7 @@
     padding: 2rem;
     width: auto;
     border-radius: 1rem;
+	flex-direction:column;
 }
 
 .extension-matter-adapter-thread-radio-is-not-responding{
@@ -220,6 +245,10 @@
 .extension-matter-adapter-thread-radio-seems-down-warning{
 	margin-top:1rem;
 	font-weight:bold;
+}
+
+#extension-matter-adapter-thread-radio-noise-container{
+	margin:2rem 0;
 }
 
 
@@ -465,7 +494,18 @@
 	margin-left: 2rem;
 }
 
+.extension-matter-adapter-item-details-property-description-value{
+	text-align:right;
+}
 
+
+.extension-matter-adapter-item-details-accepted-commands:not(:empty)::before{
+	content:'Accepted commands';
+	display:block;
+	width:100%;
+	font-style:italic;
+	margin-bottom:1rem;
+}
 .extension-matter-adapter-item-details-accepted-commands > span{
 	display: inline-block;
 	padding:1rem;

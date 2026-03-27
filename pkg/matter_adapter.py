@@ -55,7 +55,7 @@ from .matter_util import *
 try:
     from .matter_adapter_api_handler import *
 except Exception as ex:
-    self.s_print("Error, unable to load MatterAdapterApiHandler (which is used for UI extention): " + str(ex))
+    print("Error, unable to load MatterAdapterApiHandler (which is used for UI extention): " + str(ex))
 
 import traceback
 
@@ -201,7 +201,7 @@ class MatterAdapter(Adapter):
         self.discovered = []
         self.nodes = []
         
-        self.switch_events = ['Switch latched','Initial press','Long press','Short release','Long release','Multi press ongoing','Multi press complete']
+        #self.switch_events = ['Switch latched','Initial press','Long press','Short release','Long release','Multi press ongoing','Multi press complete']
         
         self.certificates_updated = False
         self.busy_updating_certificates = False
@@ -214,13 +214,17 @@ class MatterAdapter(Adapter):
         self.pairing_phase = 0
         self.pairing_phase_message = 'Starting'
         self.pairing_attempt = -1
-        
-        self.brightness_transition_time = 0
-        
-        self.share_node_code = "" # used with open window
+        self.pairing_method = None # i.e. bluetooth
+        self.last_decoded_pairing_code = ''
         self.last_found_pairing_code = ''
+        self.last_found_pin_code = ''
+        self.last_used_pairing_type = None
+        
         self.device_was_deleted = False # set to True is a device is deleted from the Matter fabric
         
+        self.share_node_code = "" # used with open window
+         
+        self.brightness_transition_time = 0
         
         self.add_hacky_properties = True
         
@@ -256,6 +260,21 @@ class MatterAdapter(Adapter):
         
         self.completed_command_clusters = [] # Will be filled with cluster_id's that have already been lookup up through get_commands_for_cluster_id
         self.commands_lookup = {} # will be filled as needed by calling get_commands_for_cluster_id(). The first key is the cluster_name
+        
+        # Matter time sync
+        self.matter_devices_with_time_sync = []
+        self.time_sync_interval = 3600 # every hour sync the clocks
+        self.last_time_sync_time = time.time() #int(str(run_command('date +%s')).strip().rstrip())
+        self.timezone_name = str(run_command('date +%Z')).strip().rstrip()
+        
+            
+        #print("self.user_profile: ", self.user_profile)
+        #print("")
+        #print("self.preferences: ", self.preferences)
+        #print("")
+        
+        
+        
         
         # Hotspot
         self.use_hotspot = True
@@ -1546,6 +1565,11 @@ class MatterAdapter(Adapter):
                             self.s_print("open_commissioning_window failed")
                         self.share_node_code = ""
                         self.pairing_failed = True
+                    
+                    elif message['message_id'] == 'timesync_command':
+                        if self.DEBUG:
+                            self.s_print("timesync_command failed: ", message)
+                        
                     else:
                         if self.DEBUG:
                             self.s_print("interesting, an unanticipated error message. message_id: " + str(message['message_id']))
@@ -1899,203 +1923,228 @@ class MatterAdapter(Adapter):
         return False
 
 
-
-
-    def start_matter_pairing(self,pairing_type,code):
+    def start_matter_pairing(self,pairing_type=None):
         if self.DEBUG:
-            self.s_print("\n\n\n\nin start_matter_pairing. Pairing type: " + str(pairing_type) + ", Code: " + str(code))
-        self.pairing_failed = False
-        # Download the latest certificates if they haven't been updated in a while
-        self.download_certs()
-        
-        self.pairing_attempt += 1
-        if self.pairing_attempt >= 4:
-            self.pairing_failed = True
-            self.pairing_phase = -1
-            self.pairing_attempt = -1
-            self.pairing_phase_message = 'All three pairing attempts failed'
-            self.busy_pairing = False
-            return
-        
-        if self.thread_dataset == '' and self.thread_radio_is_alive_count > 2:
-            if self.DEBUG:
-                self.s_print("\nERROR: start_matter_pairing: no self.thread_dataset yet!\n")
+            self.s_print("\n\n\n\nin start_matter_pairing. Pairing type: " + str(pairing_type))
+        try:
             
-            #if self.thread_dataset == '':
-            #    if self.DEBUG:
-            #        self.s_print("\nWARNING: start_matter_pairing: self.thread_dataset was still empty, but thread radio seems to be alive. Attempting to get thread dataset.")
-            #    active_dataset = self.run_ot_ctl_command('dataset active -x')
-            #    if isinstance(active_dataset,str) and 'Done' in active_dataset:
-            #        self.thread_dataset = str(active_dataset).replace('Done','').strip().rstrip()
+            self.pairing_failed = False
+            self.pairing_phase = 0
+            self.busy_pairing = True
+            # Download the latest certificates if they haven't been updated in a while
+            self.download_certs()
         
-        if self.DEBUG:
-            self.s_print("start_matter_pairing: self.thread_dataset: ", self.thread_dataset)
-        
-        # TODO call chip-tool binary directly if need be, or as a fall-back
-        #if str(code).upper().startswith('MT:'):
-        #    expanded_code = self.parse_mt_pairing_code(code)
-        #    self.s_print("start_matter_pairing: expanded_code: ", expanded_code)
-        
-        is_thread_device = False
-        
-        if is_thread_device and self.last_found_pairing_code and len(str(self.thread_dataset)) > 40:
-            try:
+            if isinstance(pairing_type,str) and 'commission' in pairing_type:
                 if self.DEBUG:
-                    self.s_print("\n\nstart_matter_pairing: attempting to decode self.last_found_pairing_code: \n->" + str(self.last_found_pairing_code) + "<--")
-                decoded_pairing_code = self.parse_mt_pairing_code(str(self.last_found_pairing_code))
+                    print("start_matter_pairing: setting last_used_pairing_type to: ", pairing_type)
+                self.last_used_pairing_type = pairing_type
+            elif self.last_used_pairing_type != None:
+                pairing_type = self.last_used_pairing_type
+        
+            self.pairing_attempt += 1
+            if self.pairing_attempt >= 5:
+                self.pairing_failed = True
+                self.pairing_phase = -1
+                self.pairing_attempt = -1
+                self.pairing_phase_message = 'All pairing attempts failed'
+                self.busy_pairing = False
+                return False
+        
+        
+        
+            if self.thread_dataset == '' and self.thread_radio_is_alive_count > 2:
                 if self.DEBUG:
-                    self.s_print('start_matter_pairing: decoded_pairing_code: \n\n', decoded_pairing_code, '\n\n')
-                
-                if isinstance(decoded_pairing_code,str) and 'Long discriminator:' in decoded_pairing_code and 'Passcode:' in decoded_pairing_code:
-                    
-                    vendor_id = ''
-                    if 'VendorID:' in decoded_pairing_code:
-                        vendor_id = decoded_pairing_code.split('VendorID:')[1]
-                        vendor_id = vendor_id.split('\n',1)[0]
-                        vendor_id = vendor_id.strip().rstrip()
-                    
-                    discriminator = decoded_pairing_code.split('Long discriminator:')[1]
-                    discriminator = discriminator.split('(')[0].strip().rstrip()
-                    
-                    passcode = decoded_pairing_code.split('Passcode:')[1]
-                    passcode = passcode.strip().rstrip().strip().rstrip()
-                    
+                    self.s_print("\nERROR: start_matter_pairing: no self.thread_dataset yet!\n")
+            
+                #if self.thread_dataset == '':
+                #    if self.DEBUG:
+                #        self.s_print("\nWARNING: start_matter_pairing: self.thread_dataset was still empty, but thread radio seems to be alive. Attempting to get thread dataset.")
+                #    active_dataset = self.run_ot_ctl_command('dataset active -x')
+                #    if isinstance(active_dataset,str) and 'Done' in active_dataset:
+                #        self.thread_dataset = str(active_dataset).replace('Done','').strip().rstrip()
+        
+            if self.DEBUG:
+                self.s_print("start_matter_pairing: self.thread_dataset: ", self.thread_dataset)
+        
+            # TODO call chip-tool binary directly if need be, or as a fall-back
+            #if str(code).upper().startswith('MT:'):
+            #    expanded_code = self.parse_mt_pairing_code(code)
+            #    self.s_print("start_matter_pairing: expanded_code: ", expanded_code)
+        
+            is_thread_device = False
+        
+            if self.pairing_attempt == 4:
+                is_thread_device = True
+            
+            if is_thread_device and self.last_found_pairing_code and len(str(self.thread_dataset)) > 40:
+                try:
                     if self.DEBUG:
-                        self.s_print('start_matter_pairing:  vendor_id: -->' + str(vendor_id) + '<--', len(vendor_id))
-                        self.s_print('start_matter_pairing:  discriminator: -->' + str(discriminator) + '<--', len(discriminator))
-                        self.s_print('start_matter_pairing:  passcode: -->' + str(passcode) + '<--', len(passcode))
+                        self.s_print("\n\nstart_matter_pairing: attempting to decode self.last_found_pairing_code: \n->" + str(self.last_found_pairing_code) + "<--")
                 
-                    if len(discriminator) == 4 and len(passcode) == 8:
-                        
-                        # ./chip-tool pairing ble-thread 1301 hex:[LONGHEX] 20202021 3840
-                        pairing_command = 'pairing ble-thread ' + str(self.persistent_data['thing_index']) + ' hex:' + str(self.thread_dataset) + ' ' + str(passcode) + ' ' + str(discriminator)
-                        if self.DEBUG:
-                            self.s_print("\n\npairing_command: " + str(pairing_command) + "\n\n")
-                            
-                        self.persistent_data['thing_index'] += 1
-                        self.should_save = True
-                        
+                
+                    if isinstance(self.last_decoded_pairing_code,str) and 'Long discriminator:' in self.last_decoded_pairing_code and 'Passcode:' in self.last_decoded_pairing_code:
+                    
                         self.turn_wifi_back_on_at = time.time() + 60
-                        
-                        self.pairing_phase = 15
-                        self.pairing_phase_message = 'Turning of WiFi temporarily in an attempt to limit Bluetooth interference'
-                        time.sleep(1)
-                        run_command('nmcli radio wifi off')
-                        time.sleep(1)
-                        
-                        #os.system('sudo btmgmt -i hci0 power off')
-                        #os.system('sudo btmgmt -i hci0 bredr off')
-                        #os.system('sudo btmgmt -i hci0 power on')
-                        #time.sleep(1)
-                        
-                        pairing_output = self.run_chip_tool_command(pairing_command)
+                        self.pairing_phase_message = 'Turning of WiFi for 60 seconds in an attempt to limit Bluetooth interference'
+                        time.sleep(3)
+                    
+                        vendor_id = ''
+                        if 'VendorID:' in self.last_decoded_pairing_code:
+                            vendor_id = self.last_decoded_pairing_code.split('VendorID:')[1]
+                            vendor_id = vendor_id.split('\n',1)[0]
+                            vendor_id = vendor_id.strip().rstrip()
+                    
+                        discriminator = self.last_decoded_pairing_code.split('Long discriminator:')[1]
+                        discriminator = discriminator.split('(')[0].strip().rstrip()
+                    
+                        passcode = decoded_pairing_code.split('Passcode:')[1]
+                        passcode = passcode.strip().rstrip().strip().rstrip()
+                    
                         if self.DEBUG:
-                            self.s_print("\n\n--->\n\nun_chip_tool_command pairing_output: " + str(pairing_output))
+                            self.s_print('start_matter_pairing:  vendor_id: -->' + str(vendor_id) + '<--', len(vendor_id))
+                            self.s_print('start_matter_pairing:  discriminator: -->' + str(discriminator) + '<--', len(discriminator))
+                            self.s_print('start_matter_pairing:  passcode: -->' + str(passcode) + '<--', len(passcode))
+                
+                        if len(discriminator) == 4 and len(passcode) == 8:
                         
-                        return True
+                            # ./chip-tool pairing ble-thread 1301 hex:[LONGHEX] 20202021 3840
+                            pairing_command = 'pairing ble-thread ' + str(self.persistent_data['thing_index']) + ' hex:' + str(self.thread_dataset) + ' ' + str(passcode) + ' ' + str(discriminator)
+                            if self.DEBUG:
+                                self.s_print("\n\npairing_command: " + str(pairing_command) + "\n\n")
+                            
+                            self.persistent_data['thing_index'] += 1
+                            self.should_save = True
                         
+                            self.turn_wifi_back_on_at = time.time() + 60
+                        
+                            self.pairing_phase = 15
+                            self.pairing_phase_message = 'Turning of WiFi for 15 seconds in an attempt to limit Bluetooth interference'
+                            time.sleep(1)
+                            run_command('nmcli radio wifi off')
+                            time.sleep(1)
+                        
+                            #os.system('sudo btmgmt -i hci0 power off')
+                            #os.system('sudo btmgmt -i hci0 bredr off')
+                            #os.system('sudo btmgmt -i hci0 power on')
+                            #time.sleep(1)
+                        
+                            pairing_output = self.run_chip_tool_command(pairing_command)
+                            if self.DEBUG:
+                                self.s_print("\n\n--->\n\nun_chip_tool_command pairing_output: " + str(pairing_output))
+                        
+                            return True
+                        
+                        else:
+                            if self.DEBUG:
+                                self.s_print("discriminator and passcode were of unexpected length: ", len(discriminator), len(passcode))
+                
                     else:
                         if self.DEBUG:
-                            self.s_print("discriminator and passcode were of unexpected length: ", len(discriminator), len(passcode))
-                
-                else:
+                            self.s_print("ERROR, was unable to decode the pairing code? ", self.last_decoded_pairing_code)
+                    # ./chip-tool pairing ble-thread 1301 hex:[LONGHEX] 20202021 3840
+                    
+                except Exception as ex:
+                    self.s_print("start_matter_pairing: caught error trying to unpack matter pairing code: ", ex)
+            
+                return False
+        
+        
+        
+            #return
+        
+        
+        
+            try:
+                if self.client_connected:
                     if self.DEBUG:
-                        self.s_print("ERROR, was unable to decode the pairing code? ", decoded_pairing_code)
-                # ./chip-tool pairing ble-thread 1301 hex:[LONGHEX] 20202021 3840
+                        self.s_print("start_pairing: Client is connected, so sending commissioning code to Matter server.")
+        
+                    self.busy_pairing = True
+                    self.pairing_phase_message = 'Setting credentials'
+        
+                
+                    # Set the wifi credentials
+                    if self.pairing_attempt == 0:
+                        self.set_wifi_credentials()
+                        self.pairing_phase = 2
+                        self.set_thread_dataset()
+                        self.pairing_phase = 4
+                        self.pairing_phase_message = 'Credentials set'
+                
+                    self.pairing_phase = 6
+                
+                    if self.pairing_attempt == 2:
+                        self.pairing_phase_message = 'Turning of WiFi for 60 seconds in an attempt to limit Bluetooth interference'
+                        self.turn_wifi_back_on_at = time.time() + 60
+                        time.sleep(3) # TODO: Dodgy
+                    if self.pairing_attempt == 3:
+                        self.pairing_phase_message = 'Turning of WiFi for 30 seconds in an attempt to limit Bluetooth interference'
+                        self.turn_wifi_back_on_at = time.time() + 30
+                        time.sleep(3) # TODO: Dodgy
                     
+                    
+                    self.pairing_phase = 6
+                    if self.pairing_attempt == 2 or self.pairing_attempt == 3:
+                        run_command('nmcli radio wifi off')
+                        time.sleep(1)
+                    self.pairing_phase = 8
+                
+                    if self.pairing_attempt == 0 or self.pairing_attempt == 2:
+                        self.pairing_phase_message = 'Turning Bluetooth off and on again first, perhaps that will help'
+                        os.system('sudo btmgmt -i hci0 power off')
+                        if self.pairing_attempt == 2:
+                            os.system('sudo btmgmt -i hci0 bredr off')
+                        time.sleep(1)
+                        os.system('sudo btmgmt -i hci0 power on')
+                        time.sleep(6)
+                    self.pairing_phase = 10
+                
+                    # create pairing message
+                    message = None
+                    if pairing_type == 'commission_with_code':
+                        message = {
+                                "message_id": "commission_with_code",
+                                "command": "commission_with_code",
+                                "args": {
+                                    "code": self.last_found_pairing_code,
+                                    "network_only": False # NEW
+                                }
+                            }
+            
+                    elif pairing_type == 'commission_on_network': #1234567
+                        message = {
+                                "message_id": "commission_on_network",
+                                "command": "commission_on_network",
+                                "args": {
+                                    "setup_pin_code": self.last_found_pin_code
+                                }
+                            }
+                
+                
+                    if self.DEBUG:
+                        self.s_print("\nstart_matter_pairing: sending this message: \n", json.dumps(message,indent=4))
+                
+                    # Send pairing message
+                    if message != None:
+                        json_message = json.dumps(message)
+                        self.ws.send(json_message)
+                        self.pairing_phase = 20
+                        self.pairing_phase_message = 'Pairing in progress'
+                        return True
+            
+                else:
+                    self.pairing_phase_message = 'Error, Matter is not running'
+                    if self.DEBUG:
+                         self.s_print("start_matter_pairing: error, client is not connected")
+                         self.send_pairing_prompt("Error, Matter client is not connected")
+            
             except Exception as ex:
-                self.s_print("start_matter_pairing: caught error trying to unpack matter pairing code: ", ex)
-            
-            return False
-        
-        
-        
-        #return
-        
-        
-        
-        try:
-            if self.client_connected:
-                if self.DEBUG:
-                    self.s_print("start_pairing: Client is connected, so sending commissioning code to Matter server.")
-        
-                self.busy_pairing = True
-                self.pairing_phase_message = 'Setting credentials'
-        
+                self.s_print("caught error in start_pairing: " + str(ex))
+                self.pairing_phase_message = 'An unexpected error occured while trying to start pairing'
                 
-                # Set the wifi credentials
-                self.set_wifi_credentials()
-                self.pairing_phase = 2
-                self.set_thread_dataset()
-                self.pairing_phase = 4
-                self.pairing_phase_message = 'Credentials set'
-                
-                if self.pairing_attempt == 2:
-                    self.pairing_phase_message = 'Turning of WiFi temporarily in an attempt to limit Bluetooth interference'
-                    self.turn_wifi_back_on_at = time.time() + 45
-                    time.sleep(3) # TODO: Dodgy
-                if self.pairing_attempt == 3:
-                    self.pairing_phase_message = 'Turning of WiFi temporarily in an attempt to limit Bluetooth interference'
-                    self.turn_wifi_back_on_at = time.time() + 15
-                    time.sleep(3) # TODO: Dodgy
-                    
-                    
-                self.pairing_phase = 6
-                if self.pairing_attempt == 2 or self.pairing_attempt == 3:
-                    run_command('nmcli radio wifi off')
-                    time.sleep(1)
-                self.pairing_phase = 8
-                
-                if self.pairing_attempt == 1 or self.pairing_attempt == 2:
-                    self.pairing_phase_message = 'Turning Bluetooth off and on again first, perhaps that will help'
-                    os.system('sudo btmgmt -i hci0 power off')
-                    os.system('sudo btmgmt -i hci0 bredr off')
-                    os.system('sudo btmgmt -i hci0 power on')
-                    time.sleep(1)
-                self.pairing_phase = 10
-                
-                # create pairing message
-                message = None
-                if pairing_type == 'commission_with_code':
-                    message = {
-                            "message_id": "commission_with_code",
-                            "command": "commission_with_code",
-                            "args": {
-                                "code": code,
-                                "network_only": False # NEW
-                            }
-                        }
-            
-                elif pairing_type == 'commission_on_network': #1234567
-                    message = {
-                            "message_id": "commission_on_network",
-                            "command": "commission_on_network",
-                            "args": {
-                                "setup_pin_code": code 
-                            }
-                        }
-                
-                
-                if self.DEBUG:
-                    self.s_print("\nstart_matter_pairing: sending this message: \n", json.dumps(message,indent=4))
-                
-                # Send pairing message
-                if message != None:
-                    json_message = json.dumps(message)
-                    self.ws.send(json_message)
-                    self.pairing_phase = 20
-                    self.pairing_phase_message = 'Pairing in progress'
-                    return True
-            
-            else:
-                self.pairing_phase_message = 'Error, Matter is not running'
-                if self.DEBUG:
-                     self.s_print("start_matter_pairing: error, client is not connected")
-                     self.send_pairing_prompt("Error, Matter client is not connected")
-            
         except Exception as ex:
-            self.s_print("caught error in start_pairing: " + str(ex))
-            self.pairing_phase_message = 'An unexpected error occured while trying to start pairing'
+            self.s_print("start_matter_pairing: caught error: ", ex)
+        
         self.pairing_phase = 0
         #self.busy_pairing = False
         return False
@@ -2316,12 +2365,11 @@ class MatterAdapter(Adapter):
                             self.pairing_phase = -1
                             self.pairing_phase_message = 'Interviewing the Matter device failed'
                     if 'Commission with code failed for node' in line:
-                        if self.pairing_attempt < 4:
+                        if self.pairing_attempt < 5:
                             if self.DEBUG:
                                 self.s_print("Pairing failed, but will try again")
                             self.send_pairing_prompt("Pairing failed.. Trying again..")
                             self.pairing_phase_message = 'Pairing failed.. Trying again..'
-                            self.pairing_phase = 0
                             self.start_matter_pairing()
                         else:
                             self.pairing_failed = True
@@ -2389,6 +2437,8 @@ class MatterAdapter(Adapter):
                             device_index = line.split('<Node:')[1]
                             if '>' in device_index:
                                 device_index = device_index.split('>')[0]
+                                if self.DEBUG:
+                                    print("device seems to have become unavailable: ", device_index)
                                 if device_index.isdigit():
                                     device_id = 'matter-' + str(device_index)
                                     target_device = self.get_device(device_id)
@@ -2400,6 +2450,8 @@ class MatterAdapter(Adapter):
                         if ' Node ' in line:
                             device_index = line.split(' Node ')[1]
                             device_index = device_index.split('is not (yet) available')[0]
+                            if self.DEBUG:
+                                print("Device not available (yet): ", device_index)
                             if device_index.isdigit():
                                 device_id = 'matter-' + str(device_index)
                                 target_device = self.get_device(device_id)
@@ -2428,7 +2480,28 @@ class MatterAdapter(Adapter):
                 self.should_save = False
                 self.save_persistent_data()
 
-
+            
+            
+            
+            # Synchronize time
+            now_stamp = time.time()
+            if now_stamp - self.last_time_sync_time > self.time_sync_interval:
+                if self.DEBUG:
+                    print("CLOCK: time to sync time")
+                self.last_time_sync_time = now_stamp
+            
+                self.timezone_name = str(run_command('date +%Z')).strip().rstrip()
+                #self.timezone_offset = str(run_command('date +%z')).strip().rstrip()
+                #self.timestamp = int(str(run_command('date +%s')).strip().rstrip())
+                
+                for device_id in self.matter_devices_with_time_sync:
+                    if not str(device_id).startswith('matter-'):
+                        device_id = 'matter-' + str(device_id)
+                    target_device = self.get_device(device_id)
+                    if target_device:
+                        target_device.sync_time()
+            
+            
     
     #def something_happened(self, message):
     #    self.s_print("\n\nBINGO\nin something_happened. Message: " + str(message))
@@ -2761,10 +2834,10 @@ class MatterAdapter(Adapter):
                     
                                     
                     
-                            else:
-                                target_event_property.update( 'None' )
-                                if self.DEBUG:
-                                    self.s_print("handle_event: no event id, so setting event property to None")
+                            #else:
+                            #    target_event_property.update( 'None' )
+                            #    if self.DEBUG:
+                            #        self.s_print("handle_event: no event id, so setting event property to None")
                         else:
                             if self.DEBUG:
                                 self.s_print("handle_event: did not find RecentEvent property")
@@ -2872,8 +2945,8 @@ class MatterAdapter(Adapter):
                     
                 process_node(node)
             
-                if self.DEBUG:
-                    self.s_print("parse_node: node after: \n", json.dumps(node,indent=2))
+                #if self.DEBUG:
+                #    self.s_print("parse_node: node after: \n", json.dumps(node,indent=2))
             
             else:
                 if self.DEBUG:
@@ -3020,15 +3093,17 @@ class MatterAdapter(Adapter):
         
         timeout -- Timeout in seconds at which to quit pairing
         """
-        if self.DEBUG:
-            self.s_print("in start_pairing. Timeout: " + str(timeout))
+        pass
+        #if self.DEBUG:
+        #    self.s_print("in start_pairing. Timeout: " + str(timeout))
         
         
     def cancel_pairing(self):
         """ Happens when the user cancels the pairing process."""
         # This happens when the user cancels the pairing process, or if it times out.
-        if self.DEBUG:
-            self.s_print("in cancel_pairing")
+        pass
+        #if self.DEBUG:
+        #    self.s_print("in cancel_pairing")
         
 
     def unload(self):

@@ -27,7 +27,7 @@ clusters_to_ignore = [
     "Descriptor",
     "Binding",
     #"AccessControl",
-    "Actions",
+    #"Actions",
     "OtaSoftwareUpdateProvider",
     "OtaSoftwareUpdateRequestor",
     "LocalizationConfiguration",
@@ -42,8 +42,8 @@ clusters_to_ignore = [
     "ThreadNetworkDiagnostics",
     "WiFiNetworkDiagnostics",
     "EthernetNetworkDiagnostics",
-    "TimeSynchronization",
-    "BridgedDeviceBasicInformation",
+    #"TimeSynchronization",
+    #"BridgedDeviceBasicInformation",
     "AdministratorCommissioning",
     "OperationalCredentials",
     "GroupKeyManagement",
@@ -66,7 +66,7 @@ clusters_to_ignore = [
     "ApplicationLauncher",
     "ApplicationBasic",
     "AccountLogin",
-    "ContentControl",
+    #"ContentControl",
     "ContentAppObserver",
     "ZoneManagement",
     #"CameraAvStreamManagement",
@@ -81,7 +81,7 @@ clusters_to_ignore = [
     "TlsCertificateManagement",
     "TlsClientManagement",
     #"MeterIdentification",
-    "CommodityMetering",
+    #"CommodityMetering",
     "UnitTesting",
     "FaultInjection",
     "SampleMei",
@@ -571,11 +571,11 @@ def process_node(node):
             if cluster_name in clusters_to_ignore:
                 continue
                 
-            print("process_node:  cluster_id,cluster_name: ", cluster_id, cluster_name)
+            #print("process_node:  cluster_id,cluster_name: ", cluster_id, cluster_name)
             attribute_path = f"{ALL_CLUSTERS[cluster_id].__name__}.Attributes."
         else:
             if cluster_id not in cluster_warn:
-                print("Unknown cluster ID: {}".format(cluster_id))
+                print("util: process_node: nknown cluster ID: {}".format(cluster_id))
                 cluster_warn.add(cluster_id)
             cluster_name = f"{cluster_id} (unknown)"
             attribute_path = f"{cluster_id}.Attributes."

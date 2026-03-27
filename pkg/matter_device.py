@@ -19,12 +19,18 @@ try:
 except Exception as ex:
     print("Error loading matter_server parts: " + str(ex))
 
-import chip.clusters.Objects as cluster_details
+#import chip.clusters.Objects as cluster_details
+from chip.clusters import Objects as clusters
 
 from .matter_util import *
 
 import traceback
 
+
+# For TimeSynchronization
+from zoneinfo import ZoneInfo
+from datetime import timezone, datetime, timedelta
+#import tzdata
 
 #
 # DEVICE
@@ -55,6 +61,8 @@ class MatterDevice(Device):
         
         self.attribute_code_list = []
         self.attributes = None
+        
+        self.timesync_endpoint_id = None
         
         # Improve device title
         try:
@@ -232,6 +240,13 @@ class MatterDevice(Device):
                     'type':'string'},
                     #'enum':['PIR','Ultrasonic','PIRAndUltrasonic','PhysicalContact']},
                     
+                'OccupancySensing.Attributes.PIROccupiedToUnoccupiedDelay':{
+                    'title':'Delay',
+                    'readOnly': True,
+                    'type':'integer',
+                    'unit':'s'},
+                    
+                    
                 'SmokeCOAlarm.Attributes.AlarmStateEnum':{
                     'readOnly': True,
                     'type':'string'},
@@ -363,7 +378,7 @@ class MatterDevice(Device):
                             else:
                                 if self.DEBUG:
                                     print("\nattribute_code: ", attribute_code)
-                    
+                            
                             if not '.Attributes.' in str(attribute_code):
                                 if self.DEBUG:
                                     print("\nWARNING, no '.Attributes.' in attribute_code? ", attribute_code)
@@ -375,6 +390,16 @@ class MatterDevice(Device):
                                 if self.DEBUG:
                                     print("skipping FeatureMap")
                                 continue
+                            
+                            if cluster_name == 'TimeSynchronization' and not str(self.id) in self.adapter.matter_devices_with_time_sync:
+                                self.timesync_endpoint_id = int(endpoint_name.replace('Endpoint',''))
+                                self.adapter.matter_devices_with_time_sync.append(str(self.id))
+                                if self.DEBUG:
+                                    print("list of devices with timeSynchronization is now: ", self.adapter.matter_devices_with_time_sync)
+                            
+                                self.sync_time()
+                                
+                                
                             
                             #if not endpoint_name in self.adapter.persistent_data['nodez'][device_id]['attributes']:
                             #    if self.DEBUG:
@@ -458,6 +483,13 @@ class MatterDevice(Device):
                                 
                                 # GET VENDOR NAME, PRODUCT NAME, AND UNIQUE ID
                         
+                                """
+                                "vendor_name" "0/40/1"
+                                "product_name" "0/40/3"
+                                "node_label" "0/40/5"
+                                "serial_number" "0/40/15"
+                                """
+                        
                                 try:
                                     # Save vendor name in nodez dict
                                     if attribute_code in node['attributes_list'][endpoint_name]:
@@ -538,8 +570,12 @@ class MatterDevice(Device):
                                                 
                                                 if str(command_name).lower() == 'toggle' and not 'toggle' in self.added_actions:
                                                     self.added_actions.append('toggle')
-                                                    self.add_action("Toggle", {'endpoint_id':int(endpoint_name.replace('Endpoint',''))});
-                                                
+                                                    action_endpoint_id = int(endpoint_name.replace('Endpoint',''))
+                                                    if self.DEBUG:
+                                                        print("action_endpoint_id: ", action_endpoint_id)
+                                                    self.add_action("Toggle", {"endpoint_id":action_endpoint_id})
+                                                    if self.DEBUG:
+                                                        print("self.actions: ", self.actions)
                                             else:
                                                 if self.DEBUG:
                                                     print("COMMAND IS _NOT_ ACCEPTED: ", command_name)
@@ -717,7 +753,7 @@ class MatterDevice(Device):
                                         used_property_titles.append(property_title)
                                     else:
                                         if self.DEBUG:
-                                            print("WARNING, property title was already used: ", property_title)
+                                            print("warning, property title was already used: ", property_title)
                                         
                                         title_with_endpoint_number = property_title + ' ' + str(endpoint_name).replace('Endpoint','')
                                         if not title_with_endpoint_number in used_property_titles:
@@ -1430,6 +1466,7 @@ class MatterDevice(Device):
     def perform_action(self,action_object):
         if self.DEBUG:
             print("\n\ndebug: in perform_action\n\n")
+            print("action_object: ", action_object)
         try:
             
             command = None
@@ -1447,109 +1484,225 @@ class MatterDevice(Device):
             action_dict = action_object.as_dict()
             if self.DEBUG:
                 print("debug: action_dict: ", str(action_dict))
-            if 'endpoint_id' in action_dict:
-                endpoint_id = int(action_dict['endpoint_id'])
             
-            if endpoint_id == None:
-                if self.DEBUG:
-                    print("\nERROR: perform_action: no endpoint_id in action_dict: ", action_dict)
-                return
+            if action_dict and 'name' in action_dict:
+                if str(action_dict['name']) in self.actions:
+                    if 'endpoint_id' in self.actions[str(action_dict['name'])]:
+                        endpoint_id = int(self.actions[str(action_dict['name'])]['endpoint_id'])
+                        if self.DEBUG:
+                            print("OK, got an endpoint_id for action: ", endpoint_id, str(action_dict['name']))
+                
+                    if endpoint_id == None:
+                        if self.DEBUG:
+                            print("\nERROR: perform_action: no endpoint_id in action_dict: ", action_dict)
+                        return
         
-            if type(self.adapter.persistent_data['volume']) == int and action_dict and action_dict['name']:
-                if self.DEBUG:
-                    print("debug: performing action.  action_dict.name: ", action_dict['name'])
                 
-                if action_dict['name'] == 'Toggle':
-                    command = clusters.OnOff.Commands.Toggle()
-                else:
                     if self.DEBUG:
-                        print("matter adapter debug: unexpected action: ", str(action_dict))
+                        print("debug: performing action.  action_dict.name: ", action_dict['name'])
+                
+                    if str(action_dict['name']) == 'Toggle':
+                        command = clusters.OnOff.Commands.Toggle()
+                    else:
+                        if self.DEBUG:
+                            print("matter adapter debug: unexpected action: ", str(action_dict))
         
-            else:
-                if self.DEBUG:
-                    print("debug: perform_action: bad action")
-            
-            if command != None:
-                try:
-                    command_name = command.__class__.__name__
-                    if self.DEBUG:
-                        print("perform_action: command_name from command: ", command_name)
-                except:
-                    if self.DEBUG:
-                        print("\nERROR: perform_action: getting command_name failed")
-                    try:
-                        command_name = command.__name__
-                    except:
-                        if self.DEBUG:
-                            print("\nERROR: perform_action: getting command_name failed twice")
+                    if command != None:
+                        try:
+                            command_name = command.__class__.__name__
+                            if self.DEBUG:
+                                print("perform_action: command_name from command: ", command_name)
+                        except:
+                            if self.DEBUG:
+                                print("\nERROR: perform_action: getting command_name failed")
+                            try:
+                                command_name = command.__name__
+                            except:
+                                if self.DEBUG:
+                                    print("\nERROR: perform_action: getting command_name failed twice")
                         
                 
-                if command_name == None:
-                    if self.DEBUG:
-                        print("\nERROR: perform_action: aborting action: getting command_name failed")
-                    return
+                        if command_name == None:
+                            if self.DEBUG:
+                                print("\nERROR: perform_action: aborting action: getting command_name failed")
+                            return
                 
                 
                 
                 
-                if self.DEBUG:
-                    #print("set_value: dir of command: ", dir(command))
-                    print("debug: perform_action: node_id: ", self.node_id)
-                    print("debug: perform_action: self.details['endpoint']: ", self.details['endpoint'])
-                    print("debug: perform_action: command.cluster_id", command.cluster_id)
-                    print("debug: perform_action: command.command_id", command.command_id)
-                    print("debug: perform_action: command_name: ", command_name)
+                        if self.DEBUG:
+                            #print("set_value: dir of command: ", dir(command))
+                            print("debug: perform_action: node_id: ", self.node_id)
+                            print("debug: perform_action: endpoint_id: ", endpoint_id)
+                            print("debug: perform_action: command.cluster_id", command.cluster_id)
+                            print("debug: perform_action: command.command_id", command.command_id)
+                            print("debug: perform_action: command_name: ", command_name)
                     
                     
                 
-                #command = clusters.OnOff.Commands.Toggle() # test
-                payload = dataclass_to_dict(command)
-                if self.DEBUG:
-                    print("debug: perform_action: set_value: payload: payload,payload.keys(): ", payload, payload.keys())
-                #if len(payload.keys()):
-                if self.DEBUG:
-                    print("\n\ndebug: perform_action: Forwarding value to Matter server. payload as dict: " + str(payload))
+                        #command = clusters.OnOff.Commands.Toggle() # test
+                        payload = dataclass_to_dict(command)
+                        if self.DEBUG:
+                            print("debug: perform_action: set_value: payload: payload,payload.keys(): ", payload, payload.keys())
+                        #if len(payload.keys()):
+                        if self.DEBUG:
+                            print("\n\ndebug: perform_action: Forwarding value to Matter server. payload as dict: " + str(payload))
                 
-                message = {
-                    "message_id": "action_command",
-                    "command": "device_command",
-                    "args": {
-                        "node_id": int(self.node_id),
-                        "endpoint_id": int(endpoint_id),
-                        "payload": payload,
-                        "cluster_id": int(command.cluster_id),
-                        "command_name": str(command_name)
-                    }
-                  }
+                        message = {
+                            "message_id": "action_command",
+                            "command": "device_command",
+                            "args": {
+                                "node_id": int(self.node_id),
+                                "endpoint_id": int(endpoint_id),
+                                "payload": payload,
+                                "cluster_id": int(command.cluster_id),
+                                "command_name": str(command_name)
+                            }
+                          }
             
                 
-                if message != None:
+                        if message != None:
                     
-                    # send device command
-                    if self.DEBUG:
-                        dump = json.dumps(message, sort_keys=True, indent=4, separators=(',', ': '))
-                        if self.DEBUG:
-                            print("\n.\n) ) )\n.\ndebug: perform_action: sending change value message to the Matter network: " + str(dump))
-                    json_message = json.dumps(message)
+                            # send device command
+                            if self.DEBUG:
+                                dump = json.dumps(message, sort_keys=True, indent=4, separators=(',', ': '))
+                                if self.DEBUG:
+                                    print("\n.\n) ) )\n.\ndebug: perform_action: sending change value message to the Matter network: " + str(dump))
+                            json_message = json.dumps(message)
                     
-                    if self.device.adapter.ws:
+                            if self.adapter.ws:
                         
-                        action_object.start()
+                                action_object.start()
                         
-                        was_sent = self.device.adapter.ws.send(json_message)
-                        if self.DEBUG:
-                            print("debug: perform_action: message sent? was_sent: ", was_sent)
-                        #self.update(value)
+                                was_sent = self.adapter.ws.send(json_message)
+                                if self.DEBUG:
+                                    print("debug: perform_action: message sent? was_sent: ", was_sent)
+                                #self.update(value)
                         
-                        # Hopefully a new event message will arrive so that the value gets set
-                        time.sleep(.1)
-                        action_object.finish()
-                
+                                # Hopefully a new event message will arrive so that the value gets set
+                                time.sleep(.1)
+                                action_object.finish()
+                                
+                            else:
+                                if self.DEBUG:
+                                    print("no websocket connection, cannot send message")
                 
                 
             
         except Exception as ex:
             if self.DEBUG:
                 print("debug: perform_action: caught error in perform action: ", str(ex))
+                print(traceback.format_exc())
+
+            
+    def sync_time(self):
+        if self.DEBUG:
+            print("Device: in sync_time")
+            # https://github.com/project-chip/connectedhomeip/blob/master/src/python_testing/matter_testing_infrastructure/matter/testing/timeoperations.py
+        try:
+            matter_epoch_start = datetime(2000, 1, 1, tzinfo=timezone.utc)
         
+            #utc_native = datetime.now(tz=timezone.utc)
+            
+            #utc_th_delta = utc_native - datetime(2000, 1, 1, 0, 0, 0, 0, timezone.utc)
+            #utc_th_delta_micros = int(utc_th_delta.total_seconds() * 1000000)
+        
+            try:
+                tz = ZoneInfo(self.adapter.timezone_name)
+            except Exception as ex:
+                print("caught error getting timezone info: ", ex)
+                tz = ZoneInfo("UTC")
+            
+            #utc_native = datetime.now(tz=timezone.utc)
+            #utc_th_delta = utc_native - datetime(2000, 1, 1, 0, 0, 0, 0, timezone.utc)
+            #int(utc_th_delta.total_seconds() * 1000000)
+        
+        
+        
+        
+            now = datetime.now(tz)
+            utc_now = now.astimezone(ZoneInfo("UTC"))
+
+            total_offset = int(now.utcoffset().total_seconds()) if now.utcoffset() else 0
+            utc_offset = total_offset
+            dst_offset = 0
+            dt_utc = utc_now.astimezone(timezone.utc)
+            microstamp = int((dt_utc - matter_epoch_start).total_seconds() * 1000000)
+            a_year_later = microstamp + 31536000000000
+        
+            for command_id in ['SetTimeZone','SetDSTOffset','SetUTCTime']:
+                if self.DEBUG:
+                    print("\nsync_time: command_id: ", command_id)
+        
+                command_name = None
+                command = None
+                
+                if command_id == 'SetTimeZone':
+                    command = clusters.TimeSynchronization.Commands.SetTimeZone()
+                elif command_id == 'SetDSTOffset':
+                    command = clusters.TimeSynchronization.Commands.SetDSTOffset()
+                elif command_id == 'SetUTCTime':
+                    command = clusters.TimeSynchronization.Commands.SetUTCTime()
+        
+                if not command:
+                    if self.DEBUG:
+                        print("error: sync_time: no command")
+                    continue
+            
+                try:
+                    command_name = command.__class__.__name__
+                except:
+                    try:
+                        command_name = command.__name__
+                    except:
+                        if self.DEBUG:
+                            print("\nERROR: device sync_time: getting command_name failed twice")
+        
+                if command_name:
+                    if self.DEBUG:
+                        print("sync_time: command_name: ", command_name)
+                    #command = clusters.OnOff.Commands.Toggle() # test
+                    payload = dataclass_to_dict(command)
+                    if command_id == 'SetTimeZone':
+                        payload["timeZone"] = [{"offset": utc_offset, "validAt": 0}]
+                    elif command_id == 'SetDSTOffset':
+                        payload["DSTOffset"] = [{"offset": dst_offset, "validStarting": 0, "validUntil": a_year_later,}]
+                    elif command_id == 'SetUTCTime':
+                        payload["SetUTCTime"] = {"UTCTime": microstamp,"granularity": 4,}
+                
+                    message = {
+                        "message_id": "timesync_command",
+                        "command": "device_command",
+                        "args": {
+                            "node_id": int(self.node_id),
+                            "endpoint_id": self.timesync_endpoint_id,
+                            "payload": payload,
+                            "cluster_id": int(command.cluster_id),
+                            "command_name": str(command_name)
+                        }
+                      }
+        
+            
+                    if message != None:
+                
+                        # send device command
+                        if self.DEBUG:
+                            dump = json.dumps(message, sort_keys=True, indent=4, separators=(',', ': '))
+                            if self.DEBUG:
+                                print("\n.\n) ) )\n.\ndebug: sync_time: sending change value message to the Matter network: " + str(dump))
+                        json_message = json.dumps(message)
+                
+                        if self.adapter.ws:
+                            was_sent = self.adapter.ws.send(json_message)
+                            if self.DEBUG:
+                                print("debug: sync_time: message sent? was_sent: ", was_sent)
+                    
+            
+        except Exception as ex:
+            if self.DEBUG:
+                print("caught error in sync_time: ", ex)
+                print(traceback.format_exc())
+            
+       
+            
         

@@ -14,6 +14,7 @@ import time
 import requests
 from gateway_addon import APIHandler, APIResponse
 
+import traceback
 
 
 class MatterAPIHandler(APIHandler):
@@ -216,6 +217,7 @@ class MatterAPIHandler(APIHandler):
                                             print('decoded_pairing_code: ', decoded_pairing_code)
                                     except Exception as ex:
                                         print("caught error trying to unpack matter pairing code: ", ex)
+                                        print(traceback.format_exc())
                                     
                                     
                                 else:
@@ -268,6 +270,7 @@ class MatterAPIHandler(APIHandler):
                         except Exception as ex:
                             if self.DEBUG:
                                 print("Error in discover request: " + str(ex))
+                                print(traceback.format_exc())
                         
                         return APIResponse(
                           status=200,
@@ -307,9 +310,11 @@ class MatterAPIHandler(APIHandler):
                             if 'pairing_type' in request.body and 'code' in request.body:
                             
                                 pairing_type = str(request.body['pairing_type'])
+                                code = request.body['code']
+                                
                                 
                                 # commission_with_code
-                                if pairing_type == 'commission_with_code':
+                                if pairing_type == 'commission_with_code' or pairing_type == 'commission_on_network':
                                     if 'wifi_ssid' in request.body and 'wifi_password' in request.body and 'wifi_remember' in request.body:
                                         if self.DEBUG:
                                             print("OK all required parameters were provided")
@@ -327,22 +332,52 @@ class MatterAPIHandler(APIHandler):
                                                 self.adapter.persistent_data['wifi_password'] = str(request.body['wifi_password'])
                                                 self.adapter.should_save_persistent = True
                                     
+                                
+                                if pairing_type == 'commission_with_code':
+                                    
+                                    if code and isinstance(code,str) and len(code) > 10 and code.startswith('MT:'):
+                                        if self.DEBUG:
+                                            print("start_matter_pairing: setting last_found_pairing_code to: ", code)
+                                        self.adapter.last_found_pairing_code = code
+        
+                                        self.adapter.last_decoded_pairing_code = self.adapter.parse_mt_pairing_code(str(self.adapter.last_found_pairing_code))
+                                        if self.DEBUG:
+                                            print('start_matter_pairing: setting self.last_decoded_pairing_code: \n\n', self.adapter.last_decoded_pairing_code, '\n\n')
+                                    
+                                    
+                                        #device = request.body['device']
+                                        self.adapter.pairing_attempt = -1
+                                        self.adapter.pairing_phase = 0
+                                        self.adapter.pairing_phase_message = 'Preparing..'
+                                        state = self.adapter.start_matter_pairing(pairing_type) # device data isn't really needed, CHIP brute-force scans all devices on the network.
+                                    
                                 # commission_on_network
+                                elif pairing_type == 'commission_on_network':
+                                     if code and isinstance(code,str):
+                                         self.adapter.last_found_pin_code = code
+                                         
+                                         self.adapter.pairing_attempt = -1
+                                         self.adapter.pairing_phase = 0
+                                         self.adapter.pairing_phase_message = 'Preparing onboarding..'
+                                         state = self.adapter.start_matter_pairing(pairing_type) # device data isn't really needed, CHIP brute-force scans all devices on the network.
+                                
                                 else:
                                     if self.DEBUG:
-                                        print("OK all required parameters were provided")
+                                        print("unsupported pairing type")
+                               
+                                #else:
+                                #    if self.DEBUG:
+                                #        print("OK all required parameters were provided")
                                 
-                                code = str(request.body['code'])
-                                if len(code) > 3:
-                                    #device = request.body['device']
-                                    state = self.adapter.start_matter_pairing(pairing_type, code) # device data isn't really needed, CHIP brute-force scans all devices on the network.
+                                
                             else:
                                 if self.DEBUG:
-                                    print("\n\n\nERROR, NOT ALL DATA FOR PAIRING WAS PROVIDED")
+                                    print("\n\n\nERROR, NOT ALL PARAMETERS FOR PAIRING WERE PROVIDED")
                         
                         except Exception as ex:
                             if self.DEBUG:
                                 print("Error in start_pairing request: " + str(ex))
+                                print(traceback.format_exc())
                         
                         return APIResponse(
                           status=200,
@@ -359,12 +394,14 @@ class MatterAPIHandler(APIHandler):
                         
                         if self.adapter.busy_pairing and self.adapter.pairing_attempt != -1:
                             self.adapter.pairing_attempt = 100
+                        else:
+                            self.adapter.pairing_attempt = -1
                         self.adapter.busy_pairing = False
                         self.adapter.pairing_failed = False
-                        self.adapter.pairing_code = ""
+                        #self.adapter.pairing_code = ""
                         self.adapter.pairing_phase = 0
                         
-                        self.adapter.self.pairing_phase_message = 'Starting pairing process'
+                        self.adapter.pairing_phase_message = 'Starting pairing process'
                         
                         return APIResponse(
                           status=200,
@@ -458,6 +495,7 @@ class MatterAPIHandler(APIHandler):
                         except Exception as ex:
                             if self.DEBUG:
                                 print("caught error in change_attibute: ", ex)
+                                print(traceback.format_exc())
                         
                         if self.DEBUG:
                             print("change_attribute: final state: ", state)
@@ -517,6 +555,7 @@ class MatterAPIHandler(APIHandler):
                         except Exception as ex:
                             if self.DEBUG:
                                 print("Error deleting from nodez of things: " + str(ex))
+                                print(traceback.format_exc())
                             
                         try:
                             #if node_id in self.adapter.nodes:
@@ -542,6 +581,7 @@ class MatterAPIHandler(APIHandler):
                         except Exception as ex:
                             if self.DEBUG:
                                 print("caught error deleting from Matter: " + str(ex))
+                                print(traceback.format_exc())
                         
                         return APIResponse(
                           status=200,
@@ -580,6 +620,7 @@ class MatterAPIHandler(APIHandler):
                         except Exception as ex:
                             if self.DEBUG:
                                 print("Error in share_node: " + str(ex))
+                                print(traceback.format_exc())
                         
                         return APIResponse(
                           status=200,
@@ -602,6 +643,7 @@ class MatterAPIHandler(APIHandler):
                 except Exception as ex:
                     if self.DEBUG:
                         print("Ajax error: " + str(ex))
+                        print(traceback.format_exc())
                     return APIResponse(
                         status=500,
                         content_type='application/json',

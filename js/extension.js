@@ -1121,8 +1121,46 @@
 				if(typeof body.pairing_attempt == 'number'){
 					const pairing_attempt_el = this.view.querySelector('#extension-matter-adapter-pairing-attempt');
 					if(pairing_attempt_el){
-						pairing_attempt_el.textContent = "Pairing attempt " + (body.pairing_attempt + 1) + " of 3";
+						pairing_attempt_el.textContent = "Pairing attempt " + (body.pairing_attempt + 1) + " of 5";
 					}
+				
+				
+					
+					// PAIRING FAILED?
+	                if(typeof body.pairing_failed == 'boolean'){
+					
+						if(body.pairing_failed == true && body.pairing_attempt > 4){
+						
+							if(this.second_page_el){
+								if(this.second_page_el.classList.contains('extension-matter-adapter-busy-pairing')){
+		                            this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
+									this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
+								}
+							}
+						
+							if(this.busy_pairing){
+	                            if(this.debug){
+	                                console.log("matter adapter debug: MATTER PAIRING FAILED");
+	                            }
+	                            try{
+									if(window.matter_adapter_poll_interval){
+										clearInterval(window.matter_adapter_poll_interval);
+										this.total_busy_polling_counter = 0;
+									}
+	                                window.matter_adapter_poll_interval = null;
+	                			}
+	                			catch(e){
+	                				//console.log("no interval to clear? ", e);
+	                			}
+	                            this.busy_pairing = false;
+							}
+						}
+                    
+	                    //this.regenenerate_items();
+	                }
+				
+					
+				
 				}
 				
 				if(typeof body.extension_cable_recommended == 'boolean' && body.extension_cable_recommended == true){
@@ -1136,39 +1174,7 @@
 				
 				
 				
-                // PAIRING FAILED?
-                if(typeof body.pairing_failed == 'boolean'){
-					
-					if(body.pairing_failed == true){
-						
-						if(this.second_page_el){
-							if(this.second_page_el.classList.contains('extension-matter-adapter-busy-pairing')){
-	                            this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-								this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
-							}
-						}
-						
-						if(this.busy_pairing){
-                            if(this.debug){
-                                console.log("matter adapter debug: MATTER PAIRING FAILED");
-                            }
-                            try{
-								if(window.matter_adapter_poll_interval){
-									clearInterval(window.matter_adapter_poll_interval);
-									this.total_busy_polling_counter = 0;
-								}
-                                window.matter_adapter_poll_interval = null;
-                			}
-                			catch(e){
-                				//console.log("no interval to clear? ", e);
-                			}
-                            this.busy_pairing = false;
-						}
-					}
-                    
-                    //this.regenenerate_items();
-                }
-				
+                
 				if(typeof body.decoded_pairing_code != 'undefined'){
 					if(this.debug){
 						console.warn("decoded_pairing_code: ", body.decoded_pairing_code);
@@ -2531,7 +2537,7 @@
                     }
 					if(typeof body.state != 'undefined'){
 						if(body.state == false){
-							this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
+							//this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
 							this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
 						}
 						else if(body.state == true){

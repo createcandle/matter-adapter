@@ -102,6 +102,7 @@ python3.13 -m pip install \
 
 python3.13 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
 
+python3 -m pip install silabs-flasher -t lib --prefix "" --no-cache-dir --upgrade
 
 echo ""
 echo ""

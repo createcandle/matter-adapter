@@ -270,6 +270,8 @@ python3.11 -m pip install orjson -t lib --prefix "" --no-cache-dir --upgrade
 
 python3.11 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
 
+python3 -m pip install silabs-flasher -t lib --prefix "" --no-cache-dir --upgrade
+
 #    cryptography \
 #    home_assistant_chip_repl \
 

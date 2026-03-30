@@ -518,6 +518,9 @@
 
 /*  MAIN PAGE FOOTER BUTTONS */
 
+#extension-matter-adapter-reset-matter-button{
+    background-color:#600;
+}
 #extension-matter-adapter-reset-customizations-button{
 	background-color:#600;
 }
@@ -615,11 +618,12 @@
     font-weight:bold;
 }
 
-
+/*
 #extension-matter-adapter-pairing-iframe-container iframe{
 	width:100%;
 	height:75vh;
 }
+*/
 
 
 
@@ -933,7 +937,80 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
 
 
 
+/*  WIRELESS TYPE RADIO BUTTONS  */
 
+.extension-matter-adapter-radio-buttons-container{
+    display:flex;
+    justify-content:space-around;
+	width:100%;
+    margin:2rem 0;
+    margin-bottom:6rem;
+    border-radius: 1rem;
+    padding: 1rem;
+    background-color:rgba(255,255,255,.1);
+    box-sizing: border-box;
+}
+
+.extension-matter-adapter-radio-buttons-container label{
+     min-width:30%;
+     box-sizing:border-box;
+}
+
+.extension-matter-adapter-radio-buttons-container label input {
+  position: absolute;
+  left: -9999px;
+}
+/*
+.extension-matter-adapter-radio-buttons-container label input:checked + span {
+  background-color: #d6d6e5;
+}
+*/
+.extension-matter-adapter-radio-buttons-container label input:checked + span:before {
+  box-shadow: inset 0 0 0 0.4375em #00005c;
+}
+.extension-matter-adapter-radio-buttons-container label span {
+    display: flex;
+    align-items: center;
+    padding: 0.375em 0.75em 0.375em 0.375em;
+    border-radius: 99em;
+    transition: 0.25s ease;
+    padding: 2rem;
+    border-radius: 2rem;
+    background-color:rgba(0,0,0,.2);
+    cursor:pointer
+}
+/*
+.extension-matter-adapter-radio-buttons-container label span:hover {
+  background-color: #d6d6e5;
+}
+*/
+.extension-matter-adapter-radio-buttons-container label span:before {
+  display: flex;
+  flex-shrink: 0;
+  content: "";
+  background-color: #fff;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  margin-right: 0.375em;
+  transition: 0.25s ease;
+  box-shadow: inset 0 0 0 0.125em #00005c;
+}
+
+/*
+.container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+*/
 
 
 /*  START PAIRING  */
@@ -987,6 +1064,10 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 	background-color:rgba(255,255,255,.5);
 }
 
+#extension-matter-adapter-abort-pairing-button{
+    margin-top:3rem
+}
+
 
 
 
@@ -1023,6 +1104,9 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 #extension-matter-adapter-view input[type=checkbox]:checked + label::before, :root .transition-checkbox:checked + label::before {
     background-position: 0 -3rem;
 }
+
+
+
 
 /*  loading spinner  */
 

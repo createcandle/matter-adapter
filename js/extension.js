@@ -434,28 +434,12 @@
 						console.log("matter adapter debug: abort pairing button clicked");
 					}
                     try{
-						/*
-						if(window.matter_adapter_poll_interval){
-	        				clearInterval(window.matter_adapter_poll_interval);
-                        	console.log("matter adapter: cleared interval");
-						}
-        				this.total_busy_polling_counter = 0;
-                        window.matter_adapter_poll_interval = null;
-						
-						if(!this.second_page_el){
-							this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
-						}
-						if(this.second_page_el){
-	                    	this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-						}
-						*/
-						
-						this.show_pairing_page();
-						
+                        this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-showing-second-page');
+                        this.abort_pairing();
         			}
-        			catch(e){
+        			catch(err){
         				if(this.debug){
-							console.log("matter adapter debug: no interval to clear? ", e);
+							console.error("matter adapter debug: caught error aborting pairing ", err);
 						}
         			} 
     			});
@@ -557,24 +541,35 @@
     			});
                 
                 
-                
-            
-                // Easter egg when clicking on the title
-    			/*
-				this.view.querySelector('#extension-matter-adapter-title').addEventListener('click', () => {
-    				this.show();
-    			});
-				*/
-                
+                /*
     			this.view.querySelector('#extension-matter-adapter-refresh-paired-list-button').addEventListener('click', () => {
     				this.view.querySelector('#extension-matter-adapter-refresh-paired-list-button').classList.add('extension-matter-adapter-hidden');
                     this.view.querySelector('#extension-matter-adapter-paired-devices-list').innerHTML = '<div class="extension-matter-adapter-spinner"><div></div><div></div><div></div><div></div></div>';
                     this.get_init_data();
     			});
+				*/
     			
 				//this.view.querySelector('#extension-matter-adapter-stop-refreshing-list-button').addEventListener('click', () => {
 				//	this.stop_regenerating = true;
 				//});
+
+                this.view.querySelector('#extension-matter-adapter-reset-matter-button').addEventListener('click', () => {
+					if(confirm("Are you sure you want to completely reset Matter? You will have to pair all Matter devices again!")){
+			            window.API.postJson(
+							`/extensions/${this.id}/api/ajax`,
+							{'action':'reset_matter'}
+						).then((body) => { 
+							if(this.debug){
+			                    console.log("reset reset_matter done");
+			                }
+							this.nodez = {};
+							this.regenerate_items();
+						}).catch((err) => {
+                            this.flash_message("Communication error");
+							console.error("matter-adapter: caught error calling reset_matter: ", err);
+						});
+					}
+				});
 				
 				this.view.querySelector('#extension-matter-adapter-reset-customizations-button').addEventListener('click', () => {
 					if(confirm("Are you sure you want to forget all device customizations?")){
@@ -588,10 +583,10 @@
 							this.nodez = {};
 							this.regenerate_items();
 						}).catch((err) => {
+                            this.flash_message("Communication error");
 							console.error("matter-adapter: caught error calling reset_customizations: ", err);
 						});
 					}
-					
 				});
 				
             
@@ -697,29 +692,9 @@
                     if(this.debug){
                         console.log("matter adapter debug: clicked on back button");
                     }
-                    this.busy_discovering = false;
-                    this.busy_pairing = false;
-					this.busy_polling_counter = 0;
-					
-                    try{
-						if(window.matter_adapter_poll_interval){
-							clearInterval(window.matter_adapter_poll_interval);
-							this.total_busy_polling_counter = 0;
-						}
-        				
-                        window.matter_adapter_poll_interval = null;
-        			}
-        			catch(e){
-        				//console.log("no interval to clear? ", e);
-        			} 
-                    
                     this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-showing-second-page');
-                
-                    // Undo the iphone fix, so that the main menu button is clickable again
-                    this.view.style.zIndex = 'auto';
-                
-                    this.get_init_data(); // repopulate the main page
-                
+                    this.abort_pairing();
+
     			});
             
             
@@ -1129,8 +1104,11 @@
 					// PAIRING FAILED?
 	                if(typeof body.pairing_failed == 'boolean'){
 					
-						if(body.pairing_failed == true && body.pairing_attempt > 4){
-						
+						if(body.pairing_failed == true && body.pairing_attempt >= 4){
+
+                            if(!this.second_page_el){
+                                this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
+                            }
 							if(this.second_page_el){
 								if(this.second_page_el.classList.contains('extension-matter-adapter-busy-pairing')){
 		                            this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
@@ -1183,13 +1161,25 @@
 				
 				if(typeof body.noise_delta == 'number'){
 					if(this.debug){
-						console.warn("body.noise_delta: ", body.noise_delta);
+						console.log("body.noise_delta: ", body.noise_delta);
 					}
 					const noise_el = this.view.querySelector('#extension-matter-adapter-thread-radio-noise');
 					if(noise_el){
 						noise_el.textContent = body.noise_delta;
 					}
 				}
+
+				if(typeof body.thread_diagnostics != 'undefined'){
+                    if(this.debug){
+                        console.log("body.thread_diagnostics: ", body.thread_diagnostics);
+                    }
+                    const thread_map_el = this.view.querySelector('#extension-matter-adapter-thread-map');
+                    if(thread_map_el){
+                        thread_map_el.textContent = JSON.stringify(body.thread_diagnostics,null,4);
+                    }
+                }
+
+
 				
             }
             catch(err){
@@ -1201,45 +1191,14 @@
     
         // Show pairing page, triggered by opening the pairing page, or pressing the retry button if pairing failed
         show_pairing_page(){
-            this.busy_pairing = false;
-			this.busy_polling_counter = 0;
-			this.total_busy_polling_counter = 0;
             
             if(this.debug){
                 console.log("matter adapter debug: in show_pairing_page");
             }
             
-            if (this.current_stream) {
-              this.current_stream.getTracks().forEach(track => track.stop());
-              this.current_stream = null;
-            }
-			
-			if(this.scan_window){
-				console.log("matter adapter: closing previously opened scan window");
-				this.scan_window.close();
-				this.scan_window = null;
-			}
-            
-            window.API.postJson(
-				`/extensions/${this.id}/api/ajax`,
-				{'action':'reset_pairing'}
-			).then((body) => { 
-				if(this.debug){
-                    console.log("reset pairing done");
-                }
-                this.busy_pairing = false;
-			}).catch((err) => {
-                this.busy_pairing = false;
-				console.error("matter-adapter: error making reset pairing request: ", err);
-			});
-            
+			this.reset_pairing()
 			
 			this.generate_qr();
-			
-			
-			if(window.matter_adapter_poll_interval){
-				clearInterval(window.matter_adapter_poll_interval);
-			}
 			
 			if(!this.second_page_el){
 				this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
@@ -1267,12 +1226,12 @@
 				if(old_pairing_code.indexOf('----|----') != -1){
 					let old_code_storage_time = old_pairing_code.split('----|----')[1];
 					old_code_storage_time = parseInt(old_code_storage_time);
-					console.log("old_code_storage_time: ", old_code_storage_time);
+					//console.log("old_code_storage_time: ", old_code_storage_time);
 					
-					const two_hours_ago = Date.now() - 7200000;
-					console.log("two hours ago: ", two_hours_ago);
+					const few_hours_ago = Date.now() - 14400000;
+					//console.log("two hours ago: ", two_hours_ago);
 					
-					if(old_code_storage_time > two_hours_ago){
+					if(old_code_storage_time > few_hours_ago){
 						this.view.querySelector('#extension-matter-adapter-pairing-code-input').value = old_pairing_code.split('----|----')[0];
 						this.view.querySelector('#extension-matter-adapter-pairing-use-previously-scanned-code').classList.remove('extension-matter-adapter-hidden');
 						if(this.debug){
@@ -1546,6 +1505,85 @@
 			
         }
         
+		
+		
+		reset_pairing(){
+            this.busy_discovering = false;
+            this.busy_pairing = false;
+			this.busy_polling_counter = 0;
+			this.total_busy_polling_counter = 0;
+			this.pairing_phase = 0;
+			this.pairing_attempts = 10;
+			
+			
+            try{
+				if(window.matter_adapter_poll_interval){
+					clearInterval(window.matter_adapter_poll_interval);
+				}
+				
+                window.matter_adapter_poll_interval = null;
+			}
+			catch(e){
+				//console.log("no interval to clear? ", e);
+			} 
+            
+
+        
+            // Undo the iphone fix, so that the main menu button is clickable again
+            this.view.style.zIndex = 'auto';
+        
+            this.get_init_data(); // repopulate the main page
+        
+		
+    
+            if(this.debug){
+                console.log("matter adapter debug: in show_pairing_page");
+            }
+    
+            if (this.current_stream) {
+              this.current_stream.getTracks().forEach(track => track.stop());
+              this.current_stream = null;
+            }
+	
+			if(this.scan_window){
+				console.log("matter adapter: closing previously opened scan window");
+				this.scan_window.close();
+				this.scan_window = null;
+			}
+    
+            window.API.postJson(
+				`/extensions/${this.id}/api/ajax`,
+				{'action':'reset_pairing'}
+			).then((body) => { 
+				if(this.debug){
+                    console.log("reset pairing done");
+                }
+                this.busy_pairing = false;
+			}).catch((err) => {
+                this.busy_pairing = false;
+				console.error("matter-adapter: error making reset pairing request: ", err);
+			});
+			
+			const pairing_progress_message_el = this.view.querySelector('#extension-matter-adapter-pairing-progress-message');
+			if(pairing_progress_message_el){
+				pairing_progress_message_el.textContent = '';
+				this.view.querySelector('#extension-matter-adapter-pairing-attempt').textContent = 0;
+			}
+			
+			if(!this.second_page_el){
+				this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
+			}
+			if(this.second_page_el){
+            	this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
+			}
+			
+		}
+		
+		
+		
+		
+		
+		
         
     
     
@@ -2368,6 +2406,9 @@
 														})
 														property_at_el.appendChild(value_input_el);
 													}
+													else if(property_at == 'description'){
+														continue
+													}
 													else{
 														const value_el = document.createElement('span');
 														value_el.classList.add('extension-matter-adapter-item-details-property-description-value');
@@ -2509,6 +2550,8 @@
                 return // shouldn't be possible, but just to be safe
             }
             */
+			
+			const wireless_type = this.view.querySelector('input[name="extension-matter-adapter-wireless-type"]:checked').value;
             
             //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.add('extension-matter-adapter-hidden');
             //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
@@ -2529,6 +2572,7 @@
                     'wifi_ssid':wifi_ssid,
                     'wifi_password':wifi_password,
                     'wifi_remember':wifi_remember,
+					'wireless_type':wireless_type,
                     'pairing_type':'commission_with_code',
                     'code':code}
 				).then((body) => { 

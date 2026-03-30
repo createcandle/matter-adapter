@@ -163,6 +163,9 @@ class MatterAdapter(Adapter):
         self.name = self.__class__.__name__ # TODO: is this needed?
         Adapter.__init__(self, self.addon_id, self.addon_id, verbose=verbose)
 
+
+
+        print(run_command('printenv'))
         
         self.s_print_lock = Lock()
 
@@ -212,9 +215,10 @@ class MatterAdapter(Adapter):
         self.pairing_failed = False
         self.busy_pairing = False
         self.pairing_phase = 0
-        self.pairing_phase_message = 'Starting'
+        self.pairing_phase_message = ''
         self.pairing_attempt = -1
         self.pairing_method = None # i.e. bluetooth
+        self.wireless_type = 'unknown' # can be 'unknown', 'wifi' or 'thread'
         self.last_decoded_pairing_code = ''
         self.last_found_pairing_code = ''
         self.last_found_pin_code = ''
@@ -230,14 +234,18 @@ class MatterAdapter(Adapter):
         
         
         # THREAD / OTBR
+        self.otbr_thread = None
         self.found_thread_radio_again = False
         self.found_new_thread_radio = False
         self.found_a_thread_radio_once = False
         self.thread_radio_went_missing = False
         self.thread_radio_is_alive_count = 0 # how many spinel messages have been received
         self.last_thread_radio_is_alive_timestamp = 0
+
+        self.otbr_starting = None
         self.last_time_otbr_started = time.time()
         self.otbr_started = False # This is the first stage, done by otbr-agent
+        
         self.thread_set_active = False # This is the second stage, managed by ot-ctl
         self.informed_matter_server_about_thread = False
         self.thread_running = False # becomes true when Thread is completely up
@@ -255,6 +263,8 @@ class MatterAdapter(Adapter):
         self.previous_noise_counter = 0 # used to count noise per time unit
         self.noise_delta = 0 # hot many instances of noise were counted during 5 seconds
         
+        self.thread_diagnostics = {}
+
         self.enums_lookup = get_enums_lookup()
         self.events_lookup = get_events_lookup()
         
@@ -274,7 +284,7 @@ class MatterAdapter(Adapter):
         #print("")
         
         
-        
+
         
         # Hotspot
         self.use_hotspot = True
@@ -353,6 +363,12 @@ class MatterAdapter(Adapter):
         self.chip_factory_ini_file_path = os.path.join(self.hasdata_dir_path,'chip_factory.ini')
         self.data_chip_factory_ini_file_path = os.path.join(self.data_path, 'chip_factory.ini')
         #self.certs_dir_path = os.path.join(self.data_path, 'paa-root-certs')
+
+        self.matter_server_base_path = os.path.join(self.addon_path,'matterjs-server')
+        self.matter_server_start_path = os.path.join(self.matter_server_base_path,'packages','matter-server','dist','esm','MatterServer.js')
+
+
+
         
         self.otbr_agent_path = os.path.join(self.addon_path,'thread','otbr-agent')
         self.ot_ctl_path = os.path.join(self.addon_path,'thread','ot-ctl')
@@ -556,19 +572,104 @@ class MatterAdapter(Adapter):
         if not os.path.exists("/data"):
             if self.DEBUG:
                 self.s_print("Error! Could not find /data, which the server will be looking for")
-            while self.running:
-                time.sleep(1)
+            #while self.running:
+            #    time.sleep(1)
         
+
+        # Start clock thread
+        if self.DEBUG:
+            self.s_print("Init: starting the clock thread")
+        try:
+            self.ct = threading.Thread(target=self.clock)
+            self.ct.daemon = True
+            self.ct.start()
+        except Exception as ex:
+            if self.DEBUG:
+                self.s_print("Error starting the clock thread: " + str(ex))
+    
+        try:
+            self.matter_servers_thread = threading.Thread(target=self.start_servers)
+            self.matter_servers_thread.daemon = True
+            self.matter_servers_thread.start()
+        except Exception as ex:
+            if self.DEBUG:
+                self.s_print("Error starting the matter servers thread: " + str(ex))
+
+
+        # Init matter server
+        #self.server = MatterServer(
+        #    self.data_path, DEFAULT_VENDOR_ID, DEFAULT_FABRIC_ID, int(self.port)
+        #)
+
+        #self.start_servers()
+
+        pwd = run_command('pwd')
+        if self.DEBUG:
+            self.s_print("PWD after chdir: " + str(pwd))
+            print("init done\n")
+    
+        #time.sleep(60)
+        #self.ready = True
+
+        #self.wifi_congestion_data = self.wifi_congestion_scan()
+
+
+
+
+
+
+    def  start_servers(self):
         if self.running:
             # Download the latest Matter certificates
             #self.download_certs()
-        
-            self.find_thread_radio()
-        
-            # Start client thread
-            if self.DEBUG:
-                self.s_print("Init: starting the client thread")
+
             
+            # If a radio is found, then it also starts OTBR
+            if self.DEBUG:
+                self.s_print("start_servers: calling find_thread_radio")
+            self.find_thread_radio()
+            
+            
+            # if it's starting, then wait until the thread network has fully started
+            if self.otbr_starting != None:
+                while self.thread_running == False:
+                    if self.DEBUG:
+                        self.s_print("start_servers: waiting for self.thread_running to be True")
+                    time.sleep(1)
+                    if self.otbr_starting == None:
+                        break
+                    if self.otbr_starting != None and time.time() - self.otbr_starting > 90:
+                        break
+
+
+
+            bridge_check = str(run_command('ip link show'))
+            # Bridge interfaces if uap0 and wpan0 both exist
+            if 'uap0:' in bridge_check and 'wpan0' in bridge_check:
+                bridge_command = 'sudo ifconfig uap0 down;sudo ifconfig wpan0 down;sudo brctl addbr br0;sudo brctl addif br0 wpan0;sudo brctl addif br0 uap0;sudo ifconfig br0 up;sudo ifconfig wpan0 up;sudo ifconfig uap0 up'
+                run_command(bridge_command)
+           
+
+
+
+
+
+
+
+
+
+
+            # Start the Matter.server
+            if self.DEBUG:
+                self.s_print("start_servers: calling start_matter_server")
+            self.start_matter_server()
+            if self.DEBUG:
+                self.s_print("start_servers: beyond start_matter_server")
+
+
+            # Start matter.server client
+            if self.DEBUG:
+                self.s_print("start_servers: starting the matter.server client thread")
             try:
                 self.t = threading.Thread(target=self.client_thread)
                 self.t.daemon = True
@@ -577,38 +678,19 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     self.s_print("Error starting the client thread: " + str(ex))
                     self.s_print(traceback.format_exc())
-        
-            # Start clock thread
+
+
+            while self.running:
+                time.sleep(1)
+
+            
+
+        else:
             if self.DEBUG:
-                self.s_print("Init: starting the clock thread")
-            try:
-                self.ct = threading.Thread(target=self.clock)
-                self.ct.daemon = True
-                self.ct.start()
-            except Exception as ex:
-                if self.DEBUG:
-                    self.s_print("Error starting the clock thread: " + str(ex))
-        
-        
+                self.s_print("start_servers: aborting, self.running is False")
+        if self.DEBUG:
+                self.s_print("start_servers: reached end of start_server, which will close this thread")
 
-            # Init matter server
-            #self.server = MatterServer(
-            #    self.data_path, DEFAULT_VENDOR_ID, DEFAULT_FABRIC_ID, int(self.port)
-            #)
-
-        
-        
-            pwd = run_command('pwd')
-            if self.DEBUG:
-                self.s_print("PWD after chdir: " + str(pwd))
-        
-        
-            #time.sleep(60)
-            #self.ready = True
-
-
-
-            self.wifi_congestion_data = self.wifi_congestion_scan()
 
 
     def s_print(self, *a, **b):
@@ -616,6 +698,8 @@ class MatterAdapter(Adapter):
         with self.s_print_lock:
             print(*a, **b)
         
+
+    
     def add_from_config(self):
         """ This retrieves the addon settings from the controller """
         self.s_print("in add_from_config")
@@ -686,20 +770,15 @@ class MatterAdapter(Adapter):
             self.s_print("caught error in add_from_config: " + str(ex))
 
 
-    """
-    def run_process(self,command):
-        process = subprocess.Popen(command.split(command), stdout=subprocess.PIPE)
-        while self.running:
-            output = process.stdout.readline()
-            if output == '' and process.poll() is not None:
-                break
-            if output:
-                self.s_print("STD OUT CAPTURED: " + str( output.strip() ))
-        if self.DEBUG:
-            self.s_print("run_process: beyond the while loop")
-        rc = process.poll()
-        return rc
-    """
+
+
+
+
+
+
+
+
+
 
 
 
@@ -752,13 +831,17 @@ class MatterAdapter(Adapter):
 
         if self.found_thread_radio_again or self.found_new_thread_radio:
             self.found_a_thread_radio_once = True
-            if self.otbr_started == False:
+            if self.otbr_started == False and self.otbr_starting == None:
                 self.start_otbr()
         else:
             #if self.DEBUG:
             #    self.s_print("\nNO THREAD RADIO FOUND\n")
             if self.found_a_thread_radio_once:
                 self.thread_radio_went_missing = True
+
+
+
+
 
 
     def add_otbr_iptables(self):
@@ -777,10 +860,30 @@ class MatterAdapter(Adapter):
 
 
 
+
+
+
+
+
+
+    #
+    #  START OTBR
+    #
+
+
+
     def start_otbr(self):
         if self.DEBUG:
             self.s_print("in start_otbr")
-        
+        self.otbr_starting = time.time()
+        self.otbr_thread = threading.Thread(target=self.really_start_otbr)
+        self.otbr_thread.daemon = True
+        self.otbr_thread.start()
+
+
+    def really_start_otbr(self):
+        if self.DEBUG:
+            self.s_print("in really_start_otbr")
         try:
             #if self.shell == None:
             #    self.shell = subprocess.Popen(['/bin/bash'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -850,10 +953,12 @@ class MatterAdapter(Adapter):
                 # enables router-to-router communication over the IP backbone
                 #
                 
+                self.otbr_stdout_messages = []
+
                 if self.DEBUG:
                     self.s_print("\n\nOTBR agent_command_array: ", str(agent_command_array), "\n\n")
                     self.s_print("\n\nTHREAD AGENT COMMAND:\n\n" + str( " ".join(agent_command_array) ) + "\n\n")
-                    
+
                 self.otbr_agent_process = subprocess.Popen(agent_command_array, stderr=subprocess.DEVNULL, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 #self.tcpdump = subprocess.Popen(["sudo","tcpdump","-i","any","'udp port 5353 and (host 224.0.0.251 or host ff02::fb)'","-n"], stderr=subprocess.DEVNULL, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 time.sleep(.1)
@@ -867,38 +972,9 @@ class MatterAdapter(Adapter):
                 
                 # sudo tcpdump -i any 'udp port 5353 and (host 224.0.0.251 or host ff02::fb)'
 
-                # TODO: merge this with clock thread?
-                def read_otbr_stdout():
-                    while self.running:
-                        if self.otbr_agent_process == None:
-                            break
-                        msg = self.otbr_agent_process.stdout.readline()
-                        decoded_message = str(msg.decode()).strip().rstrip()
-                        # note to self: do not put a print  statement here
-                        if len(decoded_message) > 1:
-                            self.otbr_stdout_messages.append(decoded_message)
-                        time.sleep(0.0001)
-                    if self.DEBUG:
-                        self.s_print("WARNING, otbr_agent_process read_stdout closed")
+
                     
-                    if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
-                        if self.DEBUG:
-                            self.s_print("read_otbr_stdout: calling self.otbr_agent_process.terminate()")
-                        self.otbr_agent_process.terminate()
-                        time.sleep(0.2)
-                        if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
-                            if self.DEBUG:
-                                self.s_print("read_otbr_stdout: resorting to calling self.otbr_agent_process.kill()")
-                            self.otbr_agent_process.kill()
-                            time.sleep(0.1)
-                        
-                            if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
-                                if self.DEBUG:
-                                    self.s_print("read_otbr_stdout: resorting to pkill to stop self.otbr_agent_process")
-                                os.system('sudo pkill -f otbr-agent')
-                    self.otbr_agent_process = None
-                    
-                    self.otbr_stdout_messages = []
+
                 
                 if self.otbr_agent_process:
                     if self.DEBUG:
@@ -906,10 +982,16 @@ class MatterAdapter(Adapter):
                     
                     if self.otbr_agent_process.poll() == None:
                         if self.DEBUG:
-                            self.s_print("starting thread to read from OTBR stdout")
-                        self.stdout_thread = threading.Thread(target=read_otbr_stdout)
-                        self.stdout_thread.daemon = True
-                        self.stdout_thread.start()
+                            print("otbr_agent_process is running OK")
+
+
+                        while self.running:
+                            time.sleep(1)
+
+                        #    self.s_print("starting thread to read from OTBR stdout")
+                        #self.stdout_thread = threading.Thread(target=read_otbr_stdout)
+                        #self.stdout_thread.daemon = True
+                        #self.stdout_thread.start()
                 else:
                     self.s_print("error, self.otbr_agent_process subprocess was not created? ", self.otbr_agent_process)
             
@@ -951,7 +1033,167 @@ class MatterAdapter(Adapter):
                 
                 
     
+
+
+    #
+    #  START MATTER.SERVER
+    #
+
+def start_matter_server(self):
+        if self.DEBUG:
+            print("in start_matter_server")
+
+        if not os.path.exists(self.data_path):
+            self.s_print("ERROR DATA PATH DOES NOT EXIST")
+            os.system('mkdir -p ' + str(self.data_path))
+
+        #matter_server_command = 'npm run server -- 
+
+        # node --enable-source-maps packages/matter-server/dist/esm/MatterServer.js
+
+        matter_server_command = '/home/pi/node24 --enable-source-maps ' + self.matter_server_start_path
+
+        matter_server_command = matter_server_command + ' --storage-path ' + str(self.data_path)
+        
+        if self.nmcli_installed == True:
+            matter_server_command = matter_server_command + " --primary-interface uap0"
+
+
+
+
+        #if not os.path.isdir('/data/credentials'):
+        #    os.system('mkdir -p /data/credentials')
+        #matter_server_command = matter_server_command + " --paa-root-cert-dir /data/credentials"
+
+        #bluetooth_check = str(run_command('hcitool dev'))
+        bluetooth_check = str(run_command('hciconfig -a'))
+        if 'hci0' in bluetooth_check:
+            matter_server_command = matter_server_command + " --bluetooth-adapter 0"
+        elif 'hci1' in bluetooth_check:
+            matter_server_command = matter_server_command + " --bluetooth-adapter 1"
+
+        #matter_server_command = matter_server_command + " --bypass-attestation-verifier true"
+
+        if not os.path.exists(self.lib_path):
+            self.s_print("ERROR LIB PATH DOES NOT EXIST")
+
+        if self.DEBUG:
+            self.s_print("")
+            self.s_print("full matter server start command: " + str(matter_server_command_shell))
+            self.s_print("")
+
+        matter_server_command_array = matter_server_command.split()
+
+        if self.DEBUG:
+            self.s_print("full matter server start command array: " + str(matter_server_command_array))
+        #self.run_process(matter_server_command)
+
+
+        my_env = os.environ.copy()
+        #my_env["PYTHONPATH"] = str(self.lib_path) + ":" # + my_env["PYTHONPATH"]
+        #if self.DEBUG:
+        #    self.s_print("my_env[PYTHONPATH]: " + str(my_env["PYTHONPATH"]))
+
+        #'PYTHONPATH=/home/pi/.webthings/addons/matter-adapter/lib /usr/bin/python3.9 -m matter_server.server --storage-path /home/pi/.webthings/data/matter-adapter'
+
+        #self.server_process = subprocess.Popen("/usr/bin/python3.9 bla.py", stdout=subprocess.PIPE, env=my_env, shell=True)
+        #self.server_process = subprocess.Popen(matter_server_command_shell, stdout=subprocess.PIPE, env=my_env, shell=True)
+        self.server_process = subprocess.Popen(matter_server_command_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env, cwd=self.matter_server_base_path)
+        os.set_blocking(self.server_process.stdout.fileno(), False)
+        os.set_blocking(self.server_process.stderr.fileno(), False)
+
+
+        if self.DEBUG:
+            print("Started Matter.server")
+
+
+
+
+
+            
+
+
+
+    def start_matter_server_old(self):
+        if self.DEBUG:
+            print("in start_matter_server")
+
+        python3_path = run_command('readlink $(which python3)')
+        python3_path = "/usr/bin/" + python3_path.rstrip()
+        # /home/pi/.webthings/addons/matter-adapter/lib/
+        #matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.data_path)
+        matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.hasdata_dir_path)
+
+        if self.vendor_id != "":
+            decimal_vendor_id = int(self.vendor_id, 16)
+            #matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
+            matter_server_command = matter_server_command + " --vendorid " + str(decimal_vendor_id)
+
+        if self.nmcli_installed == True:
+            matter_server_command = matter_server_command + " --primary-interface uap0"
+
+
+        #if not os.path.isdir('/data/credentials'):
+        #    os.system('mkdir -p /data/credentials')
+        #matter_server_command = matter_server_command + " --paa-root-cert-dir /data/credentials"
+
+        #bluetooth_check = str(run_command('hcitool dev'))
+        bluetooth_check = str(run_command('hciconfig -a'))
+
+        if 'hci0' in bluetooth_check:
+            matter_server_command = matter_server_command + " --bluetooth-adapter 0"
+        elif 'hci1' in bluetooth_check:
+            matter_server_command = matter_server_command + " --bluetooth-adapter 1"
+
+        #matter_server_command = matter_server_command + " --bypass-attestation-verifier true"
+
+
+        if not os.path.exists(self.data_path):
+            self.s_print("ERROR DATA PATH DOES NOT EXIST")
+
+        if not os.path.exists(self.lib_path):
+            self.s_print("ERROR LIB PATH DOES NOT EXIST")
+
+        matter_server_command_shell = "PYTHONPATH=" + str(self.lib_path) + " " +  str(matter_server_command)
+
+        if self.DEBUG:
+            self.s_print("")
+            self.s_print("full matter server start command: " + str(matter_server_command_shell))
+            self.s_print("")
+
+        matter_server_command_array = matter_server_command.split()
+
+        if self.DEBUG:
+            self.s_print("full matter server start command array: " + str(matter_server_command_array))
+        #self.run_process(matter_server_command)
+
+
+        my_env = os.environ.copy()
+        my_env["PYTHONPATH"] = str(self.lib_path) + ":" # + my_env["PYTHONPATH"]
+        if self.DEBUG:
+            self.s_print("my_env[PYTHONPATH]: " + str(my_env["PYTHONPATH"]))
+
+        #'PYTHONPATH=/home/pi/.webthings/addons/matter-adapter/lib /usr/bin/python3.9 -m matter_server.server --storage-path /home/pi/.webthings/data/matter-adapter'
+
+        #self.server_process = subprocess.Popen("/usr/bin/python3.9 bla.py", stdout=subprocess.PIPE, env=my_env, shell=True)
+        #self.server_process = subprocess.Popen(matter_server_command_shell, stdout=subprocess.PIPE, env=my_env, shell=True)
+        self.server_process = subprocess.Popen(matter_server_command_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env)
+        os.set_blocking(self.server_process.stdout.fileno(), False)
+        os.set_blocking(self.server_process.stderr.fileno(), False)
+
+
+        if self.DEBUG:
+            print("Started Matter.server")
+
+
+
+
+    # Currently unused, but could optimize which Thread channel to select. Apple always chooses 26 though, so that might not be a bad choice either.
     def wifi_congestion_scan(self):
+        if self.DEBUG:
+            print("in wifi_congestion_scan (BLOCKED)")
+
+        return
         channel_data = {}
         channels_output = str(run_command("sudo iwlist wlan0  channel | grep -v 'available frequencies' | grep -v 'Current Frequency'"))
         if 'Channel ' in channels_output:
@@ -984,7 +1226,8 @@ class MatterAdapter(Adapter):
         return channel_data        
                         
                         
-                    
+    
+    # TODO: implement a feature to find all nearby Threat networks using otbr cli/agent
         
     
     
@@ -1028,7 +1271,8 @@ class MatterAdapter(Adapter):
             self.thread_running = False
             
             if 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 40:
-                
+                if self.DEBUG:
+                    print("OK, there is a thread dataset in persistent data")
                 #dataset networkkey 
                 #if str(self.run_ot_ctl_command('dataset set active ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
                 if str(self.run_ot_ctl_command('dataset init tlvs ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
@@ -1045,9 +1289,13 @@ class MatterAdapter(Adapter):
                         #if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
                         #    if self.DEBUG:
                         #        self.s_print("channel set")
-                        
+            else:
+                if self.DEBUG:
+                    print("warning, so thread dataset in persistent data")      
             
             if dataset_loaded == False:
+                if self.DEBUG:
+                    print("\nWARNING, creating brand new thread dataset\n")
                 if self.run_ot_ctl_command('dataset init new'):
                     panid = '0x' + str(run_command('openssl rand -hex 1')).rstrip()
                     extpanid = str(run_command('openssl rand -hex 8')).rstrip()
@@ -1097,7 +1345,7 @@ class MatterAdapter(Adapter):
                                 self.s_print("\nOK, Thread has now fully started\n")
                 else:
                     if self.DEBUG:
-                        self.s_print("\nchecking if thread has started fell through.  thread_state: \n" + str(thread_state))
+                        self.s_print("\nERROR, checking if thread has started fell through.  thread_state: \n" + str(thread_state))
                     time.sleep(1)
                     self.thread_set_active = False
                     
@@ -1209,6 +1457,7 @@ class MatterAdapter(Adapter):
         self.thread_radio_is_alive_count = 0
         self.thread_set_active = False
         self.thread_error = ''
+
 
 
     # Check the Hotspot addon's settings for the SSID and Password
@@ -1923,24 +2172,48 @@ class MatterAdapter(Adapter):
         return False
 
 
+
+
+
+
+
+
+
+
+
+    #
+    #   START MATTER PAIRING
+    #
+
+
+
+
     def start_matter_pairing(self,pairing_type=None):
         if self.DEBUG:
             self.s_print("\n\n\n\nin start_matter_pairing. Pairing type: " + str(pairing_type))
         try:
-            
+            if self.turn_wifi_back_on_at > time.time():
+                self.turn_wifi_back_on_at = 0
+                if self.DEBUG:
+                    print("start_matter_pairing: turning WiFi back on first")
+                run_command('nmcli radio wifi on')
+
             self.pairing_failed = False
             self.pairing_phase = 0
             self.busy_pairing = True
             # Download the latest certificates if they haven't been updated in a while
             self.download_certs()
         
-            if isinstance(pairing_type,str) and 'commission' in pairing_type:
+            if isinstance(pairing_type,str) and len(pairing_type) > 5:
                 if self.DEBUG:
                     print("start_matter_pairing: setting last_used_pairing_type to: ", pairing_type)
                 self.last_used_pairing_type = pairing_type
             elif self.last_used_pairing_type != None:
                 pairing_type = self.last_used_pairing_type
-        
+            if not isinstance(pairing_type,str):
+                self.pairing_failed = True
+                return False
+
             self.pairing_attempt += 1
             if self.pairing_attempt >= 5:
                 self.pairing_failed = True
@@ -1973,8 +2246,11 @@ class MatterAdapter(Adapter):
         
             is_thread_device = False
         
-            if self.pairing_attempt == 4:
+            if self.wireless_type == 'thread' and self.pairing_attempt < 5:
                 is_thread_device = True
+            elif self.wireless_type == 'unknown' and self.pairing_attempt == 4:
+                is_thread_device = True
+                
             
             if is_thread_device and self.last_found_pairing_code and len(str(self.thread_dataset)) > 40:
                 try:
@@ -1983,11 +2259,7 @@ class MatterAdapter(Adapter):
                 
                 
                     if isinstance(self.last_decoded_pairing_code,str) and 'Long discriminator:' in self.last_decoded_pairing_code and 'Passcode:' in self.last_decoded_pairing_code:
-                    
-                        self.turn_wifi_back_on_at = time.time() + 60
-                        self.pairing_phase_message = 'Turning of WiFi for 60 seconds in an attempt to limit Bluetooth interference'
-                        time.sleep(3)
-                    
+                        
                         vendor_id = ''
                         if 'VendorID:' in self.last_decoded_pairing_code:
                             vendor_id = self.last_decoded_pairing_code.split('VendorID:')[1]
@@ -2006,7 +2278,35 @@ class MatterAdapter(Adapter):
                             self.s_print('start_matter_pairing:  passcode: -->' + str(passcode) + '<--', len(passcode))
                 
                         if len(discriminator) == 4 and len(passcode) == 8:
+                            
+                            self.pairing_phase = 6
+                            self.turn_wifi_back_on_at = time.time() + 60
+                            self.pairing_phase_message = 'Turning of WiFi for 60 seconds in an attempt to limit Bluetooth interference'
+                            time.sleep(3)
+                            self.pairing_phase = 8
+                            run_command('nmcli radio wifi off')
+                            time.sleep(1)
+                            self.pairing_phase = 9
+                            
+                
+                            if self.pairing_attempt == 0 or self.pairing_attempt == 2:
+                                self.pairing_phase_message = 'Turning Bluetooth off and on again first, perhaps that will help'
+                                os.system('sudo btmgmt -i hci0 power off')
+                                #if self.pairing_attempt == 2:
+                                os.system('sudo btmgmt -i hci0 bredr off')
+                                time.sleep(1)
+                                os.system('sudo btmgmt -i hci0 power on')
+                                time.sleep(1)
+                                if self.pairing_attempt == 2:
+                                    time.sleep(5)
+                            self.pairing_phase = 12
                         
+                        
+                        
+                        
+                    
+                        
+                            self.pairing_phase_message = 'Attempting to find new device'
                             # ./chip-tool pairing ble-thread 1301 hex:[LONGHEX] 20202021 3840
                             pairing_command = 'pairing ble-thread ' + str(self.persistent_data['thing_index']) + ' hex:' + str(self.thread_dataset) + ' ' + str(passcode) + ' ' + str(discriminator)
                             if self.DEBUG:
@@ -2015,13 +2315,8 @@ class MatterAdapter(Adapter):
                             self.persistent_data['thing_index'] += 1
                             self.should_save = True
                         
-                            self.turn_wifi_back_on_at = time.time() + 60
-                        
                             self.pairing_phase = 15
-                            self.pairing_phase_message = 'Turning of WiFi for 15 seconds in an attempt to limit Bluetooth interference'
-                            time.sleep(1)
-                            run_command('nmcli radio wifi off')
-                            time.sleep(1)
+                            
                         
                             #os.system('sudo btmgmt -i hci0 power off')
                             #os.system('sudo btmgmt -i hci0 bredr off')
@@ -2045,7 +2340,8 @@ class MatterAdapter(Adapter):
                     
                 except Exception as ex:
                     self.s_print("start_matter_pairing: caught error trying to unpack matter pairing code: ", ex)
-            
+
+                self.pairing_failed = True
                 return False
         
         
@@ -2073,18 +2369,26 @@ class MatterAdapter(Adapter):
                 
                     self.pairing_phase = 6
                 
-                    if self.pairing_attempt == 2:
+                    if self.pairing_attempt == 0:
                         self.pairing_phase_message = 'Turning of WiFi for 60 seconds in an attempt to limit Bluetooth interference'
                         self.turn_wifi_back_on_at = time.time() + 60
                         time.sleep(3) # TODO: Dodgy
-                    if self.pairing_attempt == 3:
-                        self.pairing_phase_message = 'Turning of WiFi for 30 seconds in an attempt to limit Bluetooth interference'
-                        self.turn_wifi_back_on_at = time.time() + 30
+
+                    elif self.pairing_attempt == 2:
+                        self.pairing_phase_message = 'Turning of WiFi for 40 seconds in an attempt to limit Bluetooth interference'
+                        self.turn_wifi_back_on_at = time.time() + 40
+                        time.sleep(3) # TODO: Dodgy
+
+
+                    elif self.pairing_attempt == 3:
+                        self.pairing_phase_message = 'Turning of WiFi for 20 seconds in an attempt to limit Bluetooth interference'
+                        self.turn_wifi_back_on_at = time.time() + 20
                         time.sleep(3) # TODO: Dodgy
                     
+
                     
                     self.pairing_phase = 6
-                    if self.pairing_attempt == 2 or self.pairing_attempt == 3:
+                    if self.pairing_attempt == 0 or self.pairing_attempt == 3:
                         run_command('nmcli radio wifi off')
                         time.sleep(1)
                     self.pairing_phase = 8
@@ -2096,7 +2400,9 @@ class MatterAdapter(Adapter):
                             os.system('sudo btmgmt -i hci0 bredr off')
                         time.sleep(1)
                         os.system('sudo btmgmt -i hci0 power on')
-                        time.sleep(6)
+                        time.sleep(1)
+                        if self.pairing_attempt == 2:
+                            time.sleep(5)
                     self.pairing_phase = 10
                 
                     # create pairing message
@@ -2156,63 +2462,7 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             self.s_print("in clock")
         
-        python3_path = run_command('readlink $(which python3)')
-        python3_path = "/usr/bin/" + python3_path.rstrip()
-        # /home/pi/.webthings/addons/matter-adapter/lib/
-        #matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.data_path)
-        matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.hasdata_dir_path)
-        
-        if self.vendor_id != "":
-            decimal_vendor_id = int(self.vendor_id, 16)
-            #matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
-            matter_server_command = matter_server_command + " --vendorid " + str(decimal_vendor_id)
-            
-        if self.nmcli_installed == True:
-            matter_server_command = matter_server_command + " --primary-interface uap0"
-            
-            
-        #if not os.path.isdir('/data/credentials'):
-        #    os.system('mkdir -p /data/credentials')
-        #matter_server_command = matter_server_command + " --paa-root-cert-dir /data/credentials"
-        
-        #bluetooth_check = str(run_command('hcitool dev'))
-        bluetooth_check = str(run_command('hciconfig -a'))
-        
-        if 'hci0' in bluetooth_check:
-            matter_server_command = matter_server_command + " --bluetooth-adapter 0"
-        elif 'hci1' in bluetooth_check:
-            matter_server_command = matter_server_command + " --bluetooth-adapter 1"
-        
-        #matter_server_command = matter_server_command + " --bypass-attestation-verifier true"
-        
-        
-        if not os.path.exists(self.data_path):
-            self.s_print("ERROR DATA PATH DOES NOT EXIST")
-            
-        if not os.path.exists(self.lib_path):
-            self.s_print("ERROR LIB PATH DOES NOT EXIST")
-            
-        matter_server_command_shell = "PYTHONPATH=" + str(self.lib_path) + " " +  str(matter_server_command)
-        
-        self.s_print("")
-        self.s_print("full matter server start command: " + str(matter_server_command_shell))
-        self.s_print("")
-        matter_server_command_array = matter_server_command.split()
-        self.s_print("full matter server start command array: " + str(matter_server_command_array))
-        #self.run_process(matter_server_command)
-        
-        
-        my_env = os.environ.copy()
-        my_env["PYTHONPATH"] = str(self.lib_path) + ":" # + my_env["PYTHONPATH"]
-        self.s_print("my_env[PYTHONPATH]: " + str(my_env["PYTHONPATH"]))
-        
-        #'PYTHONPATH=/home/pi/.webthings/addons/matter-adapter/lib /usr/bin/python3.9 -m matter_server.server --storage-path /home/pi/.webthings/data/matter-adapter'
-        
-        #self.server_process = subprocess.Popen("/usr/bin/python3.9 bla.py", stdout=subprocess.PIPE, env=my_env, shell=True)
-        #self.server_process = subprocess.Popen(matter_server_command_shell, stdout=subprocess.PIPE, env=my_env, shell=True)
-        self.server_process = subprocess.Popen(matter_server_command_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env)
-        os.set_blocking(self.server_process.stdout.fileno(), False)
-        os.set_blocking(self.server_process.stderr.fileno(), False)
+
         
         #print("clock: self.running: " + str(self.running))
         last_tick_tock_time = time.time()
@@ -2258,8 +2508,44 @@ class MatterAdapter(Adapter):
                         self.send_pairing_prompt("Thread radio was plugged in again?")
                         self.start_otbr()
                 
-                        
-                            
+            try:
+                if self.otbr_agent_process != None and self.otbr_agent_process.poll() == None:
+
+                    for i in range(1000):
+                        msg = self.otbr_agent_process.stdout.readline()
+                        decoded_message = str(msg.decode()).strip().rstrip()
+                        # note to self: do not put a print  statement here
+                        if len(decoded_message) > 1:
+                            self.otbr_stdout_messages.append(decoded_message)
+                        elif decoded_message == '':
+                            print("number of lines read from stdout: ", i)
+                            break
+
+                elif self.otbr_agent_process != None:
+                    if self.DEBUG:
+                        self.s_print("read_otbr_stdout: calling self.otbr_agent_process.terminate()")
+                    self.otbr_agent_process.terminate()
+                    time.sleep(0.2)
+                    if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
+                        if self.DEBUG:
+                            self.s_print("read_otbr_stdout: resorting to calli ing self.otbr_agent_process.kill()")
+                        self.otbr_agent_process.kill()
+                        time.sleep(0.1)
+
+                        if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
+                            if self.DEBUG:
+                                self.s_print("read_otbr_stdout: resorting to pkill to stop self.otbr_agent_process")
+                            os.system('sudo pkill -f otbr-agent')
+                    self.otbr_agent_process = None
+
+            except Exception as ex:
+                if self.DEBUG:
+                    print("caught errort trying otbr_agent_process.poll(): ", ex)
+
+
+
+
+
                     
             #if self.server_process != None:
             #if self.DEBUG:
@@ -2268,6 +2554,7 @@ class MatterAdapter(Adapter):
                 
             if self.turn_wifi_back_on_at != 0 and self.turn_wifi_back_on_at < time.time():
                 self.turn_wifi_back_on_at = 0
+                self.send_pairing_prompt("Turning on WiFi again")
                 run_command('nmcli radio wifi on')
                 if self.pairing_phase > 0 and self.pairing_phase != 100:
                     self.pairing_phase += 10
@@ -2327,140 +2614,152 @@ class MatterAdapter(Adapter):
                 
 
             try:
-                for line in iter(self.server_process.stdout.readline,b''):
-                    if self.DEBUG:
-                        self.s_print("CAPTURED STDOUT: " + str(line.decode().rstrip()))
-                
-                    # nothing is coming out of stdout
+                if self.server_process:
+                    for line in iter(self.server_process.stdout.readline,b''):
+                        if self.DEBUG:
+                            self.s_print("CAPTURED STDOUT: " + str(line.decode().rstrip()))
                     
-                
-                for line in iter(self.server_process.stderr.readline,b''):
-                    line = line.decode()
-                    if self.DEBUG:
-                        self.s_print("CAPTURED STDERR: " + str(line.rstrip()))
-                    if 'Traceback' in line:
-                        self.pairing_failed = True
-                        self.busy_pairing = False
-                        self.send_pairing_prompt("Error, Matter server crashed")
-                        self.pairing_phase_message = 'Matter crashed!'
-                        self.pairing_phase = -1
-                    if 'over BLE failed' in line:
-                        self.pairing_failed = True
-                        self.busy_pairing = False
-                        self.send_pairing_prompt("Bluetooth commissioning failed")
-                        self.pairing_phase_message = 'Bluetooth connection to Matter device could not be established'
-                        self.pairing_phase = -1
+                        # nothing is coming out of stdout
                         
-                    if 'Found unconnected device, removing' in line:
-                        self.pairing_phase_message = 'Removing unconnected device, likely from a previous failed pairing attempt'
-                        
-                    if "Error on commissioning step 'WiFiNetworkEnable'" in line:
-                        self.pairing_phase_message = 'Pairing failed because the WiFi network could not be enabled'
-                        
-                    if 'error.NodeInterviewFailed' in line:
-                        if self.busy_pairing:
-                            self.pairing_failed = True
-                            self.busy_pairing = False
-                            self.send_pairing_prompt("Interviewing Matter device failed")
-                            self.pairing_phase = -1
-                            self.pairing_phase_message = 'Interviewing the Matter device failed'
-                    if 'Commission with code failed for node' in line:
-                        if self.pairing_attempt < 5:
-                            if self.DEBUG:
-                                self.s_print("Pairing failed, but will try again")
-                            self.send_pairing_prompt("Pairing failed.. Trying again..")
-                            self.pairing_phase_message = 'Pairing failed.. Trying again..'
-                            self.start_matter_pairing()
-                        else:
-                            self.pairing_failed = True
-                            self.busy_pairing = False
-                            self.send_pairing_prompt("Interviewing Matter device officially failed")
-                            self.pairing_phase_message = 'Pairing failed'
-                            self.pairing_phase = -1
-                        
-                        
-                    if 'Established secure session with Device' in line:
-                        self.send_pairing_prompt("Connected to new device...")
-                        self.pairing_phase_message = 'Secure connection to Matter device established'
-                        self.pairing_phase = 50
-                    if 'Setting up attributes and events subscription' in line:
-                        #if time.time() - self.addon_start_time > 60:
-                        if self.busy_pairing:
-                            self.send_pairing_prompt("Setting up device...")
-                            self.pairing_phase_message = 'Setting up Matter device'
-                            self.pairing_phase = 70
-                    if 'Discovery timed out' in line:
-                        if self.busy_pairing:
-                            self.pairing_failed = True
-                            self.busy_pairing = False
-                            self.send_pairing_prompt("No new Matter device detected")
-                            self.pairing_phase_message = 'No new Matter device detected'
-                            self.pairing_phase = -1
-                    if 'Failed to establish secure session to device' in line:
-                        self.pairing_failed = True
-                        self.busy_pairing = False
-                        self.send_pairing_prompt("Creating secure connection to new Matter device failed")
-                        self.pairing_phase_message = 'Creating secure connection to new Matter device failed'
-                        self.pairing_phase = -1
-                    if 'le-connection-abort-by-local' in line:
-                        self.pairing_failed = True
-                        self.busy_pairing = False
-                        self.send_pairing_prompt("Bluetooth got wireless interference.")
-                        self.pairing_phase_message = 'Could not connect to new device via Bluetooth. Possibly because of wireless interference'
-                        self.pairing_phase = -1
-                    if 'address already in use' in line:
-                        self.s_print("ERROR, THERE ALREADY IS A MATTER SERVER RUNNING")
-                        
-                    if 'Subscription succeeded with report interval' in line or 'Re-Subscription succeeded' in line:
+                    
+                    for line in iter(self.server_process.stderr.readline,b''):
+                        line = line.decode()
                         if self.DEBUG:
-                            self.s_print("A device re-connected")
-                        if '<Node:' in line:
-                            device_index = line.split('<Node:')[1]
-                            if '>' in device_index:
-                                device_index = device_index.split('>')[0]
-                                if device_index.isdigit():
-                                    device_id = 'matter-' + str(device_index)
-                                    target_device = self.get_device(device_id)
-                                    if target_device:
-                                        target_device.connected = True
-                                        target_device.connected_notify(True)
-                        
-                        if self.thread_running and self.informed_matter_server_about_thread == False:
-                            self.informed_matter_server_about_thread = self.set_thread_dataset()                
-                                        
+                            self.s_print("CAPTURED STDERR: " + str(line.rstrip()))
+                        if 'Traceback' in line:
+                            self.pairing_failed = True
+                            self.busy_pairing = False
+                            self.send_pairing_prompt("Error, Matter server crashed")
+                            self.pairing_phase_message = 'Matter crashed!'
+                            self.pairing_phase = -1
+                        if 'over BLE failed' in line:
+                            self.pairing_failed = True
+                            self.busy_pairing = False
+                            self.send_pairing_prompt("Bluetooth commissioning failed")
+                            self.pairing_phase_message = 'Bluetooth connection to Matter device could not be established'
+                            self.pairing_phase = -1
                             
-                    if 'Subscription failed' in line and 'Timeout, resubscription attempt 3' in line: 
-                        if self.DEBUG:
-                            self.s_print("A device seems to have become unavailable")
-                        # <Node:20>
-                        if '<Node:' in line:
-                            device_index = line.split('<Node:')[1]
-                            if '>' in device_index:
-                                device_index = device_index.split('>')[0]
+                        if 'Found unconnected device, removing' in line:
+                            self.pairing_phase_message = 'Removing unconnected device, likely from a previous failed pairing attempt'
+                            
+                        if "Error on commissioning step 'WiFiNetworkEnable'" in line:
+                            self.pairing_phase_message = 'Pairing failed because the WiFi network could not be enabled'
+                            
+                        if 'error.NodeInterviewFailed' in line:
+                            if self.busy_pairing:
+                                self.pairing_failed = True
+                                self.busy_pairing = False
+                                self.send_pairing_prompt("Interviewing Matter device failed")
+                                self.pairing_phase = -1
+                                self.pairing_phase_message = 'Interviewing the Matter device failed'
+                        if 'Commission with code failed for node' in line:
+                            if self.pairing_attempt < 5:
                                 if self.DEBUG:
-                                    print("device seems to have become unavailable: ", device_index)
+                                    self.s_print("Pairing failed, but will try again")
+                                self.send_pairing_prompt("Pairing failed.. Trying again..")
+                                self.pairing_phase_message = 'Pairing failed.. Trying again..'
+                                self.start_matter_pairing()
+                            else:
+                                self.pairing_failed = True
+                                self.busy_pairing = False
+                                self.send_pairing_prompt("Interviewing Matter device officially failed")
+                                self.pairing_phase_message = 'Pairing failed'
+                                self.pairing_phase = -1
+                            
+                            
+                        if 'Established secure session with Device' in line:
+                            self.send_pairing_prompt("Connected to new device...")
+                            self.pairing_phase_message = 'Secure connection to Matter device established'
+                            self.pairing_phase = 50
+                        if 'Setting up attributes and events subscription' in line:
+                            #if time.time() - self.addon_start_time > 60:
+                            if self.busy_pairing:
+                                self.send_pairing_prompt("Setting up device...")
+                                self.pairing_phase_message = 'Setting up Matter device'
+                                self.pairing_phase = 70
+                        if 'Discovery timed out' in line:
+                            if self.busy_pairing:
+                                self.pairing_failed = True
+                                self.busy_pairing = False
+                                self.send_pairing_prompt("No new Matter device detected")
+                                self.pairing_phase_message = 'No new Matter device detected'
+                                self.pairing_phase = -1
+                        if 'Failed to establish secure session to device' in line:
+                            self.pairing_failed = True
+                            self.busy_pairing = False
+                            self.send_pairing_prompt("Creating secure connection to new Matter device failed")
+                            self.pairing_phase_message = 'Creating secure connection to new Matter device failed'
+                            self.pairing_phase = -1
+                        if 'le-connection-abort-by-local' in line:
+                            self.pairing_failed = True
+                            self.busy_pairing = False
+                            self.send_pairing_prompt("Bluetooth got wireless interference.")
+                            self.pairing_phase_message = 'Could not connect to new device via Bluetooth. Possibly because of wireless interference'
+                            self.pairing_phase = -1
+                        if 'address already in use' in line:
+                            self.s_print("ERROR, THERE ALREADY IS A MATTER SERVER RUNNING")
+                            
+                        if 'Subscription succeeded with report interval' in line or 'Re-Subscription succeeded' in line:
+                            if self.DEBUG:
+                                self.s_print("A device re-connected")
+                            if '<Node:' in line:
+                                device_index = line.split('<Node:')[1]
+                                if '>' in device_index:
+                                    device_index = device_index.split('>')[0]
+                                    if device_index.isdigit():
+                                        device_id = 'matter-' + str(device_index)
+                                        target_device = self.get_device(device_id)
+                                        if target_device:
+                                            target_device.connected = True
+                                            target_device.connected_notify(True)
+                            
+                            if self.thread_running and self.informed_matter_server_about_thread == False:
+                                self.informed_matter_server_about_thread = self.set_thread_dataset()
+                                if self.DEBUG:
+                                    print("A device re-connected -> self.informed_matter_server_about_thread: ", self.informed_matter_server_about_thread)
+                                            
+                                
+                        if 'Subscription failed' in line and 'Timeout, resubscription attempt 3' in line: 
+                            if self.DEBUG:
+                                self.s_print("A device seems to have become unavailable")
+                            # <Node:20>
+                            if '<Node:' in line:
+                                device_index = line.split('<Node:')[1]
+                                if '>' in device_index:
+                                    device_index = device_index.split('>')[0]
+                                    if self.DEBUG:
+                                        print("device seems to have become unavailable: ", device_index)
+                                    if device_index.isdigit():
+                                        device_id = 'matter-' + str(device_index)
+                                        target_device = self.get_device(device_id)
+                                        if target_device:
+                                            target_device.connected = False
+                                            target_device.connected_notify(False)
+                                            try:
+                                                for dev in self.devices:
+                                                    print("devva: ", dev)
+                                                    if 'id' in dev and 'connected' in dev:
+                                                        print("device.connected: ", device.id, device.connected)
+                                            except Exception as ex:
+                                                print("caught error checking which devices are connected: ", ex)
+
+
+                        if 'is not (yet) available' in line:
+                            self.send_pairing_prompt("Device not available (yet)")
+                            if ' Node ' in line:
+                                device_index = line.split(' Node ')[1]
+                                device_index = device_index.split('is not (yet) available')[0]
+                                if self.DEBUG:
+                                    print("Device not available (yet): ", device_index)
                                 if device_index.isdigit():
                                     device_id = 'matter-' + str(device_index)
                                     target_device = self.get_device(device_id)
                                     if target_device:
                                         target_device.connected = False
                                         target_device.connected_notify(False)
-                    if 'is not (yet) available' in line:
-                        self.send_pairing_prompt("Device not available (yet)")
-                        if ' Node ' in line:
-                            device_index = line.split(' Node ')[1]
-                            device_index = device_index.split('is not (yet) available')[0]
-                            if self.DEBUG:
-                                print("Device not available (yet): ", device_index)
-                            if device_index.isdigit():
-                                device_id = 'matter-' + str(device_index)
-                                target_device = self.get_device(device_id)
-                                if target_device:
-                                    target_device.connected = False
-                                    target_device.connected_notify(False)
-                                    
-                    #output = self.server_process.stdout.readline()
-                    #error_line = self.server_process.stderr.readline()
+                                        
+                        #output = self.server_process.stdout.readline()
+                        #error_line = self.server_process.stderr.readline()
 
 
                 #for x in range(60):
@@ -2578,7 +2877,17 @@ class MatterAdapter(Adapter):
                 cluster_name = attribute_code.split('.Attributes.')[0]
                 attribute_name = attribute_code.split('.Attributes.')[1]
                 
-                
+
+
+                if cluster_name == 'ThreadNetworkDiagnostics':
+                    if not node_id in self.thread_diagnostics:
+                        self.thread_diagnostics[node_id] = {}
+                    self.thread_diagnostics[node_id][attribute_name] = value
+                    if self.DEBUG:
+                        print("self.thread_diagnostics is now: ", self.thread_diagnostics)
+
+
+
                 if clusters_to_ignore and cluster_name in clusters_to_ignore:
                     if self.DEBUG:
                         self.s_print("handle_event: skipping because cluster_name was in list of clusters_to_ignore: ", cluster_name)
@@ -3049,6 +3358,38 @@ class MatterAdapter(Adapter):
         """
                     
 
+    # Reset Matter
+    def reset_matter(self):
+        if self.DEBUG:
+            self.s_print("in reset_matter")
+
+        if self.server_process and self.server_process.poll() == None:
+            if self.DEBUG:
+                self.s_print("doing .terminate() of matter_server")
+            self.server_process.terminate()
+            time.sleep(.5)
+        if self.server_process and self.server_process.poll() == None:
+            if self.DEBUG:
+                self.s_print("unload: resorting to .kill() of matter_server")
+            self.server_process.kill()
+            time.sleep(.2)
+        if self.server_process and self.server_process.poll() == None:
+            if self.DEBUG:
+                self.s_print("unload: doing pkill of matter_server")
+            os.system('sudo pkill -f matter_server.server')
+        
+        try:
+            run_loop = asyncio.get_running_loop()
+            run_loop.stop()
+        except Exception as ex:
+            self.s_print("Error getting asyncio loop: " + str(ex))
+        
+        self.really_stop_otbr()
+
+        if os.path.isdir('/home/pi/.webthings/hasdata_backup'):
+            os.system('rm -rf /home/pi/.webthings/hasdata_backup')
+        os.system('mkdir -p /home/pi/.webthings/hasdata_backup')
+        os.system('mv /home/pi/.webthings/hasdata/* /home/pi/.webthings/hasdata_backup/')
 
 
 
@@ -3297,7 +3638,7 @@ class MatterAdapter(Adapter):
             return None
         
         
-    def run_ot_ctl_command(self, cmd, timeout_seconds=10):
+    def run_ot_ctl_command(self, cmd, timeout_seconds=30):
         try:
             if not os.path.isfile(self.ot_ctl_path):
                 self.s_print("\nERROR, run_ot_ctl_command: ot-ctl is missing: ", self.ot_ctl_path)
@@ -3326,7 +3667,7 @@ class MatterAdapter(Adapter):
                     return str(op.stderr).rstrip()
 
         except Exception as ex:
-            self.s_print("caught error in run_ot_ctl_command: "  + str(ex))
+            self.s_print("caught error in run_ot_ctl_command: " + str(ex))
             return None
     
     # Loop over all the items in the list, which is stored inside the adapter instance.
@@ -3344,6 +3685,7 @@ class MatterAdapter(Adapter):
         return False
     """
     
+
 
 def run_command(cmd, timeout_seconds=30):
     try:

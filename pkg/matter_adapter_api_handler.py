@@ -175,7 +175,8 @@ class MatterAPIHandler(APIHandler):
                                       'pairing_phase_message':self.adapter.pairing_phase_message,
                                       'extension_cable_recommended': self.adapter.extension_cable_recommended,
                                       'last_received_server_info':self.adapter.last_received_server_info,
-                                      'noise_delta':self.adapter.noise_delta
+                                      'noise_delta':self.adapter.noise_delta,
+                                      'thread_diagnostics':self.adapter.thread_diagnostics
                                       }),
                         )
                     
@@ -307,8 +308,17 @@ class MatterAPIHandler(APIHandler):
                         code = ""
                         
                         try:
-                            if 'pairing_type' in request.body and 'code' in request.body:
-                            
+                            if 'pairing_type' in request.body and 'code' in request.body and 'wireless_type' in request.body:
+                                wireless_type = str(request.body['wireless_type'])
+                                if self.DEBUG:
+                                    print("raw wireless_type: ", wireless_type)
+                                if wireless_type.lower() == 'thread':
+                                    self.adapter.wireless_type = 'thread'
+                                elif wireless_type.lower() == 'wifi':
+                                    self.adapter.wireless_type = 'wifi'
+                                else:
+                                    self.adapter.wireless_type = 'unknown'
+                                
                                 pairing_type = str(request.body['pairing_type'])
                                 code = request.body['code']
                                 
@@ -386,6 +396,8 @@ class MatterAPIHandler(APIHandler):
                         )
                     
                     
+
+                    
                     
                     # Reset pairing
                     elif action == 'reset_pairing':
@@ -416,6 +428,21 @@ class MatterAPIHandler(APIHandler):
                         
                         self.adapter.persistent_data['nodez'] = {}
                         self.adapter.get_nodes()
+                        self.adapter.should_save = True
+                        
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':True}),
+                        )
+                    
+                    elif action == 'reset_matter':
+                        if self.DEBUG:
+                            print("\n\nAPI: in reset_matter")
+                        
+                        self.adapter.persistent_data['nodez'] = {}
+                        self.adapter.get_nodes()
+                        self.adapter.reset_matter()
                         self.adapter.should_save = True
                         
                         return APIResponse(

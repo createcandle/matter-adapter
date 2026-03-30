@@ -305,6 +305,21 @@ python3.11 -m pip install coloredlogs aiorun requests click click_option_group -
     
     
 
+
+# NEW - experiment to switch over to the MatterJS server
+sudo apt install npm -y
+
+wget --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 3 https://github.com/matter-js/matterjs-server/archive/refs/tags/v0.5.10.tar.gz
+if [ -f v0.5.10.tar.gz ]; then
+  tar xf v0.5.10.tar.gz
+  mv matterjs-server-0.5.10 matterjs-server
+  cd matterjs-server
+  npm ci
+  cd ..
+fi
+
+
+
 echo "LS lib after second round of pip:"
 ls lib
 

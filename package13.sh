@@ -147,6 +147,25 @@ else
   ls ./lib/aiorun*
 fi
 
+
+
+# NEW - experiment to switch over to the MatterJS server
+sudo apt install npm -y
+
+wget --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 3 https://github.com/matter-js/matterjs-server/archive/refs/tags/v0.5.10.tar.gz
+if [ -f v0.5.10.tar.gz ]; then
+  tar xf v0.5.10.tar.gz
+  mv matterjs-server-0.5.10 matterjs-server
+  cd matterjs-server
+  npm ci
+fi
+
+
+
+
+
+
+
 if [ -z "${ADDON_ARCH}" ]; then
   TARFILE_SUFFIX=
 else
@@ -162,7 +181,7 @@ wget https://raw.githubusercontent.com/project-chip/connectedhomeip/master/src/a
 
 
 # Put package together
-cp -r lib pkg LICENSE *.json *.py README.md thread other css images js views  package/
+cp -r lib pkg LICENSE *.json *.py README.md matterjs-server thread other css images js views  package/
 find package -type f -name '*.pyc' -delete
 find package -type f -name '._*' -delete
 find package -type d -empty -delete

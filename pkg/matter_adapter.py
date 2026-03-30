@@ -1051,6 +1051,8 @@ class MatterAdapter(Adapter):
 
         # node --enable-source-maps packages/matter-server/dist/esm/MatterServer.js
 
+        # self.matter_server_start_path = os.path.join(self.matter_server_base_path,'packages','matter-server','dist','esm','MatterServer.js')
+
         matter_server_command = '/home/pi/node24 --enable-source-maps ' + self.matter_server_start_path
 
         matter_server_command = matter_server_command + ' --storage-path ' + str(self.data_path)
@@ -1058,6 +1060,8 @@ class MatterAdapter(Adapter):
         if self.nmcli_installed == True:
             matter_server_command = matter_server_command + " --primary-interface uap0"
 
+        #matter_server_command = matter_server_command + " --ble"
+        
 
 
 

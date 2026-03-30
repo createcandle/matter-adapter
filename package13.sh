@@ -158,6 +158,7 @@ if [ -f v0.5.10.tar.gz ]; then
   mv matterjs-server-0.5.10 matterjs-server
   cd matterjs-server
   npm ci
+  cd ..
 fi
 
 

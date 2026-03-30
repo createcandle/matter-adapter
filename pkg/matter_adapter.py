@@ -1039,7 +1039,7 @@ class MatterAdapter(Adapter):
     #  START MATTER.SERVER
     #
 
-def start_matter_server(self):
+    def start_matter_server(self):
         if self.DEBUG:
             print("in start_matter_server")
 
@@ -1079,7 +1079,7 @@ def start_matter_server(self):
 
         if self.DEBUG:
             self.s_print("")
-            self.s_print("full matter server start command: " + str(matter_server_command_shell))
+            self.s_print("full matter server start command: " + str(matter_server_command))
             self.s_print("")
 
         matter_server_command_array = matter_server_command.split()
@@ -3698,7 +3698,7 @@ def run_command(cmd, timeout_seconds=30):
                 return str(p.stderr).rstrip()
 
     except Exception as ex:
-        self.s_print("caught error in run_command: "  + str(ex))
+        print("caught error in run_command: "  + str(ex))
         return None
 
 

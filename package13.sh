@@ -183,7 +183,7 @@ wget https://raw.githubusercontent.com/project-chip/connectedhomeip/master/src/a
 
 
 # Put package together
-cp -r lib pkg LICENSE *.json *.py README.md matterjs-server thread other css images js views  package/
+cp -r lib pkg LICENSE *.json *.py README.md node_modules thread other css images js views  package/
 find package -type f -name '*.pyc' -delete
 find package -type f -name '._*' -delete
 find package -type d -empty -delete

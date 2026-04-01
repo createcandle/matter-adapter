@@ -242,8 +242,10 @@ class MatterAdapter(Adapter):
         self.thread_radio_is_alive_count = 0 # how many spinel messages have been received
         self.last_thread_radio_is_alive_timestamp = 0
 
-        self.otbr_starting = None
+        self.otbr_starting_timestamp = None
+        self.otbr_stopping_timestamp = 0
         self.last_time_otbr_started = time.time()
+        self.should_start_otbr = True
         self.otbr_started = False # This is the first stage, done by otbr-agent
         
         self.thread_set_active = False # This is the second stage, managed by ot-ctl
@@ -365,8 +367,8 @@ class MatterAdapter(Adapter):
         #self.certs_dir_path = os.path.join(self.data_path, 'paa-root-certs')
 
         self.matter_server_base_path = os.path.join(self.addon_path,'matterjs-server')
-        self.matter_server_start_path = os.path.join(self.matter_server_base_path,'packages','matter-server','dist','esm','MatterServer.js')
-
+        #self.matter_serverjs_start_path = os.path.join(self.matter_server_base_path,'packages','matter-server','dist','esm','MatterServer.js') # node_modules/matter-server/dist/esm
+        self.matter_serverjs_start_path = os.path.join(self.matter_server_base_path,'node_modules','matter-server','dist','esm','MatterServer.js')
 
 
         
@@ -625,43 +627,53 @@ class MatterAdapter(Adapter):
 
             
             # If a radio is found, then it also starts OTBR
+            #if self.DEBUG:
+            #    self.s_print("start_servers: calling find_thread_radio")
+            #self.find_thread_radio()
+            
+            # Start matter.server client
             if self.DEBUG:
-                self.s_print("start_servers: calling find_thread_radio")
-            self.find_thread_radio()
-            
-            
+                self.s_print("\nstart_servers: starting the matter.server client thread")
+            try:
+                self.otbr_t = threading.Thread(target=self.otbr_loop)
+                self.otbr_t.daemon = True
+                self.otbr_t.start()
+            except Exception as ex:
+                if self.DEBUG:
+                    self.s_print("Error starting the OTBR loop thread: " + str(ex))
+                    self.s_print(traceback.format_exc())
+
+            time.sleep(2)
+
+            if self.DEBUG:
+                print("is self.otbr_starting_timestamp None or a number?: ", self.otbr_starting_timestamp)
+
+
             # if it's starting, then wait until the thread network has fully started
-            if self.otbr_starting != None:
-                while self.thread_running == False:
+            if self.otbr_starting_timestamp != None:
+                while self.running and self.thread_running == False:
                     if self.DEBUG:
-                        self.s_print("start_servers: waiting for self.thread_running to be True")
+                        self.s_print("start_servers: waiting for self.thread_running to be True.  len(self.otbr_stdout_messages): ", len(self.otbr_stdout_messages))
+
+                        
+
+
                     time.sleep(1)
-                    if self.otbr_starting == None:
+                    if self.otbr_starting_timestamp == None:
                         break
-                    if self.otbr_starting != None and time.time() - self.otbr_starting > 90:
+                    if self.otbr_starting_timestamp != None and time.time() - self.otbr_starting_timestamp > 90:
                         break
 
 
-
-            bridge_check = str(run_command('ip link show'))
-            # Bridge interfaces if uap0 and wpan0 both exist
-            if 'uap0:' in bridge_check and 'wpan0' in bridge_check:
-                bridge_command = 'sudo ifconfig uap0 down;sudo ifconfig wpan0 down;sudo brctl addbr br0;sudo brctl addif br0 wpan0;sudo brctl addif br0 uap0;sudo ifconfig br0 up;sudo ifconfig wpan0 up;sudo ifconfig uap0 up'
-                run_command(bridge_command)
-           
-
-
-
-
-
-
+            # Ensure there's a bridge
+            self.ensure_bridge()
 
 
 
 
             # Start the Matter.server
             if self.DEBUG:
-                self.s_print("start_servers: calling start_matter_server")
+                self.s_print("\nstart_servers: calling start_matter_server")
             self.start_matter_server()
             if self.DEBUG:
                 self.s_print("start_servers: beyond start_matter_server")
@@ -669,7 +681,7 @@ class MatterAdapter(Adapter):
 
             # Start matter.server client
             if self.DEBUG:
-                self.s_print("start_servers: starting the matter.server client thread")
+                self.s_print("\nstart_servers: starting the matter.server client thread")
             try:
                 self.t = threading.Thread(target=self.client_thread)
                 self.t.daemon = True
@@ -774,9 +786,35 @@ class MatterAdapter(Adapter):
 
 
 
+    # If OTBR starts, then it (should) block this loop
+    def otbr_loop(self):
 
+        while self.running:
+            if self.DEBUG:
+                #self.s_print("otbr_loop: loop start.  self.should_start_otbr, self.otbr_started, self.found_thread_radio_again: ", self.should_start_otbr,self.otbr_started, self.found_thread_radio_again)
+                self.s_print("otbr_loop: loop start.")
 
+            self.find_thread_radio()
 
+            if self.DEBUG:
+                self.s_print("otbr_loop:")
+                self.s_print("- self.otbr_started: ", self.otbr_started)
+                self.s_print("- self.thread_radio_went_missing: ", self.thread_radio_went_missing)
+                self.s_print("- self.found_thread_radio_again: ", self.found_thread_radio_again)
+                self.s_print("- self.found_new_thread_radio: ", self.found_new_thread_radio)
+                self.s_print("- self.thread_set_active: ", self.thread_set_active)
+                self.s_print("- self.last_time_otbr_restarted: ", self.last_time_otbr_restarted)
+
+            if self.should_start_otbr == True and self.otbr_started == False and self.otbr_starting_timestamp == None and self.last_time_otbr_restarted < time.time() - 60 and (self.found_thread_radio_again or self.found_new_thread_radio):
+                if self.DEBUG:
+                    self.s_print("otbr_loop: conditions are perfect. calling start_otbr")
+                self.last_time_otbr_restarted = time.time()
+                self.start_otbr()
+
+            time.sleep(5)
+
+        if self.DEBUG:
+            self.s_print("otbr_loop: beyond while loop. self.running should be false: ", self.running)
 
 
 
@@ -814,6 +852,7 @@ class MatterAdapter(Adapter):
                             break
                     
                 # TODO: this should be removed, since the SkyConnect could also have zigbee firmware. Maybe leave it, but only run it if there is no zigbee2mqtt addon installed
+                """
                 if found_thread_radio_again == False:
                     for line in serial_by_id_output.splitlines():
                         line = str(line).strip().rstrip()
@@ -825,14 +864,16 @@ class MatterAdapter(Adapter):
                                 self.should_save = True
                             found_new_thread_radio = True
                             break
-                        
+                """
+
         self.found_thread_radio_again = found_thread_radio_again
         self.found_new_thread_radio = found_new_thread_radio
 
         if self.found_thread_radio_again or self.found_new_thread_radio:
             self.found_a_thread_radio_once = True
-            if self.otbr_started == False and self.otbr_starting == None:
-                self.start_otbr()
+            if self.otbr_started == False and self.otbr_starting_timestamp == None:
+                self.should_start_otbr = True
+                
         else:
             #if self.DEBUG:
             #    self.s_print("\nNO THREAD RADIO FOUND\n")
@@ -875,13 +916,13 @@ class MatterAdapter(Adapter):
     def start_otbr(self):
         if self.DEBUG:
             self.s_print("in start_otbr")
-        self.otbr_starting = time.time()
-        self.otbr_thread = threading.Thread(target=self.really_start_otbr)
-        self.otbr_thread.daemon = True
-        self.otbr_thread.start()
-
-
-    def really_start_otbr(self):
+        self.otbr_starting_timestamp = time.time()
+#       #self.otbr_thread = threading.Thread(target=self.really_start_otbr)
+#       #self.otbr_thread.daemon = True
+#       #self.otbr_thread.start()
+#       self.really_start_otbr()
+#
+#   def really_start_otbr(self):
         if self.DEBUG:
             self.s_print("in really_start_otbr")
         try:
@@ -960,6 +1001,8 @@ class MatterAdapter(Adapter):
                     self.s_print("\n\nTHREAD AGENT COMMAND:\n\n" + str( " ".join(agent_command_array) ) + "\n\n")
 
                 self.otbr_agent_process = subprocess.Popen(agent_command_array, stderr=subprocess.DEVNULL, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                os.set_blocking(self.otbr_agent_process.stdout.fileno(), False)
+                os.set_blocking(self.otbr_agent_process.stderr.fileno(), False)
                 #self.tcpdump = subprocess.Popen(["sudo","tcpdump","-i","any","'udp port 5353 and (host 224.0.0.251 or host ff02::fb)'","-n"], stderr=subprocess.DEVNULL, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 time.sleep(.1)
                 try:
@@ -985,8 +1028,27 @@ class MatterAdapter(Adapter):
                             print("otbr_agent_process is running OK")
 
 
-                        while self.running:
+                        while self.otbr_agent_process != None and self.otbr_agent_process.poll() == None:
                             time.sleep(1)
+                            try:
+                                for i in range(1000):
+                                    msg = self.otbr_agent_process.stdout.readline()
+                                    decoded_message = str(msg.decode()).strip().rstrip()
+                                    # note to self: do not putf a print statement here
+                                    if len(decoded_message) > 1:
+                                        self.otbr_stdout_messages.append(decoded_message)
+                                    elif decoded_message == '':
+                                        print("number of lines read from otbr_agent_process stdout: ", i)
+                                        break
+                            
+                                if len(self.otbr_stdout_messages):
+                                    self.parse_otbr_messages()
+
+                            except Exception as ex:
+                                print("caught error trying to read messages from self.otbr_agent_process: ", ex)
+                            
+                            
+
 
                         #    self.s_print("starting thread to read from OTBR stdout")
                         #self.stdout_thread = threading.Thread(target=read_otbr_stdout)
@@ -1029,9 +1091,63 @@ class MatterAdapter(Adapter):
             #self.shell.stdin.flush()
         except Exception as ex:
             if self.DEBUG:
-                self.s_print("caught error in _start_otbr: " + str(ex))
+                self.s_print("caught error in really_start_otbr: " + str(ex))
                 
                 
+    def parse_otbr_messages(self):
+        if self.DEBUG:
+            print("in parse_otbr_messages.  len(self.otbr_stdout_messages): ", len(self.otbr_stdout_messages))
+        if self.DEBUG and self.thread_radio_is_alive_count < 100:
+            self.s_print("\nclock: total otbr_stdout_messages length: ", len(self.otbr_stdout_messages))
+            
+        wpan_check = str(run_command('ip link show | grep wpan0'))
+        if 'state ' in wpan_check:
+            self.otbr_started = True
+            
+        if 'state DOWN' in wpan_check:
+            bring_up_wpan0_output = str(run_command('sudo ip link set wpan0 up'))
+            if self.DEBUG:
+                self.s_print("bring_up_wpan0_output: ", bring_up_wpan0_output)
+            
+            
+        while len(self.otbr_stdout_messages):
+            otbr_message = self.otbr_stdout_messages.pop(0)
+            if self.DEBUG and self.thread_radio_is_alive_count < 100:
+                self.s_print("parse_otbr_messages: otbr_message: ", otbr_message)
+            
+            if 'Received spinel frame' in otbr_message:
+                self.thread_radio_is_alive_count += 1
+                self.last_thread_radio_is_alive_timestamp = int(time.time())
+                if self.DEBUG and self.thread_radio_is_alive_count < 100:
+                    self.s_print("parse_otbr_messages: self.thread_radio_is_alive_count: ", self.thread_radio_is_alive_count)
+            
+            if 'failed set request 0x12 status: -110' in otbr_message:
+                if self.DEBUG:
+                    self.s_print("parse_otbr_messages: the Thread radio may need to use an extension cord")
+                self.thread_error = 'You may need to use a USB extension cable for your Thread dongle'
+                self.extension_cable_recommended = True
+            elif 'Failed to communicate with RCP' in otbr_message:
+                if self.DEBUG:
+                    self.s_print("\nERROR, spotted message indicating the thread radio isn't responding")
+                self.thread_error = 'The Thread radio is not responding'
+            
+            elif ('SrpAdvProxy---: Started' in otbr_message or 'Evaluating routing policy' in otbr_message or self.thread_radio_is_alive_count > 20) and self.thread_set_active == False:
+                if self.DEBUG:
+                    self.s_print("parse_otbr_messages: calling start_thread_mesh")
+                self.thread_set_active = True
+                self.thread_radio_went_missing = False
+                self.start_thread_mesh()
+        
+            elif '... noise:-128' in otbr_message:
+                #if self.DEBUG:
+                #    self.s_print("Thread radio is receiving a lot of noise?")
+                self.noise_counter += 1
+                #self.thread_error = 'The thread radio is receiving a lot of noise. You may need to use a USB extension cable for your Thread dongle'
+                #self.extension_cable_recommended = True
+        
+            elif 'Wait for response timeout' in otbr_message:
+                if self.DEBUG:
+                    self.s_print("\nWARNING, otbr got timeout - usb stick not responding?")
     
 
 
@@ -1039,7 +1155,7 @@ class MatterAdapter(Adapter):
     #  START MATTER.SERVER
     #
 
-    def start_matter_server(self):
+    def start_matter_server_js(self):
         if self.DEBUG:
             print("in start_matter_server")
 
@@ -1047,21 +1163,38 @@ class MatterAdapter(Adapter):
             self.s_print("ERROR DATA PATH DOES NOT EXIST")
             os.system('mkdir -p ' + str(self.data_path))
 
+
+        # ALL AVAILABLE FLAGS ARE DOCUMENTED HERE: https://github.com/matter-js/matterjs-server/blob/main/docs/cli.md
         #matter_server_command = 'npm run server -- 
 
         # node --enable-source-maps packages/matter-server/dist/esm/MatterServer.js
 
         # self.matter_server_start_path = os.path.join(self.matter_server_base_path,'packages','matter-server','dist','esm','MatterServer.js')
 
-        matter_server_command = '/home/pi/node24 --enable-source-maps ' + self.matter_server_start_path
+        matter_server_command = '/home/pi/node24 --enable-source-maps --disable-dashboard ' + self.matter_serverjs_start_path
 
         matter_server_command = matter_server_command + ' --storage-path ' + str(self.data_path)
         
+        
+
+        if self.DEBUG:
+            matter_server_command += ' --log-level debug'
+        else:
+            matter_server_command += ' --log-level critical'
+        
+
         if self.nmcli_installed == True:
             matter_server_command = matter_server_command + " --primary-interface uap0"
 
+        # --listen-address 192.168.12.1  # REPEATABLE, so should then also bind to wpan0 if that has an IP address
+
+
         #matter_server_command = matter_server_command + " --ble"
         
+        if self.vendor_id != "":
+            decimal_vendor_id = int(self.vendor_id, 16)
+            #matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
+            matter_server_command = matter_server_command + " --vendorid " + str(decimal_vendor_id)
 
 
 
@@ -1118,7 +1251,7 @@ class MatterAdapter(Adapter):
 
 
 
-    def start_matter_server_old(self):
+    def start_matter_server(self):
         if self.DEBUG:
             print("in start_matter_server")
 
@@ -1158,11 +1291,11 @@ class MatterAdapter(Adapter):
         if not os.path.exists(self.lib_path):
             self.s_print("ERROR LIB PATH DOES NOT EXIST")
 
-        matter_server_command_shell = "PYTHONPATH=" + str(self.lib_path) + " " +  str(matter_server_command)
+        #matter_server_command = "PYTHONPATH=" + str(self.lib_path) + " " +  str(matter_server_command)
 
         if self.DEBUG:
             self.s_print("")
-            self.s_print("full matter server start command: " + str(matter_server_command_shell))
+            self.s_print("full matter server start command: " + str(matter_server_command))
             self.s_print("")
 
         matter_server_command_array = matter_server_command.split()
@@ -1276,10 +1409,12 @@ class MatterAdapter(Adapter):
             
             if 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 40:
                 if self.DEBUG:
-                    print("OK, there is a thread dataset in persistent data")
+                    print("OK, there is a thread dataset in persistent data. Will attempt to load it.")
                 #dataset networkkey 
                 #if str(self.run_ot_ctl_command('dataset set active ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
-                if str(self.run_ot_ctl_command('dataset init tlvs ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
+                load_dataset_check = str(self.run_ot_ctl_command('dataset init tlvs ' + str(self.persistent_data['thread_dataset']), 60)).rstrip()
+                
+                if load_dataset_check == 'Done':
                 #if str(self.run_ot_ctl_command('dataset init active ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
                     initial_dataset = str(self.run_ot_ctl_command('dataset')).rstrip()
                     self.s_print("loaded initial_dataset? ", initial_dataset)
@@ -1293,29 +1428,39 @@ class MatterAdapter(Adapter):
                         #if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
                         #    if self.DEBUG:
                         #        self.s_print("channel set")
+                elif 'timed out after' in load_dataset_check:
+                    if self.DEBUG:
+                            self.s_print("ERROR: start_thread_mesh: loading the datset timed out")
+                
             else:
                 if self.DEBUG:
                     print("warning, so thread dataset in persistent data")      
             
             if dataset_loaded == False:
-                if self.DEBUG:
-                    print("\nWARNING, creating brand new thread dataset\n")
-                if self.run_ot_ctl_command('dataset init new'):
-                    panid = '0x' + str(run_command('openssl rand -hex 1')).rstrip()
-                    extpanid = str(run_command('openssl rand -hex 8')).rstrip()
-                    networkkey = str(run_command('openssl rand -hex 16')).rstrip()
-                    if len(extpanid) > 4 and len(networkkey) > 8:
-                        if str(self.run_ot_ctl_command('dataset panid ' + str(panid))).rstrip() == 'Done': #0xdead
-                            if str(self.run_ot_ctl_command('dataset extpanid ' + str(extpanid))).rstrip() == 'Done': # dead1111dead2222
-                                if str(self.run_ot_ctl_command('dataset networkname CandleThread')).rstrip() == 'Done':
-                                    if str(self.run_ot_ctl_command('dataset networkkey ' + str(networkkey))).rstrip() == 'Done': #11112233445566778899DEAD1111DEAD
-                                        #if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
-                                        #    if self.DEBUG:
-                                        #        self.s_print("channel set")
-                                        if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
-                                            if self.DEBUG:
-                                                self.s_print("start_thread_mesh: OK, called dataset commit active on brand new thread dataset")
-                                            dataset_loaded = True
+
+                if 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'], str) and len(self.persistent_data['thread_dataset']) > 10:
+                    if self.DEBUG:
+                        print("\nERROR, dataset was not loaded, but there is a thread dataset in persistent data. Did loading the dataset time-out?")    
+                    self.thread_error = 'Error, failed to load Thread dataset'
+                else:
+                    if self.DEBUG:
+                        print("\nWARNING, creating brand new thread dataset\n")
+                    if self.run_ot_ctl_command('dataset init new'):
+                        panid = '0x' + str(run_command('openssl rand -hex 1')).rstrip()
+                        extpanid = str(run_command('openssl rand -hex 8')).rstrip()
+                        networkkey = str(run_command('openssl rand -hex 16')).rstrip()
+                        if len(extpanid) > 4 and len(networkkey) > 8:
+                            if str(self.run_ot_ctl_command('dataset panid ' + str(panid))).rstrip() == 'Done': #0xdead
+                                if str(self.run_ot_ctl_command('dataset extpanid ' + str(extpanid))).rstrip() == 'Done': # dead1111dead2222
+                                    if str(self.run_ot_ctl_command('dataset networkname CandleThread')).rstrip() == 'Done':
+                                        if str(self.run_ot_ctl_command('dataset networkkey ' + str(networkkey))).rstrip() == 'Done': #11112233445566778899DEAD1111DEAD
+                                            #if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
+                                            #    if self.DEBUG:
+                                            #        self.s_print("channel set")
+                                            if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
+                                                if self.DEBUG:
+                                                    self.s_print("start_thread_mesh: OK, called dataset commit active on brand new thread dataset")
+                                                dataset_loaded = True
                                         
                                     
                                     
@@ -1339,6 +1484,11 @@ class MatterAdapter(Adapter):
                     if self.DEBUG:
                         self.s_print("\nOK - Thread is already up and running\n" + str(thread_state))
                 
+                elif 'child' in thread_state:
+                    self.thread_running = True
+                    if self.DEBUG:
+                        self.s_print("\nERROR, Thread state is child")
+
                 elif 'isabled' in thread_state or 'etached' in thread_state:
                     if self.DEBUG:
                         self.s_print("\nWARNING, dataset loaded, but thread started in disabled or detached state. Attempting to bring it up.")
@@ -1438,29 +1588,41 @@ class MatterAdapter(Adapter):
     
     
     def really_stop_otbr(self):
-        if self.otbr_agent_process != None:
+        if self.DEBUG:
+            self.s_print("in really_stop_otbr")
+        
+        if self.otbr_stopping_timestamp > time.time() - 2:
+            if self.DEBUG:
+                self.s_print("Warning, really_stop_otbr was called while it was already busy stopping OTBR")
+            return
+        
+        self.otbr_stopping_timestamp = time.time()
+        if self.otbr_agent_process != None and self.otbr_agent_process.poll() == None:
             self.run_ot_ctl_command('thread stop')
             self.run_ot_ctl_command('ifconfig down')
-            self.thread_running = False
             if self.DEBUG:
                 self.s_print("really_stop_otbr: called ot-ctl thread stop and ot-ctl ifconfig down")
             if self.otbr_agent_process and self.otbr_agent_process != None:
                 self.otbr_agent_process.terminate()
-                time.sleep(0.5)
+                time.sleep(0.3)
                 if self.otbr_agent_process and self.otbr_agent_process.poll() == None:
                     if self.DEBUG:
                         self.s_print("warning, otbr_agent_process is still alive after .terminate()")
                     self.otbr_agent_process.kill()
-                    time.sleep(0.1)
+                    time.sleep(0.2)
                     if self.otbr_agent_process and self.otbr_agent_process.poll() == None:
                         if self.DEBUG:
                             self.s_print("\nERROR, otbr_agent_process is still alive after .kill(). Calling pkill..")
                         os.system('sudo pkill -f otbr-agent')
         self.otbr_agent_process = None
-        self.otbr_started = False
         self.thread_radio_is_alive_count = 0
         self.thread_set_active = False
         self.thread_error = ''
+        self.thread_running = False
+        self.should_start_otbr = False
+        self.otbr_started = False
+        self.otbr_starting_timestamp = None
+        self.otbr_stopping_timestamp == 0
 
 
 
@@ -1803,7 +1965,7 @@ class MatterAdapter(Adapter):
                         STACK_ERROR = 3
                         UNKNOWN_ERROR = 99
                     """
-                        
+                    
                     if message['message_id'] == "device_command":
                         if self.DEBUG:
                             self.s_print("Error was from trying to change a device value")
@@ -2477,11 +2639,15 @@ class MatterAdapter(Adapter):
             #self.s_print("clock tick")
             # Check if there is output from the server process
             
+            if self.DEBUG:
+                self.s_print("clock dd: " + str(dd))
+
             dd += 1
             if dd == 100:
                 dd = 0
                 seconds_counter += 1
-                
+                print("clock: seconds_counter: ", seconds_counter)
+
                 if seconds_counter > 5:
                     seconds_counter = 0
                     self.noise_delta = self.noise_counter - self.previous_noise_counter
@@ -2489,7 +2655,9 @@ class MatterAdapter(Adapter):
                     
                 #self.s_print("tick tock")
                 passed_time = time.time() - last_tick_tock_time
-                #print("actual seconds that passed: ", passed_time)
+                
+                if self.DEBUG:
+                    self.s_print("clock: actual seconds that passed: ", passed_time)
                 last_tick_tock_time = time.time()
                 
                 if passed_time > 2:
@@ -2497,60 +2665,72 @@ class MatterAdapter(Adapter):
                         self.s_print("\n\n\nWARNING, CLOCK WAS VERY DELAYED: ", passed_time, "\n\n\n")
                 
                 
-                # Check if the thread radio needs to be restarted
-                if self.last_thread_radio_is_alive_timestamp < time.time() - 300:
-                    self.find_thread_radio()
-                    
-                    if self.thread_radio_went_missing and self.found_thread_radio_again == False and self.found_new_thread_radio == False and self.otbr_started:
-                        if self.DEBUG:
-                            self.s_print("Thread radio was unplugged? Stopping OTBR")
-                        self.send_pairing_prompt("Thread radio was unplugged?")
-                        self.really_stop_otbr()
-                    elif self.thread_radio_went_missing and (self.found_thread_radio_again or self.found_new_thread_radio) and self.otbr_started == False and self.thread_set_active == False and self.otbr_agent_process == None and self.last_time_otbr_restarted < time.time() - 600:
-                        if self.DEBUG:
-                            self.s_print("auto-restarting the Thread border router to connect to the USB stick again")
-                        self.send_pairing_prompt("Thread radio was plugged in again?")
-                        self.start_otbr()
                 
-            try:
-                if self.otbr_agent_process != None and self.otbr_agent_process.poll() == None:
 
-                    for i in range(1000):
-                        msg = self.otbr_agent_process.stdout.readline()
-                        decoded_message = str(msg.decode()).strip().rstrip()
-                        # note to self: do not put a print  statement here
-                        if len(decoded_message) > 1:
-                            self.otbr_stdout_messages.append(decoded_message)
-                        elif decoded_message == '':
-                            print("number of lines read from stdout: ", i)
-                            break
+                # Check if the thread radio was unplugged
+                if self.found_a_thread_radio_once == True and self.thread_radio_went_missing == False and 'thread_radio_serial_port' in self.persistent_data and isinstance(self.persistent_data['thread_radio_serial_port'],str) and len(str(self.persistent_data['thread_radio_serial_port'])) > 3:
+                    
+                    if self.thread_running == True:
 
-                elif self.otbr_agent_process != None:
-                    if self.DEBUG:
-                        self.s_print("read_otbr_stdout: calling self.otbr_agent_process.terminate()")
-                    self.otbr_agent_process.terminate()
-                    time.sleep(0.2)
-                    if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
-                        if self.DEBUG:
-                            self.s_print("read_otbr_stdout: resorting to calli ing self.otbr_agent_process.kill()")
-                        self.otbr_agent_process.kill()
-                        time.sleep(0.1)
+                        serial_by_id_output = run_command('ls /dev/serial/by-id')
+                        if isinstance(serial_by_id_output,str) and len(str(serial_by_id_output)) > 5:
+                            if not str(self.persistent_data['thread_radio_serial_port']) in serial_by_id_output:
+                                if self.DEBUG:
+                                    self.s_print("Thread modem was just unplugged?")
+                                self.found_thread_radio_again == False
+                                self.found_new_thread_radio == False
+                                if self.thread_radio_went_missing == False:
+                                    self.send_pairing_prompt("Thread radio was unplugged")
+                                    self.really_stop_otbr()
+                                self.thread_radio_went_missing = True
+                        
+                        if self.thread_radio_went_missing == False:
+                            wpan0_check = run_command('ip link show')
+                            if isinstance(wpan0_check,str) and not 'wpan0' in wpan0_check:
+                                if self.DEBUG:
+                                    self.s_print("\nERROR: wpan0 no longer seems to exist even thought in theory Thread is running")
+                                self.really_stop_otbr()
+                                self.should_start_otbr = True
+                                
 
-                        if self.otbr_agent_process and self.otbr_agent_process.poll and self.otbr_agent_process.poll() == None:
-                            if self.DEBUG:
-                                self.s_print("read_otbr_stdout: resorting to pkill to stop self.otbr_agent_process")
-                            os.system('sudo pkill -f otbr-agent')
-                    self.otbr_agent_process = None
+                    if self.thread_radio_went_missing == False:
+                        self.ensure_bridge()
 
-            except Exception as ex:
-                if self.DEBUG:
-                    print("caught errort trying otbr_agent_process.poll(): ", ex)
+                #if self.found_a_thread_radio_once == True and self.thread_radio_went_missing == False:
+                    
 
+                """
+                # Check if the thread radio was unplugged
 
 
+                if self.found_a_thread_radio_once:
+                    
+                    
+                    if self.last_thread_radio_is_alive_timestamp < time.time() - 30:
+                        pass
+                    
+                    elif self.last_thread_radio_is_alive_timestamp < time.time() - 300:
 
 
                     
+                        self.find_thread_radio()
+                        
+                        if self.thread_radio_went_missing and self.found_thread_radio_again == False and self.found_new_thread_radio == False and self.otbr_started:
+                            if self.DEBUG:
+                                self.s_print("Thread radio was unplugged? Stopping OTBR")
+                            self.send_pairing_prompt("Thread radio was unplugged?")
+                            self.really_stop_otbr()
+                        elif self.thread_radio_went_missing and (self.found_thread_radio_again or self.found_new_thread_radio) and self.otbr_started == False and self.thread_set_active == False and self.otbr_agent_process == None:
+                            if self.DEBUG:
+                                self.s_print("auto-restarting the Thread border router to connect to the USB stick again")
+                            self.send_pairing_prompt("Thread radio was plugged in again?")
+                            #self.start_otbr()
+                """
+                
+                
+            
+
+      
             #if self.server_process != None:
             #if self.DEBUG:
             #    self.s_print("clock: server_process exists")
@@ -2563,59 +2743,41 @@ class MatterAdapter(Adapter):
                 if self.pairing_phase > 0 and self.pairing_phase != 100:
                     self.pairing_phase += 10
             
-            if len(self.otbr_stdout_messages):
-                if self.DEBUG and self.thread_radio_is_alive_count < 100:
-                    self.s_print("\nclock: total otbr_stdout_messages length: ", len(self.otbr_stdout_messages))
-                    
-                wpan_check = str(run_command('ip link show | grep wpan0'))
-                if 'state ' in wpan_check:
-                    self.otbr_started = True
-                    
-                if 'state DOWN' in wpan_check:
-                    bring_up_wpan0_output = str(run_command('sudo ip link set wpan0 up'))
+
+
+
+
+
+
+            """
+            try:
+                if self.otbr_agent_process != None and self.otbr_agent_process.poll() == None:
+
+                    for i in range(1000):
+                        msg = self.otbr_agent_process.stdout.readline()
+                        decoded_message = str(msg.decode()).strip().rstrip()
+                        # note to self: do not put a print  statement here
+                        if len(decoded_message) > 1:
+                            self.otbr_stdout_messages.append(decoded_message)
+                        elif decoded_message == '':
+                            print("number of lines read from otbr_agent_process stdout: ", i)
+                            break
+
+                elif self.otbr_agent_process != None and self.stopping_otbr == False:
                     if self.DEBUG:
-                        self.s_print("bring_up_wpan0_output: ", bring_up_wpan0_output)
+                        self.s_print("self.otbr_agent_process has unexptectedly stopped (self.stopping_otbr is False). Calling really_stop_otbr to clean up")
+                    self.really_stop_otbr()
+            
                     
-                    
-                while len(self.otbr_stdout_messages):
-                    otbr_message = self.otbr_stdout_messages.pop(0)
-                    if self.DEBUG and self.thread_radio_is_alive_count < 100:
-                        self.s_print("clock: otbr_message: ", otbr_message)
-                    
-                    if 'Received spinel frame' in otbr_message:
-                        self.thread_radio_is_alive_count += 1
-                        self.last_thread_radio_is_alive_timestamp = int(time.time())
-                        if self.DEBUG and self.thread_radio_is_alive_count < 100:
-                            self.s_print("self.thread_radio_is_alive_count: ", self.thread_radio_is_alive_count)
-                    
-                    if 'failed set request 0x12 status: -110' in otbr_message:
-                        if self.DEBUG:
-                            self.s_print("the Thread radio may need to use an extension cord")
-                        self.thread_error = 'You may need to use a USB extension cable for your Thread dongle'
-                        self.extension_cable_recommended = True
-                    elif 'Failed to communicate with RCP' in otbr_message:
-                        if self.DEBUG:
-                            self.s_print("\nERROR, spotted message indicating the thread radio isn't responding")
-                        self.thread_error = 'The Thread radio is not responding'
-                    
-                    elif ('SrpAdvProxy---: Started' in otbr_message or 'Evaluating routing policy' in otbr_message or self.thread_radio_is_alive_count > 20) and self.thread_set_active == False:
-                        if self.DEBUG:
-                            self.s_print("calling start_thread_mesh from clock")
-                        self.thread_set_active = True
-                        self.thread_radio_went_missing = False
-                        self.start_thread_mesh()
-                
-                    elif '... noise:-128' in otbr_message:
-                        #if self.DEBUG:
-                        #    self.s_print("Thread radio is receiving a lot of noise?")
-                        self.noise_counter += 1
-                        #self.thread_error = 'The thread radio is receiving a lot of noise. You may need to use a USB extension cable for your Thread dongle'
-                        #self.extension_cable_recommended = True
-                
-                    elif 'Wait for response timeout' in otbr_message:
-                        if self.DEBUG:
-                            self.s_print("\nWARNING, otbr got timeout - usb stick not responding?")
-                
+
+            except Exception as ex:
+                if self.DEBUG:
+                    print("\ncaught errort trying otbr_agent_process.poll(): ", ex)
+            
+
+            if len(self.otbr_stdout_messages):
+                self.parse_otbr_messages()
+            """
 
             try:
                 if self.server_process:
@@ -2630,6 +2792,11 @@ class MatterAdapter(Adapter):
                         line = line.decode()
                         if self.DEBUG:
                             self.s_print("CAPTURED STDERR: " + str(line.rstrip()))
+
+                        if 'address already in use' in line:
+                            if self.DEBUG:
+                                self.s_print("\n\nERROR: matter server running twice?\n\n")
+
                         if 'Traceback' in line:
                             self.pairing_failed = True
                             self.busy_pairing = False
@@ -2803,7 +2970,9 @@ class MatterAdapter(Adapter):
                     target_device = self.get_device(device_id)
                     if target_device:
                         target_device.sync_time()
-            
+
+        if self.DEBUG:
+            print("CLOCK EXITED")    
             
     
     #def something_happened(self, message):
@@ -2832,6 +3001,93 @@ class MatterAdapter(Adapter):
             self.s_print("\nin handle_stop for matter.server")
         """Handle server stop."""
         await self.server.stop()
+
+
+
+    def ensure_bridge(self):
+        bridge_check = str(run_command('ip link show'))
+        # Bridge interfaces if uap0 and wpan0 both exist
+
+        """
+        1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+            link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+        2: eth0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN mode DEFAULT group default qlen 1000
+            link/ether e4:5f:01:b7:XX:XX brd ff:ff:ff:ff:ff:ff
+        3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP mode DORMANT group default qlen 1000
+            link/ether e4:5f:01:b7:XX:XX brd ff:ff:ff:ff:ff:ff
+        4: uap0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel master virbr state UP mode DEFAULT group default qlen 1000
+            link/ether e4:5f:01:b7:XX:XX brd ff:ff:ff:ff:ff:ff permaddr e6:5f:01:17:XX:XX
+        12: virbr: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+            link/ether e4:5f:01:b7:XX:XX brd ff:ff:ff:ff:ff:ff
+        """
+
+
+        # It seems brctl is deprecated
+        # sudo ip address add 0.0.0.0/24 dev virbr
+        
+        # TODO: check if 192.168.13.1 isn't already used (edge case)
+        if 'uap0' in bridge_check and 'wpan0' in bridge_check:
+
+            nmcli_bridge_is_up = False
+            nmcli_bridge_state_check = str(run_command('nmcli -f GENERAL.STATE con show CandleBridge'))
+            if 'no such connection profile' in nmcli_bridge_state_check:
+                create_bridge_check = run_command('nmcli connection add type bridge ifname virbr con-name CandleBridge -- ipv4.method disabled ipv6.method disabled connection.autoconnect yes stp no')
+            elif 'activated' in nmcli_bridge_state_check:
+                if self.DEBUG:
+                    print("nmcli: bridge is in activated state")
+                nmcli_bridge_is_up = True
+
+            stp_command = ''
+            nmcli_bridge_stp_check = str(run_command('nmcli -f bridge.stp con show CandleBridge'))
+            if 'yes' in nmcli_bridge_stp_check:
+                stp_command = 'nmcli con modify CandleBridge bridge.stp no'
+            
+            #if not 'virbr:' in bridge_check:
+            #    if self.DEBUG:
+            #        self.s_print("\nCreating brand new bridge")
+            #
+            #    bridge_command = 'sudo ifconfig uap0 down;sudo ifconfig wpan0 down;sudo brctl addif virbr wpan0;sudo brctl addif virbr uap0;sudo ip addr add 192.168.11.1 dev virbr;sudo ifconfig virbr up;sudo ifconfig wpan0 up;sudo ifconfig uap0 up'
+            #    run_command(bridge_command)
+            #else:
+            
+            #brctl_check = str(run_command('sudo brctl show'))
+            """
+            bridge name	bridge id		STP enabled	interfaces
+            virbr		8000.e45f01b72b30	no		uap0 
+            """
+
+            if not 'virdummy0' in bridge_check:
+                run_command("nmcli con add type dummy ifname virdummy0 con-name 'CandleDummy0';nmcli con add type dummy ifname virdummy0 master CandleBridge connection.autoconnect yes;")
+            if not 'virdummy1' in bridge_check:
+                run_command("nmcli con add type dummy ifname virdummy1 con-name 'CandleDummy1';nmcli con add type dummy ifname virdummy0 master CandleBridge connection.autoconnect yes;")
+
+
+            add_to_bridge_command = ''
+            add_to_bridge_command_tail = ''
+            if not 'uap0' in brctl_check:
+                add_to_bridge_command += 'sudo ip link set uap0 down;nmcli con add type wifi ifname uap0 master CandleBridge connection.autoconnect yes;'
+                add_to_bridge_command_tail += 'sudo ip link set uap0 up;'
+                if self.DEBUG:
+                    self.s_print("\n + Adding uap0 interface to bridge (again)")
+            if not 'wpan0' in brctl_check:
+                #add_to_bridge_command += 'sudo ip link set wpan0 down;nmcli con add type bridge-slave ifname wpan0 master CandleBridge connection.autoconnect yes;'
+                add_to_bridge_command += 'sudo ip link set wpan0 down;nmcli con add type wpan ifname wpan0 master CandleBridge connection.autoconnect yes;'
+                add_to_bridge_command_tail += 'sudo ip link set wpan0 up;'
+                if self.DEBUG:
+                    self.s_print("\n + Adding wpan0 interface to bridge (again)")
+                    
+            if add_to_bridge_command != '':
+                add_to_bridge_command = 'nmcli connection down CandleBridge;' + str(stp_command) + str(add_to_bridge_command) + 'nmcli connection up CandleBridge;' + str(add_to_bridge_command_tail)
+                if self.DEBUG:
+                    print("\nadd_to_bridge_command: \n", add_to_bridge_command, "\n")
+                run_command(add_to_bridge_command)  
+
+
+
+            if nmcli_bridge_is_up == False:
+                if self.DEBUG:
+                    print("\nbringing CandleBridge back up")
+                run_command('nmcli connection up CandleBridge')
 
 
 

@@ -21,7 +21,8 @@
     background-color:rgba(0,0,0,.3);
 }
 
-#extension-matter-adapter-view p{
+#extension-matter-adapter-view p,
+#extension-matter-adapter-view li{
     line-height: 2.6rem;
 }
 
@@ -124,7 +125,7 @@
 
 
 .extension-matter-adapter-centered-page{ 
-    max-width:60rem;
+    max-width:80rem;
     margin:0 auto;
 }
 
@@ -179,6 +180,12 @@
 
 /*  FIND THREAD RADIO WIZARD  */
 
+#extension-matter-adapter-find-thread-radio-container{
+	background-color:rgba(0,0,0,.1);
+	padding:2rem;
+	border-radius:1rem;
+}
+
 #extension-matter-adapter-find-thread-radio-button-container{
 	margin-left: auto;
     width: 100%;
@@ -189,6 +196,13 @@
 	display:none;
 }
 
+#extension-matter-adapter-thread-radio-serial-port{
+	margin:2rem;
+	text-align:left;
+	max-width:65%;
+	font-style:italic;
+	opacity:.7;
+}
 
 
 /*  THREAD RADIO STATE  */
@@ -240,6 +254,7 @@
 }
 #extension-matter-adapter-thread-radio-details span{
 	display:block;
+	margin-bottom:.5rem;
 }
 
 .extension-matter-adapter-thread-radio-seems-down-warning{
@@ -279,8 +294,17 @@
 
 /*  LIST OF ITEMS */
 
-#extension-matter-adapter-paired-devices-list{
+#extension-matter-adapter-paired-devices-list:not(:empty){
     margin: 4rem 0;
+}
+
+#extension-matter-adapter-paired-devices-list:not(:empty) + #extension-matter-adapter-no-devices-yet-hint{
+	display:none;
+}
+
+.extension-matter-adapter-tiny-plus-button{
+	width:1.5rem;
+	height:1.5rem;
 }
 
 #extension-matter-adapter-main-items-list{
@@ -352,11 +376,43 @@
 
 #extension-matter-adapter-no-devices-yet-hint{
 	margin:10rem auto;
-	padding:2rem;
-	max-width:40rem;
-	text-align:center;
-	background-color:rgba(0,0,0,.1);
-	border-radius:10px
+}
+#extension-matter-adapter-no-devices-yet-hint > div{
+	padding:3rem 2rem;
+	background-color:rgba(255,255,255,.1);
+	border-radius:1rem;
+}
+
+#extension-matter-adapter-no-devices-yet-hint-illustration{
+	min-width:200px;
+	position:relative;
+}
+
+#extension-matter-adapter-no-devices-yet-hint-illustration::after{
+	content:'Shhh...';
+	position:absolute;
+	top:0;
+	left:0;
+	padding:1.5rem;
+	border-radius:1.5rem;
+	border-bottom-right-radius:0;
+	background-color:white;
+	color:black;
+}
+
+#extension-matter-adapter-no-devices-yet-hint > div > div{
+	min-width:33%;
+}
+
+#extension-matter-adapter-no-devices-yet-hint > div p:first-of-type{
+	font-size:1.8rem;
+	line-height:180%;
+	margin-bottom:2rem;
+	min-width:200px;
+}
+
+#extension-matter-adapter-no-devices-yet-hint li{
+	margin-bottom:1.5rem;
 }
 
 
@@ -675,6 +731,7 @@
 	pointer-events:none;
 }
 
+
 #extension-matter-adapter-pairing-scanner-container h3,
 #extension-matter-adapter-pairing-qr-choose-scanner-area h3{
 	font-size:4rem;
@@ -714,6 +771,9 @@
 }
 
 
+#extension-matter-adapter-pairing-scanner-container:empty{
+	display:none;
+}
 #extension-matter-adapter-pairing-scanner-container{
 	position: relative;
     width: 100%;
@@ -832,6 +892,22 @@
     margin-top:1rem;
 }
 
+
+#extension-matter-adapter-thread-radio-serial-port:not(:empty)::before{
+    content: '';
+    background-image: url(../images/USB_radio.svg);
+    background-size: 4rem;
+    background-position: center;
+    background-repeat: no-repeat;
+    width: 6rem;
+    height: 6rem;
+    min-width: 6rem;
+    min-height: 6rem;
+    display: inline-block;
+    background-color: rgba(255, 255, 255, .2);
+    margin-right: 1rem;
+    border-radius: 3rem;
+}
 
 .extension-matter-adapter-start-pairing-button{
     display:none;
@@ -1182,6 +1258,42 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
     color:white;
     border-radius:.5rem;
 }
+
+
+
+/*  NOTE: this css is copied from the candleappstore addon. Any changes made here should be made there too (and in power settings and zigbee2mqtt..). */
+#extension-candleappstore-flash-message-container{
+	position:fixed;
+	top:0;
+	left:0;
+	width:100%;
+	min-height:0;
+	height:9.6rem;
+	max-height:9.6rem;
+	pointer-events:none;
+	background-color:#0a273c;
+	color:white;
+	font-weight:bold;
+	text-align:center;
+	overflow:hidden;
+	transition: all 0.1s ease-out;
+	padding:1rem;
+	display:flex;
+	align-items:center;
+	justify-content:center;
+	font-size:1.6rem;
+	line-height:160%;
+	z-index:1111;
+}
+#extension-candleappstore-flash-message-container:empty{
+	min-height:0;
+	height:0;
+	max-height:0;
+	padding:0;
+	transition: all 0.1s ease-in;
+}
+
+
 
 
 

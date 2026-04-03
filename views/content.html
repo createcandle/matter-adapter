@@ -31,6 +31,10 @@
 							<div id="extension-matter-adapter-thread-logo-wrapper"><img src="/extensions/matter-adapter/images/candle_thread_logo.svg" alt="Candle Thread logo"></div>
 							<div id="extension-matter-adapter-thread-radio-details"><span>One moment...</span></div>
 						</div>
+						<div id="extension-matter-adapter-thread-radio-serial-port-container" class="extension-matter-adapter-flex-center extension-matter-adapter-show-if-developer">
+							<!--<span>Serial port:&nbsp;</span>--><span id="extension-matter-adapter-thread-radio-serial-port"></span>
+						</div>
+						
 						<div id="extension-matter-adapter-thread-radio-noise-container" class="extension-matter-adapter-flex-center extension-matter-adapter-show-if-developer">
 							<span>Noise:&nbsp;</span><span id="extension-matter-adapter-thread-radio-noise"></span>
 						</div>
@@ -44,15 +48,15 @@
 
                     <div id="extension-matter-adapter-find-thread-radio-container" class="extension-matter-adapter-hidden">
 						<div id="extension-matter-adapter-find-thread-radio-step1" class="extension-matter-adapter-hidden extension-matter-adapter-area">
-							<h3>1. Unplug</h3>
-							<p>Before we begin, make sure your thread radio is <span class="extension-matter-adapter-bold">unplugged</span>.</p>
+							<h3>1. Make sure it's unplugged first</h3>
+							<p>Before we begin, make sure your Thread radio is <span class="extension-matter-adapter-bold">unplugged</span>.</p>
 							<div class="extension-matter-adapter-align-right">
 								<button id="extension-matter-adapter-find-thread-radio-unplugged-button" class="text-button">It's unplugged</button>
 							</div>
 						</div>
 						<div id="extension-matter-adapter-find-thread-radio-step2" class="extension-matter-adapter-hidden extension-matter-adapter-area">
 							<h3>2. Plug in your Thread radio</h3>
-							<p>Plug your thread radio into your Candle controller.</p>
+							<p>Plug your Thread radio into your Candle controller.</p>
 							<div class="extension-matter-adapter-align-right">
 								<button id="extension-matter-adapter-find-thread-radio-plugged-in-button" class="text-button">It's plugged in</button>
 							</div>
@@ -98,10 +102,31 @@
     				    </div>
     			    </div>
 
-
+					
 
                     <div id="extension-matter-adapter-paired-devices-list"></div>
-
+					<div id="extension-matter-adapter-no-devices-yet-hint">
+						<div class="extension-matter-adapter-flex-wrap-when-narrow">
+							<div>
+								<img id="extension-matter-adapter-no-devices-yet-hint-illustration" src="/extensions/matter-adapter/images/matter_trojan_horse_orange.svg" alt="Matter is a Trojan horse">
+							</div>
+							<div>
+								<h2>No Matter devices paired yet</h2>
+								<p>Matter is a dubious new smart home standard backed by companies like Google.</p>
+								<p>The way the protocol is designed makes it very hard to control how data flows. While it allows for local network control on the one hand, it also makes is <strong>very hard to prevent data from flowing to the internet</strong>.</p>
+								<p>Candle tries to contain and wall-off your Matter network, but Matter's design makes this needlessly hard and fragile. Containment is only possible if you follow these rules:</p>
+								<ul>
+									<li><strong>Only connect Matter devices to the Candle controller directly</strong>, by clicking on the <img src="/images/add.svg" alt="(+)" class="extension-matter-adapter-tiny-plus-button"> button below. Do not pair it via another app such as, for example, Apple's Homekit on your iPhone.</li>
+									<li>You should use Candle's built-on WiFi hotspot functionality, and only connect Matter devices to that hotspot.</li>
+									<li><strong>Do not pair a Matter device to both the Candle Matter network and another "border router" device that's directly connected to your router</strong>, such as Appple's Homepod. As soon as you do, that's like punching a hole in the wall, and your data will flow out through that border router.</li>
+								</ul>
+								<p>If you want to literally keep things simple and avoid corporate surveillance, then use Zigbee whenever possible.</p>
+							</div>
+						</div>
+						<p style="text-align:center">Click on the <img src="/images/add.svg" alt="(+)" class="extension-matter-adapter-tiny-plus-button"> button in the bottom right corner if you want to connect a Matter device.</p>
+					</div>
+					
+					
 					<div class="extension-matter-adapter-flex-between extension-matter-adapter-area" style="margin:10rem 0">
                     	<!--<button id="extension-matter-adapter-refresh-paired-list-button" class="text-button extension-matter-adapter-hidden">Refresh</button>
 						<button id="extension-matter-adapter-stop-refreshing-list-button" class="text-button extension-matter-adapter-show-if-developer">Stop refreshing</button>-->

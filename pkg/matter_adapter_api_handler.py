@@ -16,6 +16,7 @@ from gateway_addon import APIHandler, APIResponse
 
 import traceback
 
+from .matter_util import run_command
 
 class MatterAPIHandler(APIHandler):
     """API handler."""
@@ -176,7 +177,8 @@ class MatterAPIHandler(APIHandler):
                                       'extension_cable_recommended': self.adapter.extension_cable_recommended,
                                       'last_received_server_info':self.adapter.last_received_server_info,
                                       'noise_delta':self.adapter.noise_delta,
-                                      'thread_diagnostics':self.adapter.thread_diagnostics
+                                      'thread_diagnostics':self.adapter.thread_diagnostics,
+                                      'thread_radio_serial_port': self.adapter.persistent_data['thread_radio_serial_port']
                                       }),
                         )
                     

@@ -1,9 +1,12 @@
 # helper functions for Matter adapter
 
-#import re
+
+import os
+import re
 import sys
 import json
 import math
+import subprocess
 from collections import namedtuple
 
 # for creating enum lookup
@@ -688,6 +691,54 @@ def boolean_list_to_number(bools):
 
 def number_to_boolean_list(num):
     return [bool((num >> i) & 1) for i in range(8)]
+
+
+
+
+
+def run_command(cmd, timeout_seconds=30):
+    try:
+        p = subprocess.run(cmd, timeout=timeout_seconds, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
+
+        if p.returncode == 0:
+            return str(p.stdout).rstrip()
+        else:
+            if p.stderr:
+                return str(p.stderr).rstrip()
+
+    except Exception as ex:
+        print("caught error in run_command: "  + str(ex))
+        return None
+
+
+
+def get_env():
+    my_env = os.environ.copy()
+    if not "DISPLAY" in my_env:
+        #print("get_env: adding display variable to environment")
+        my_env["DISPLAY"] = ':0'
+
+    if not "XDG_RUNTIME_DIR" in my_env:
+        user_index = run_command('id -u')
+        if isinstance(user_index,str):
+            #print("user_index: -->" + str(user_index) + "<--")
+            user_index = str(user_index).strip().rstrip()
+            if user_index.isdigit():
+                my_env["XDG_RUNTIME_DIR"] = "/run/user/" + str(user_index)
+
+    if os.path.isdir('/home/pi/.dbus/session-bus'):
+        dbus_session_lines = run_command('cat /home/pi/.dbus/session-bus/* | grep -v ^# ')
+        if isinstance(dbus_session_lines,str):
+            for line in dbus_session_lines.splitlines():
+                #print("DBUS line: -->" + str(line) + "<--" )
+                if '=' in line and line.startswith('DBUS_SESSION_BUS'):
+                    dbus_value = re.escape(str(line.split('=', 1)[1]))
+                    #print("dbus_value: -->" + str(dbus_value) + "<--")
+                    dbus_value = dbus_value.replace("'","")
+                    my_env[ str(line.split('=', 1)[0]).strip() ] = dbus_value
+
+    return my_env
+
 
 
 

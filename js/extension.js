@@ -31,6 +31,7 @@
             this.hotspot_addon_installed = false;
             this.use_hotspot = false;
             this.wifi_credentials_available = false;
+			this.wifi_restore_timestamp = 0;
             
             this.uuid == null; // used with qr scanner
             
@@ -39,6 +40,9 @@
 			this.scan_window = null;
 			this.matter_qr_scanner_url = null;
 			this.barcode_detector_supported = false;
+
+            this.start_thread_radio_wizard_button_el = null;
+			this.started_thread_radio_wizard = false;
 			
 			if (window.location.protocol.startsWith('https') && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && 'BarcodeDetector' in window) {
 			
@@ -633,9 +637,10 @@
                     if(this.debug){
                         console.log("matter adapter debug: clicked on add a Thread radio button");
                     }
-					
+					this.started_thread_radio_wizard = true;
 					this.view.querySelector('#extension-matter-adapter-find-thread-radio-button').classList.add('extension-matter-adapter-hidden');
 					this.view.querySelector('#extension-matter-adapter-find-thread-radio-container').classList.remove('extension-matter-adapter-hidden');
+                    this.view.querySelector('#extension-matter-adapter-find-thread-radio-step1').classList.remove('extension-matter-adapter-hidden');
 					
     			});
 				
@@ -678,7 +683,7 @@
 						}
 						
 					}).catch((err) => {
-						console.error("matter-adapter: error calling find_thread_radio_before: ", err);
+						console.error("matter-adapter: error calling find_thread_radio: ", err);
 					});
 					
     			});
@@ -746,8 +751,29 @@
 				}
 				this.waiting_for_main_poll++;
 				
+				if(this.wifi_restore_timestamp > 0){
+					this.update_seconds_until_wifi_restore();
+				}
+				
 			},3000);
             
+		}
+		
+		update_seconds_until_wifi_restore(){
+			const wifi_seconds_until_restore_el = this.view.querySelector('#extension-matter-adapter-wifi-restore-countdown');
+			if(wifi_seconds_until_restore_el){
+				let seconds_remaining_until_wifi_restore = Math.round((this.wifi_restore_timestamp - Date.now()) / 1000);
+				if(this.debug){
+					console.log("seconds_remaining_until_wifi_restore: ", seconds_remaining_until_wifi_restore);
+				}
+				if(seconds_remaining_until_wifi_restore > 1){
+					wifi_seconds_until_restore_el.innerHTML = '<p>Pairing in progress</p><h3>Turning WiFi back on in ' + seconds_remaining_until_wifi_restore + ' seconds...</h3>';
+				}
+				else{
+					wifi_seconds_until_restore_el.innerHTML = '';
+					this.wifi_restore_timestamp = 0;
+				}
+			}
 		}
 		
 	
@@ -766,7 +792,17 @@
 			}
 			catch(e){
 				//console.log("no interval to clear? ", e);
-			} 
+			}
+			
+			try{
+                if(document.getElementById('extension-matter-adapter-menu-item').classList.contains('selected') == false){
+                    this.view.innerHTML = "";
+                }
+			}
+            catch(err){
+                console.log("matter adapter addon: caught error in hide: ", err);
+            }
+			
 		}
     
     
@@ -981,20 +1017,34 @@
 				
 				const thread_details_el = this.view.querySelector('#extension-matter-adapter-thread-radio-details');
 				if(thread_details_el){
-					thread_details_el.innerHTML = '';
-					
 					if(typeof body.found_thread_radio_again == 'boolean' && typeof body.found_new_thread_radio == 'boolean'){
+						thread_details_el.innerHTML = '';
+                        const add_radio_button_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-button-container');
 						if(body.found_new_thread_radio){
 							thread_details_el.innerHTML += '<span>NEW Thread radio detected</span>';
+                            if(add_radio_button_el){
+                                add_radio_button_el.classList.add('extension-matter-adapter-hidden');
+                            }
+							this.started_thread_radio_wizard = false;
+							this.view.querySelector('#extension-matter-adapter-find-thread-radio-container').classList.add('extension-matter-adapter-hidden');
+		                    this.view.querySelector('#extension-matter-adapter-find-thread-radio-step2').classList.add('extension-matter-adapter-hidden');
 						}
 						else if(body.found_thread_radio_again){
 							thread_details_el.innerHTML += '<span>Thread radio detected</span>';
+                            if(add_radio_button_el){
+                                add_radio_button_el.classList.add('extension-matter-adapter-hidden');
+                            }
 						}
 						else{
 							thread_details_el.innerHTML += '<span>No Thread radio detected</span><span style="font-style:italic">Only WiFi Matter devices can be paired</span>';
 							if(this.debug){
 								console.warn("matter adapter: debug: No Thread radio detected (yet)");
 							}
+
+                            if(add_radio_button_el && this.started_thread_radio_wizard == false){
+                                add_radio_button_el.classList.remove('extension-matter-adapter-hidden');
+                            }
+							
 						}
 					}
 					
@@ -1038,27 +1088,18 @@
 									thread_details_el.innerHTML += '<span class="extension-matter-adapter-thread-radio-seems-down-warning">Thread radio last responded ' + Math.round(body.thread_radio_is_alive_seconds_ago/60)  + ' minutes ago</span>';
 								}
 								else{
-									thread_details_el.innerHTML += '<span class="extension-matter-adapter-thread-radio-seems-down-warning">Thread will restart once the radio is plugged in again.</span>';
+									thread_details_el.innerHTML += '<span class="extension-matter-adapter-thread-radio-seems-down-warning">Thread will restart once the radio is plugged back in.</span>';
 								}
 							}
 							thread_details_el.classList.add('extension-matter-adapter-thread-radio-is-not-responding');
 						}
 					}
 					
-					
 				}
 				
 				if(typeof body.wifi_restore_countdown == 'number'){
-					const restore_countdown_el = this.view.querySelector('#extension-matter-adapter-wifi-restore-countdown');
-					if(restore_countdown_el){
-						if(body.wifi_restore_countdown > 0){
-							restore_countdown_el.innerHTML = '<p>Pairing in progress</p><h3>Turning WiFi back on in ' + Math.round(body.wifi_restore_countdown) + ' seconds...</h3>';
-						}
-						else{
-							restore_countdown_el.innerHTML = '';
-						}
-					}
-					
+					this.wifi_restore_timestamp = Date.now() + (body.wifi_restore_countdown * 1000);
+					this.update_seconds_until_wifi_restore();
 				}
 				
 				
@@ -1179,6 +1220,37 @@
                     }
                 }
 
+                if(typeof body.thread_radio_serial_port != 'undefined'){
+                    if(this.debug){
+                        console.log("body.thread_radio_serial_port: ", body.thread_radio_serial_port);
+                    }
+					
+                    if(this.start_thread_radio_serial_port_el == null){
+                        this.start_thread_radio_serial_port_el = this.view.querySelector('#extension-matter-adapter-thread-radio-serial-port');
+                    }
+					if(this.start_thread_radio_serial_port_el){
+						this.start_thread_radio_serial_port_el.textContent = body.thread_radio_serial_port.replaceAll('_',' ');
+					}
+					
+                    if(this.start_thread_radio_wizard_button_el == null){
+                        this.start_thread_radio_wizard_button_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-button');
+                    }
+                    if(this.start_thread_radio_wizard_button_el){
+                        if(
+                            (typeof body.thread_radio_serial_port == 'object' && body.thread_radio_serial_port == null) ||
+                            (typeof body.thread_radio_went_missing == 'boolean' && body.thread_radio_went_missing == true)
+                        ){
+                            this.start_thread_radio_wizard_button_el.classList.remove('extension-matter-adapter-hidden');
+                        }
+                        else{
+                            this.start_thread_radio_wizard_button_el.classList.add('extension-matter-adapter-hidden');
+                        }
+                    }
+                }
+
+
+
+				
 
 				
             }
@@ -1316,28 +1388,29 @@
 	                }
                 
 				
-	                if(typeof body.busy_updating_certificates != 'undefined'){
-	                    if(body.busy_updating_certificates){
-	                        this.view.querySelector('#extension-matter-adapter-busy-updating-certificates').classList.remove('extension-matter-adapter-hidden');
-							this.view.querySelector('#extension-matter-adapter-certificates-need-update').classList.add('extension-matter-adapter-hidden');
-	                        if(this.debug){
-	                            console.log("matter adapter debug: busy updating certificates");
-	                        }
-						}
-	                    else{
-	                        this.view.querySelector('#extension-matter-adapter-busy-updating-certificates').classList.add('extension-matter-adapter-hidden');
-		                
-							if(typeof body.certificates_updated != 'undefined'){
-			                    if(body.certificates_updated){
-			                        this.view.querySelector('#extension-matter-adapter-certificates-need-update').classList.add('extension-matter-adapter-hidden');
-			                    }
-			                    else{
-			                        this.view.querySelector('#extension-matter-adapter-certificates-need-update').classList.remove('extension-matter-adapter-hidden');
-			                    }
-                
-			                }
+	                if(typeof body.busy_updating_certificates == 'boolean'){
+						const need_certificates_update_el = this.view.querySelector('#extension-matter-adapter-certificates-need-update');
+						const updating_certificates_el = this.view.querySelector('#extension-matter-adapter-busy-updating-certificates');
+	                    if(need_certificates_update_el && updating_certificates_el){
+							if(body.busy_updating_certificates == true){
+		                        updating_certificates_el.classList.remove('extension-matter-adapter-hidden');
+								need_certificates_update_el.classList.add('extension-matter-adapter-hidden');
+		                        if(this.debug){
+		                            console.log("matter adapter debug: busy updating certificates");
+		                        }
+							}
+		                    else{
+		                        updating_certificates_el.classList.add('extension-matter-adapter-hidden');
+								if(typeof body.certificates_updated == 'boolean'){
+				                    if(body.certificates_updated){
+				                        need_certificates_update_el.classList.add('extension-matter-adapter-hidden');
+				                    }
+				                    else{
+				                        need_certificates_update_el.classList.remove('extension-matter-adapter-hidden');
+				                    }
+				                }
+		                    }
 	                    }
-                
 	                }
 				
 					if(typeof body.decoded_pairing_code != 'undefined'){
@@ -2460,7 +2533,8 @@
                     
                     
 				} // end of for loop
-			
+				
+				/*
                 if(list.innerHTML == ""){
                     list.innerHTML = '<div id="extension-matter-adapter-no-devices-yet-hint"><h2>No Matter devices paired yet</h2><p>Click on the (+) button in the bottom right corner if you want to connect a new Matter device.</p></div>';
                 }
@@ -2468,6 +2542,7 @@
                     // Show refresh button
         			//this.view.querySelector('#extension-matter-adapter-refresh-paired-list-button').classList.remove('extension-matter-adapter-hidden');
                 }
+				*/
                 
                 if(this.updating_firmware){
 					// Disable all update buttons if an update is in progress
@@ -3072,7 +3147,12 @@
 		
 		flash_message(message){
 			if(typeof message == 'string' && message.length){
-				const flash_message_el = document.getElementById('extension-candleappstore-flash-message-container');
+				let flash_message_el = document.getElementById('extension-candleappstore-flash-message-container');
+				if(flash_message_el == null){
+					flash_message_el = document.createElement('div');
+					flash_message_el.setAttribute('id','extension-candleappstore-flash-message-container');
+					document.body.appendChild(flash_message_el);
+				}
 				if(flash_message_el){
 					flash_message_el.innerHTML = '<h3>' + message + '</h3>';
 					setTimeout(() => {

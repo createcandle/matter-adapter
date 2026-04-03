@@ -38,7 +38,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 import json
 import time
 #import requests
-import subprocess
+#import subprocess
 #import datetime
 #import requests  # noqa
 #import threading
@@ -407,7 +407,7 @@ class MatterAdapter(Adapter):
 
         os.chdir(self.data_path)
 
-        pwd = run_command('pwd')
+        pwd = str(run_command('pwd'))
         pwd = pwd.rstrip()
 
         self.certs_dir_path = os.path.join(self.data_path,'credentials','development','paa-root-certs')
@@ -503,6 +503,11 @@ class MatterAdapter(Adapter):
             self.persistent_data['last_certificates_download_time'] = 0
         elif self.persistent_data['last_certificates_download_time'] > time.time() - self.time_between_certificate_downloads:
             self.certificates_updated = True
+
+        if 'thread_radio_serial_port' not in self.persistent_data:
+            self.persistent_data['thread_radio_serial_port'] = None
+
+
 
         # Allow the use_hotspot setting to override the wifi credentials
         # TODO: check if the hotspot addon is actually running?
@@ -787,20 +792,20 @@ class MatterAdapter(Adapter):
     def otbr_loop(self):
 
         while self.running:
-            if self.DEBUG:
+            #if self.DEBUG:
                 #self.s_print("otbr_loop: loop start.  self.should_start_otbr, self.otbr_started, self.found_thread_radio_again: ", self.should_start_otbr,self.otbr_started, self.found_thread_radio_again)
-                self.s_print("otbr_loop: loop start.")
+            #    self.s_print("otbr_loop: loop start.")
 
             self.find_thread_radio()
 
-            if self.DEBUG:
-                self.s_print("otbr_loop:")
-                self.s_print("- self.otbr_started: ", self.otbr_started)
-                self.s_print("- self.thread_radio_went_missing: ", self.thread_radio_went_missing)
-                self.s_print("- self.found_thread_radio_again: ", self.found_thread_radio_again)
-                self.s_print("- self.found_new_thread_radio: ", self.found_new_thread_radio)
-                self.s_print("- self.thread_set_active: ", self.thread_set_active)
-                self.s_print("- self.last_time_otbr_restarted: ", self.last_time_otbr_restarted)
+            #if self.DEBUG:
+            #    self.s_print("otbr_loop:")
+            #    self.s_print("- self.otbr_started: ", self.otbr_started)
+            #    self.s_print("- self.thread_radio_went_missing: ", self.thread_radio_went_missing)
+            #    self.s_print("- self.found_thread_radio_again: ", self.found_thread_radio_again)
+            #    self.s_print("- self.found_new_thread_radio: ", self.found_new_thread_radio)
+            #    self.s_print("- self.thread_set_active: ", self.thread_set_active)
+            #    self.s_print("- self.last_time_otbr_restarted: ", self.last_time_otbr_restarted)
 
             if self.should_start_otbr == True and self.otbr_started == False and self.otbr_starting_timestamp == None and self.last_time_otbr_restarted < time.time() - 60 and (self.found_thread_radio_again or self.found_new_thread_radio):
                 if self.DEBUG:
@@ -1252,8 +1257,16 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             print("in start_matter_server")
 
-        python3_path = run_command('readlink $(which python3)')
-        python3_path = "/usr/bin/" + python3_path.rstrip()
+        python3_path = str(run_command('readlink $(which python3)'))
+        python3_path = "/usr/bin/" + str(python3_path).rstrip()
+
+        if self.DEBUG:
+            print("start_matter_server:  python3_path: ", python3_path)
+
+        if not os.path.exists(python3_path):
+            if self.DEBUG:
+                print("start_matter_server: error, could not find python binary at path: ", python3_path)
+            python3_path = 'python3'
         # /home/pi/.webthings/addons/matter-adapter/lib/
         #matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.data_path)
         matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.hasdata_dir_path)
@@ -1431,7 +1444,7 @@ class MatterAdapter(Adapter):
 
             else:
                 if self.DEBUG:
-                    print("warning, so thread dataset in persistent data")
+                    print("warning, no thread dataset in persistent data")
 
             if dataset_loaded == False:
 
@@ -2155,7 +2168,6 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     self.s_print("discover: Client is connected, so sending discover command to Matter server")
 
-
                 message = {
                         "message_id": "discover",
                         "command": "discover"
@@ -2163,7 +2175,6 @@ class MatterAdapter(Adapter):
 
                 json_message = json.dumps(message)
                 self.ws.send(json_message)
-
 
                 return True
 
@@ -2207,6 +2218,7 @@ class MatterAdapter(Adapter):
                 else:
                     if self.DEBUG:
                         self.s_print("Error, certificates didn't seem to download (output was None)")
+                    self.send_pairing_prompt("failed to download certificates")
                     return False
 
             else:
@@ -2218,7 +2230,7 @@ class MatterAdapter(Adapter):
             return True
 
 
-
+    
     # Pass WiFi credentials to Matter
     def set_wifi_credentials(self):
         if self.DEBUG:
@@ -2653,8 +2665,8 @@ class MatterAdapter(Adapter):
                 #self.s_print("tick tock")
                 passed_time = time.time() - last_tick_tock_time
 
-                if self.DEBUG:
-                    self.s_print("clock: actual seconds that passed: ", passed_time)
+                #if self.DEBUG:
+                #    self.s_print("clock: actual seconds that passed: ", passed_time)
                 last_tick_tock_time = time.time()
 
                 if passed_time > 2:
@@ -2793,6 +2805,11 @@ class MatterAdapter(Adapter):
                         line = line.decode()
                         if self.DEBUG:
                             self.s_print("CAPTURED STDERR: " + str(line.rstrip()))
+
+                        if 'collides with an existing FabricAdmin instance' in line:
+                            if self.DEBUG:
+                                self.s_print("\n\nERROR: matter server fabric config issue\n\n")
+                            self.reset_matter()
 
                         if 'address already in use' in line:
                             if self.DEBUG:
@@ -3062,7 +3079,6 @@ class MatterAdapter(Adapter):
             if not 'virdummy1' in bridge_check:
                 run_command("nmcli con add type dummy ifname virdummy1 con-name 'CandleDummy1';nmcli con add type dummy ifname virdummy0 master CandleBridge connection.autoconnect yes;")
 
-
             add_to_bridge_command = ''
             add_to_bridge_command_tail = ''
             if not 'uap0' in brctl_check:
@@ -3083,13 +3099,10 @@ class MatterAdapter(Adapter):
                     print("\nadd_to_bridge_command: \n", add_to_bridge_command, "\n")
                 run_command(add_to_bridge_command)
 
-
-
             if nmcli_bridge_is_up == False:
                 if self.DEBUG:
                     print("\nbringing CandleBridge back up")
                 run_command('nmcli connection up CandleBridge')
-
 
 
     # handles events. In theory events tell you states from the past? But in practise there is some data in there.. which is not in attributes themselves for some reason.
@@ -3117,11 +3130,6 @@ class MatterAdapter(Adapter):
             attribute_code = None
             #attribute_id = None # not used for anything at the moment
 
-
-
-
-
-
             if isinstance(data, list) and len(data) == 3 and isinstance(data[0],int) and isinstance(data[1],str) and '/' in data[1]:
                 #print("event = attribute_updated? ", event)
                 node_id = data[0]
@@ -3138,16 +3146,12 @@ class MatterAdapter(Adapter):
                 cluster_name = attribute_code.split('.Attributes.')[0]
                 attribute_name = attribute_code.split('.Attributes.')[1]
 
-
-
                 if cluster_name == 'ThreadNetworkDiagnostics':
                     if not node_id in self.thread_diagnostics:
                         self.thread_diagnostics[node_id] = {}
                     self.thread_diagnostics[node_id][attribute_name] = value
                     if self.DEBUG:
                         print("self.thread_diagnostics is now: ", self.thread_diagnostics)
-
-
 
                 if clusters_to_ignore and cluster_name in clusters_to_ignore:
                     if self.DEBUG:
@@ -3162,9 +3166,6 @@ class MatterAdapter(Adapter):
                     if self.DEBUG:
                         self.s_print("ERROR: handle_event: attribute_name is digit")
                     attribute_name = None
-
-
-
 
             elif 'node_id' in data and 'value' in data and 'attribute_id' in data and 'endpoint_id' in data:
                 node_id = data['node_id']
@@ -3947,7 +3948,7 @@ class MatterAdapter(Adapter):
     """
 
 
-
+"""
 def run_command(cmd, timeout_seconds=30):
     try:
         p = subprocess.run(cmd, timeout=timeout_seconds, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, universal_newlines=True)
@@ -3961,35 +3962,9 @@ def run_command(cmd, timeout_seconds=30):
     except Exception as ex:
         print("caught error in run_command: "  + str(ex))
         return None
+"""
 
 
 
 
 
-
-def get_env():
-    my_env = os.environ.copy()
-    if not "DISPLAY" in my_env:
-        #print("get_env: adding display variable to environment")
-        my_env["DISPLAY"] = ':0'
-
-    if not "XDG_RUNTIME_DIR" in my_env:
-        user_index = run_command('id -u')
-        if isinstance(user_index,str):
-            #print("user_index: -->" + str(user_index) + "<--")
-            user_index = str(user_index).strip().rstrip()
-            if user_index.isdigit():
-                my_env["XDG_RUNTIME_DIR"] = "/run/user/" + str(user_index)
-
-    if os.path.isdir('/home/pi/.dbus/session-bus'):
-        dbus_session_lines = run_command('cat /home/pi/.dbus/session-bus/* | grep -v ^# ')
-        if isinstance(dbus_session_lines,str):
-            for line in dbus_session_lines.splitlines():
-                #print("DBUS line: -->" + str(line) + "<--" )
-                if '=' in line and line.startswith('DBUS_SESSION_BUS'):
-                    dbus_value = re.escape(str(line.split('=', 1)[1]))
-                    #print("dbus_value: -->" + str(dbus_value) + "<--")
-                    dbus_value = dbus_value.replace("'","")
-                    my_env[ str(line.split('=', 1)[0]).strip() ] = dbus_value
-
-    return my_env

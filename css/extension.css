@@ -1196,13 +1196,21 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 /*  OLD PAIRING CODES LOOKUP  */
 
 #extension-matter-adapter-pairing-use-old-scanned-code{
-	background-image: url('../images/phone.svg');
-	background-size:contain;
+	background-image: url('../images/book.svg');
+	background-size:auto 80%;
 	background-repeat:no-repeat;
-	transition: opacity .3s ease-in-out;
-	background-position:left;
-	padding-left:6rem;
-	padding:2rem;
+	transition: background .6s ease-in-out; /* opacity .3s ease-in-out  */
+	background-position:center right 4rem;
+	padding-right:6rem;
+	font-size: 3rem;
+    padding: 2rem;
+    background-color: rgba(0, 0, 0, .1);
+    border-radius: 1rem;
+	cursor:pointer;
+}
+
+#extension-matter-adapter-pairing-use-old-scanned-code:hover{
+    background-color: rgba(255, 255, 255, .3);
 }
 
 
@@ -1210,6 +1218,36 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 #extension-matter-adapter-pairing-old-pairing-codes-list:empty{
 	display:none;
 }
+
+#extension-matter-adapter-pairing-old-pairing-codes-list{
+	margin-top:1px;
+	padding:0;
+}
+
+.extension-matter-adapter-old-pairing-code-item{
+	padding:2rem;
+	transition: background .6s ease-in-out;
+	box-sizing:border-box;
+	border-radius: 1rem;
+}
+
+.extension-matter-adapter-old-pairing-code-item:hover{
+	background-color:rgba(0,0,0,.2);
+}
+
+.extension-matter-adapter-old-pairing-code-item:not(:last-of-type){
+	border-bottom:1px solid rgba(255,255,255,.2);
+}
+
+.extension-matter-adapter-old-pairing-code-item > span:not(:last-of-type){
+	margin-right:2rem;
+	font-style:italic;
+}
+
+.extension-matter-adapter-old-pairing-code-item-qr-code{
+	border:1rem solid white;
+}
+
 
 #extension-matter-adapter-print-old-codes-button{
 	background: url("../images/printer.svg") no-repeat left/contain;

@@ -75,11 +75,14 @@
 
 
                     <div id="extension-matter-adapter-still-starting-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
-                        <p>The Matter addon is still starting...</p>
+    				    <div class="extension-matter-adapter-spinner">
+    				        <div></div><div></div><div></div><div></div>
+    				    </div>
+						<p>The Matter addon is still starting...</p>
                     </div>
 
                     <div id="extension-matter-adapter-extension-cable-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
-						<img src="/extensions/matter-adapter/images/interference.svg" alt="Interference">
+						<img loading="lazy" src="/extensions/matter-adapter/images/interference.svg" alt="Interference">
                         <p>Interference seems to be causing pairing issues. It's recommended to use your Thread radio with a USB extension cord so that it's further away from the Candle Controller.</p>
                     </div>
 
@@ -91,7 +94,7 @@
                         <p>You have deleted a Matter device. Now you will also have to manually remove the corresponding thing.<br><br><a href="/things" class="text-button">Do to thing</a></p>
                     </div>
 
-					<div id="extension-matter-adapter-wifi-restore-countdown" class="extension-matter-adapter-area"></div>
+					
 
 
 
@@ -105,10 +108,10 @@
 					
 
                     <div id="extension-matter-adapter-paired-devices-list"></div>
-					<div id="extension-matter-adapter-no-devices-yet-hint">
+					<div id="extension-matter-adapter-no-devices-yet-hint" class="extension-matter-adapter-hidden">
 						<div class="extension-matter-adapter-flex-wrap-when-narrow">
 							<div>
-								<img id="extension-matter-adapter-no-devices-yet-hint-illustration" src="/extensions/matter-adapter/images/matter_trojan_horse_orange.svg" alt="Matter is a Trojan horse">
+								<img loading="lazy" id="extension-matter-adapter-no-devices-yet-hint-illustration" src="/extensions/matter-adapter/images/matter_trojan_horse_orange.svg" alt="Matter is a Trojan horse">
 							</div>
 							<div>
 								<h2>No Matter devices paired yet</h2>
@@ -119,6 +122,7 @@
 									<li><strong>Only connect Matter devices to the Candle controller directly</strong>, by clicking on the <img src="/images/add.svg" alt="(+)" class="extension-matter-adapter-tiny-plus-button"> button below. Do not pair it via another app such as, for example, Apple's Homekit on your iPhone.</li>
 									<li>You should use Candle's built-on WiFi hotspot functionality, and only connect Matter devices to that hotspot.</li>
 									<li><strong>Do not pair a Matter device to both the Candle Matter network and another "border router" device that's directly connected to your router</strong>, such as Appple's Homepod. As soon as you do, that's like punching a hole in the wall, and your data will flow out through that border router.</li>
+									<li>Beware Trojans bearing gifts.</li>
 								</ul>
 								<p>If you want to literally keep things simple and avoid corporate surveillance, then use Zigbee whenever possible.</p>
 							</div>
@@ -237,8 +241,12 @@
 								</div>
 							</div>
 							<div id="extension-matter-adapter-pairing-use-previously-scanned-code" class="extension-matter-adapter-hidden">
-								<h4>Use previously scanned code</h4>
+								<h4>Use last scanned code</h4>
 							</div>
+							<div id="extension-matter-adapter-pairing-use-old-scanned-code" class="extension-matter-adapter-hidden">
+								<h4>Look-up an old code</h4>
+							</div>
+							<div id="extension-matter-adapter-pairing-old-pairing-codes-list" class="extension-matter-adapter-area"></div>
 
 
 
@@ -390,7 +398,7 @@
 								<div id="extension-matter-adapter-pairing-progress-bar-container"><div id="extension-matter-adapter-pairing-progress-bar"></div></div>
 								<p id="extension-matter-adapter-pairing-attempt" style="text-align:center"></p>
 								<p id="extension-matter-adapter-pairing-progress-message" style="text-align:center">Starting pairing process</p>
-
+								<p id="extension-matter-adapter-wifi-restore-countdown" style="text-align:center"></p>
 								<button id="extension-matter-adapter-abort-pairing-button" class="text-button extension-matter-adapter-show-if-busy-pairing">Abort pairing</button>
 							</div>
 							<div id="extension-matter-adapter-pairing-failed-hint" class="extension-matter-adapter-area extension-matter-adapter-error extension-matter-adapter-hidden">

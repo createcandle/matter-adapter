@@ -204,6 +204,9 @@ class MatterAdapter(Adapter):
         self.discovered = []
         self.nodes = []
 
+        self.raw_mdns = ''
+        self.last_get_nodes_timestamp = 0
+
         #self.switch_events = ['Switch latched','Initial press','Long press','Short release','Long release','Multi press ongoing','Multi press complete']
 
         self.certificates_updated = False
@@ -214,6 +217,7 @@ class MatterAdapter(Adapter):
         self.busy_discovering = False
         self.pairing_failed = False
         self.busy_pairing = False
+        self.last_pairing_start_time = 0
         self.pairing_phase = 0
         self.pairing_phase_message = ''
         self.pairing_attempt = -1
@@ -254,7 +258,7 @@ class MatterAdapter(Adapter):
         self.thread_error = ''
         self.otbr_agent_process = None
         self.otbr_stdout_messages = []
-        self.thread_channel = 15
+        self.thread_channel = 26
         self.thread_dataset = ''
         self.turn_wifi_back_on_at = 0
         self.extension_cable_recommended = False
@@ -490,6 +494,12 @@ class MatterAdapter(Adapter):
 
         if 'nodez' not in self.persistent_data:
             self.persistent_data['nodez'] = {}
+            self.should_save = True
+
+        if 'pairing_codes' not in self.persistent_data:
+            self.persistent_data['pairing_codes'] = {}
+            self.should_save = True
+
 
         #print("PERSISTENT DATA")
         #print(json.dumps(self.persistent_data, None,4))
@@ -2044,7 +2054,8 @@ class MatterAdapter(Adapter):
 
     def get_nodes(self):
         try:
-            if self.client_connected:
+            if self.client_connected and self.last_get_nodes_timestamp < time.time() - 30:
+                self.last_get_nodes_timestamp = time.time()
 
                 if self.DEBUG:
                     self.s_print("get_nodes: Client is connected, so asking for latest node list")
@@ -2059,10 +2070,11 @@ class MatterAdapter(Adapter):
                 return True
             else:
                 if self.DEBUG:
-                    self.s_print("Error in get_nodes: client was not connected yet")
+                    self.s_print("Error in get_nodes: client was not connected yet, or already did get_nodes recently")
 
         except Exception as ex:
-            self.s_print("Error in get_nodes: " + str(ex))
+            if self.DEBUG:
+                self.s_print("caught error in get_nodes: " + str(ex))
 
         return False
 
@@ -2230,7 +2242,7 @@ class MatterAdapter(Adapter):
             return True
 
 
-    
+
     # Pass WiFi credentials to Matter
     def set_wifi_credentials(self):
         if self.DEBUG:
@@ -2367,7 +2379,8 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             self.s_print("\n\n\n\nin start_matter_pairing. Pairing type: " + str(pairing_type))
         try:
-            if self.turn_wifi_back_on_at > time.time():
+            self.last_pairing_start_time = time.time()
+            if self.turn_wifi_back_on_at > self.last_pairing_start_time:
                 self.turn_wifi_back_on_at = 0
                 if self.DEBUG:
                     print("start_matter_pairing: turning WiFi back on first")
@@ -2637,8 +2650,6 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             self.s_print("in clock")
 
-
-
         #print("clock: self.running: " + str(self.running))
         last_tick_tock_time = time.time()
         dd = 1
@@ -2815,12 +2826,12 @@ class MatterAdapter(Adapter):
                             if self.DEBUG:
                                 self.s_print("\n\nERROR: matter server running twice?\n\n")
 
-                        if 'Traceback' in line:
-                            self.pairing_failed = True
-                            self.busy_pairing = False
-                            self.send_pairing_prompt("Error, Matter server crashed")
-                            self.pairing_phase_message = 'Matter crashed!'
-                            self.pairing_phase = -1
+                        #if 'Traceback' in line:
+                        #    self.pairing_failed = True
+                        #    self.busy_pairing = False
+                        #    self.send_pairing_prompt("Error, Matter server crashed")
+                        #    self.pairing_phase_message = 'Matter crashed!'
+                        #    self.pairing_phase = -1
                         if 'over BLE failed' in line:
                             self.pairing_failed = True
                             self.busy_pairing = False
@@ -2926,11 +2937,14 @@ class MatterAdapter(Adapter):
                                             target_device.connected_notify(False)
                                             try:
                                                 for dev in self.devices:
-                                                    print("devva: ", dev)
+                                                    if self.DEBUG:
+                                                        print("checking is device is connedted ", dev)
                                                     if 'id' in dev and 'connected' in dev:
-                                                        print("device.connected: ", device.id, device.connected)
+                                                        if self.DEBUG:
+                                                            print("device.connected: ", device.id, device.connected)
                                             except Exception as ex:
-                                                print("caught error checking which devices are connected: ", ex)
+                                                if self.DEBUG:
+                                                    print("caught error checking which devices are connected: ", ex)
 
 
                         if 'is not (yet) available' in line:
@@ -3540,9 +3554,13 @@ class MatterAdapter(Adapter):
             target_device = self.get_device(device_id)
             if target_device == None:
                 if self.DEBUG:
-                    self.s_print("parse_node: this device does not exist yet. It must be created.")
+                    self.s_print("parse_node: this device does not exist yet. Creating it now.")
 
-                new_device = MatterDevice(self, device_id, node)
+                pairing_code = None
+                if isinstance(self.last_found_pairing_code,str) and self.last_found_pairing_code not in self.persistent_data['pairing_codes'] and self.last_pairing_start_time > time.time() - 120:
+                    pairing_code = "" + str(self.last_found_pairing_code)
+
+                new_device = MatterDevice(self, device_id, node, pairing_code)
                 self.handle_device_added(new_device)
 
             else:
@@ -3963,8 +3981,3 @@ def run_command(cmd, timeout_seconds=30):
         print("caught error in run_command: "  + str(ex))
         return None
 """
-
-
-
-
-

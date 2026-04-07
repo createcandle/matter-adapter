@@ -26,7 +26,7 @@ class MatterAPIHandler(APIHandler):
         print("INSIDE API HANDLER INIT")
         
         self.adapter = adapter
-        self.DEBUG = self.adapter.DEBUG
+        self.DEBUG = self.DEBUG
 
 
         # Intiate extension addon API handler
@@ -111,7 +111,7 @@ class MatterAPIHandler(APIHandler):
                           status=200,
                           content_type='application/json',
                           content=json.dumps({
-                                      'debug': self.adapter.DEBUG,
+                                      'debug': self.DEBUG,
                                       'use_hotspot': self.adapter.use_hotspot,
                                       'hotspot_addon_installed': self.adapter.hotspot_addon_installed,
                                       'wifi_ssid': self.adapter.wifi_ssid,
@@ -150,7 +150,7 @@ class MatterAPIHandler(APIHandler):
                           status=200,
                           content_type='application/json',
                           content=json.dumps({
-                                      'debug': self.adapter.DEBUG,
+                                      'debug': self.DEBUG,
                                       'certificates_updated': self.adapter.certificates_updated,
                                       'busy_updating_certificates': self.adapter.busy_updating_certificates,
                                       'client_connected': self.adapter.client_connected,
@@ -178,7 +178,8 @@ class MatterAPIHandler(APIHandler):
                                       'last_received_server_info':self.adapter.last_received_server_info,
                                       'noise_delta':self.adapter.noise_delta,
                                       'thread_diagnostics':self.adapter.thread_diagnostics,
-                                      'thread_radio_serial_port': self.adapter.persistent_data['thread_radio_serial_port']
+                                      'thread_radio_serial_port': self.adapter.persistent_data['thread_radio_serial_port'],
+                                      'old_pairing_codes_count':len(self.adapter.persistent_data['pairing_codes'].keys())
                                       }),
                         )
                     
@@ -199,16 +200,16 @@ class MatterAPIHandler(APIHandler):
                                         "uuid": uuid 
                                     }
                        
-                            if self.adapter.DEBUG:
+                            if self.DEBUG:
                                 print("poll: doing request to candle webserver. parameters: " + str(parameters))
                             
                             q = requests.post( "https://www.candlesmarthome.com/qr/ajax.php", data = parameters )
-                            #if self.adapter.DEBUG:
+                            #if self.DEBUG:
                             #    print("q.content = " + str(q.content))
                             #    print("q.json = " + str(q.json))
                             if len(str(q.content)) > 4:
                                 qr_json = q.json()
-                                if self.adapter.DEBUG:
+                                if self.DEBUG:
                                     print("qr_json: ", qr_json)
                                 
                                 if 'code' in qr_json:
@@ -216,18 +217,19 @@ class MatterAPIHandler(APIHandler):
                                     self.adapter.last_found_pairing_code = str(code)
                                     try:
                                         decoded_pairing_code = self.adapter.parse_mt_pairing_code(str(code))
-                                        if self.adapter.DEBUG:
+                                        if self.DEBUG:
                                             print('decoded_pairing_code: ', decoded_pairing_code)
                                     except Exception as ex:
-                                        print("caught error trying to unpack matter pairing code: ", ex)
-                                        print(traceback.format_exc())
+                                        if self.DEBUG:
+                                            print("caught error trying to unpack matter pairing code: ", ex)
+                                            print(traceback.format_exc())
                                     
                                     
                                 else:
-                                    if self.adapter.DEBUG:
+                                    if self.DEBUG:
                                         print('no code in post json: ', q.content)
                             else: 
-                                if self.adapter.DEBUG:
+                                if self.DEBUG:
                                     print('Matter adapter debug: poll: response not long enough')
                             #if not self.adapter.busy_pairing:
                                 
@@ -241,7 +243,7 @@ class MatterAPIHandler(APIHandler):
                           status=200,
                           content_type='application/json',
                           content=json.dumps({
-                                      'debug': self.adapter.DEBUG,
+                                      'debug': self.DEBUG,
                                       'certificates_updated': self.adapter.certificates_updated,
                                       'busy_updating_certificates':self.adapter.busy_updating_certificates,
                                       'client_connected': self.adapter.client_connected,
@@ -659,6 +661,31 @@ class MatterAPIHandler(APIHandler):
                                               'pairing_code':self.adapter.share_node_code
                                           }),
                         )
+                    
+                    
+                    elif action == 'get_mdns':
+                        self.adapter.raw_mdns = str(run_command('avahi-browse -rt _trel._udp'))
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':state, 
+                                              'raw_mdns':self.adapter.raw_mdns
+                                          }),
+                        )
+                        
+                    # To minimize security risks this data must be explicitly requested
+                    elif action == 'get_old_pairing_codes':
+                        if self.DEBUG:
+                            print("handling request get_old_pairing_codes")
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':True, 
+                                              'old_pairing_codes':self.adapter.persistent_data['pairing_codes']
+                                          }),
+                        )
+                    
+                    
                     
                     else:
                         if self.DEBUG:

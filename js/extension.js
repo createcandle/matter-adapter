@@ -886,9 +886,16 @@
 	        ).then((body) => {
                 
                 this.parse_body(body);
+				
+				const pairing_plus_button_el = this.view.querySelector('#extension-matter-adapter-show-second-page-button');
+				if(pairing_plus_button_el){
+					pairing_plus_button_el.classList.remove('extension-matter-adapter-hidden');
+				}
 			
 	        }).catch((err) => {
-	  			console.log("Error getting MatterAdapter init2 data: ", err);
+	  			if(this.debug){
+					console.error("matter adapter debug: caught ERROR getting INIT data!: ", err);
+				}
                 setTimeout(() => {
                     if(this.retried_init == false){
                         this.retried_init = true;
@@ -3361,8 +3368,13 @@
 				const old_codes_list_el = this.view.querySelector('#extension-matter-adapter-pairing-old-pairing-codes-list');
 				if(old_codes_list_el){
 					for (const [pairing_code, device_details] of Object.entries(this.old_pairing_codes)) {
-						old_code_item_el = document.createElement('div');
+						if(this.debug){
+							console.log("matter adapter debug: render_old_pairing_codes_list:  pairing_code,device_details: ", pairing_code, device_details);
+						}
+						const old_code_item_el = document.createElement('div');
 						old_code_item_el.classList.add('extension-matter-adapter-old-pairing-code-item');
+						old_code_item_el.classList.add('extension-matter-adapter-flex-align-center');
+						old_code_item_el.classList.add('extension-matter-adapter-flex-between');
 						
 						const vendor_name_el = document.createElement('span');
 						vendor_name_el.classList.add('extension-matter-adapter-old-pairing-code-item-vendor-name');
@@ -3374,6 +3386,15 @@
 						product_name_el.textContent = device_details['product_name'];
 						old_code_item_el.appendChild(product_name_el);
 						
+						const qr_code_el = document.createElement('div');
+						qr_code_el.classList.add('extension-matter-adapter-old-pairing-code-item-qr-code');
+			    	    let qrcode = new QRCode( qr_code_el, {
+			    		    width : 70,
+			    		    height : 70
+			    	    });
+			    	    qrcode.makeCode(pairing_code);
+						old_code_item_el.appendChild(qr_code_el);
+						
 						old_code_item_el.addEventListener('click', () => {
 							this.view.querySelector('#extension-matter-adapter-pairing-code-input').value = pairing_code;
 							this.pairing_code = pairing_code;
@@ -3384,12 +3405,12 @@
 								this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
 								this.show_pairing_start_area();
 							}
-							else{
+							else{f
 								this.flash_message('Sory, that old pairing code seems to be invalid');
 							}
 						});
 						
-						
+						old_codes_list_el.appendChild(old_code_item_el);
 					}
 					
 					if(old_codes_list_el.childNodes.length){
@@ -3457,8 +3478,9 @@
 							window.print();
 							console.log("I am after window.print()");
 							
-							
-						})
+						});
+						
+						old_codes_list_el.appendChild(print_old_codes_button_el);
 					}
 					
 				}

@@ -41,7 +41,7 @@ from datetime import timezone, datetime, timedelta
 class MatterDevice(Device):
     """Matter device type."""
 
-    def __init__(self, adapter, device_id, node, my_pairing_code):
+    def __init__(self, adapter, device_id, node, my_pairing_code=None):
         """
         Initialize the object.
         adapter -- the Adapter managing this device
@@ -610,9 +610,9 @@ class MatterDevice(Device):
                     # MAIN ATTRIBUTES TO PROPERTIES LOOP
 
 
-                if isinstance(my_pairing_code,str) and \
-                  my_pairing_code.startswith('MT:') and \
-                  my_pairing_code not in self.adapter.persistent_data['pairing_codes'] and \
+                if isinstance(self.my_pairing_code,str) and \
+                  self.my_pairing_code.startswith('MT:') and \
+                  self.my_pairing_code not in self.adapter.persistent_data['pairing_codes'] and \
                   'vendor_name' in self.adapter.persistent_data['nodez'][device_id] and \
                   'product_name' in self.adapter.persistent_data['nodez'][device_id] and \
                   'unique_id' in self.adapter.persistent_data['nodez'][device_id] and \
@@ -620,7 +620,7 @@ class MatterDevice(Device):
                   isinstance(self.adapter.persistent_data['nodez'][device_id]['vendor_name'],str) and \
                   len(str(self.adapter.persistent_data['nodez'][device_id]['unique_id'])) > 4:
 
-                    self.adapter.persistent_data['pairing_codes'][my_pairing_code] = {
+                    self.adapter.persistent_data['pairing_codes'][str(self.my_pairing_code)] = {
                                 'vendor_name': self.adapter.persistent_data['nodez'][device_id]['vendor_name'],
                                 'product_name': self.adapter.persistent_data['nodez'][device_id]['product_name'],
                                 'unique_id': str(self.adapter.persistent_data['nodez'][device_id]['unique_id']),

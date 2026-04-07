@@ -26,7 +26,7 @@ class MatterAPIHandler(APIHandler):
         print("INSIDE API HANDLER INIT")
         
         self.adapter = adapter
-        self.DEBUG = self.DEBUG
+        self.DEBUG = self.adapter.DEBUG
 
 
         # Intiate extension addon API handler
@@ -98,7 +98,7 @@ class MatterAPIHandler(APIHandler):
                     # INIT
                     if action == 'init':
                         if self.DEBUG:
-                            print("API: in init")
+                            print("API handler: in init")
                         
                         self.adapter.get_nodes()
                         time.sleep(5)

@@ -288,12 +288,11 @@
 						}
 						this.scan_window = window.open(this.matter_qr_scanner_url,'_blank');
 						
-						// start polling for data
+						// start polling for data form the opened window
 			            if(window.matter_adapter_poll_interval == null){
-			                window.matter_adapter_poll_interval = setInterval(() =>{
+			                window.matter_adapter_poll_interval = setInterval(() => {
 			                    this.pairing_poll();
 			                },5000);
-							
 			            }
 						this.busy_polling_counter = 0;
 						this.total_busy_polling_counter = 0;
@@ -697,9 +696,18 @@
     			});
 				
 				
+                const reveal_advanced_settings_button_el = this.view.querySelector('#extension-matter-adapter-advanced-settings-button');
+				if(reveal_advanced_settings_button_el){
+					reveal_advanced_settings_button_el.addEventListener('click', (event) => {
+	                    if(this.debug){
+	                        console.log("matter adapter debug: clicked on advanced settings button");
+	                    }
+						reveal_advanced_settings_button_el.classList.add('extension-matter-adapter-hidden');
+	    			});
+				}
                 
-            
                 
+				
                 // Back button, shows main page
                 this.view.querySelector('#extension-matter-adapter-back-button-container').addEventListener('click', (event) => {
                     if(this.debug){
@@ -1120,6 +1128,37 @@
 				}
 				
 				
+				if(!this.second_page_el){
+					this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
+				}
+				
+                if(typeof body.busy_pairing == 'boolean'){
+					if(body.busy_pairing != this.busy_pairing){
+						if(this.debug){
+							console.warn("matter adapter debug: PAIRING STATE CHANGED from,to:", this.busy_pairing, body.busy_pairing);
+						}
+					}
+                    this.busy_pairing = body.busy_pairing;
+					if(this.debug){
+                        console.log("matter adapter debug: pairing_poll: this.busy_pairing is now: ", this.busy_pairing);
+					}
+					if(this.second_page_el){
+	                    if(this.busy_pairing){
+	                        this.second_page_el.classList.add('extension-matter-adapter-busy-pairing');
+	                    }
+	                    else{
+	                        this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
+	                    }
+					}
+					else{
+						if(this.debug){
+							console.error("matter adapter: could not find #extension-matter-adapter-second-page");
+						}
+					}
+                    
+                }
+				
+				
 				if(typeof body.pairing_phase == 'number'){
 					const pairing_progress_bar_el = this.view.querySelector('#extension-matter-adapter-pairing-progress-bar');
 					if(pairing_progress_bar_el){
@@ -1365,7 +1404,7 @@
     
     
 
-        // is called once every few seconds by poll_interval
+        // is called once every few seconds by poll_interval to see if the opened scanning window has found a pairing code
         pairing_poll(){
             if(this.debug){
                 console.log("matter adapter debug: in pairing_poll.  this.busy_pairing, this.busy_polling_counter, this.total_busy_polling_counter: ", this.busy_pairing, this.busy_polling_counter, this.total_busy_polling_counter);
@@ -1378,7 +1417,8 @@
                 }
             }
 			
-            if(this.busy_pairing == false){
+			//if(this.busy_pairing == false){
+			if(this.busy_polling_counter == 0){
                 
 				window.API.postJson(
 					`/extensions/${this.id}/api/ajax`,
@@ -1388,8 +1428,7 @@
 	                if(this.debug){
 	                    console.log("matter adapter debug: poll response: ", body);
 	                }
-	                this.busy_pairing = false;
-					this.busy_polling_counter = 0;
+					
                 
 	                /*
 	                if(typeof body.busy_discovering != 'undefined'){
@@ -1489,10 +1528,13 @@
 	                }
                 
 	                if(typeof body.nodes != 'undefined'){
+                        if(this.debug){
+                            console.warn("matter adapter debug: parse_body: setting body.nodes to this.nodez");
+                        }
 	                    this.nodez = body.nodes;
 	                    //this.regenenerate_items();
 	                }
-	                if(typeof body.pairing_code != 'undefined'){
+	                if(typeof body.pairing_code == 'string'){
 	                    if(body.pairing_code.startsWith('MT:')){
 	                        if(this.debug){
 	                            console.log("matter adapter debug: GOT A GOOD PAIRING CODE: ", body.pairing_code);
@@ -1559,10 +1601,10 @@
 	                }
 					
 					
-					
+					this.busy_polling_counter = 0;
                 
 				}).catch((err) => {
-	                this.busy_pairing = false;
+	                //this.busy_pairing = false;
 					this.busy_polling_counter = 0;
 					if(this.debug){
                         console.error("matter adapter debug: caught pairing poll error: ", err);
@@ -1577,7 +1619,7 @@
             
 			this.total_busy_polling_counter++;
 			if(this.total_busy_polling_counter > 120){ // 10 minutes
-				this.flash_message("Getting the QR code took too long");
+				this.flash_message("Scanning the QR code took more than 2 minutes. Stopping pairing.");
 				this.show_pairing_page();
 			}
         }
@@ -2674,6 +2716,35 @@
             }
             */
 			
+			// Check if the Bluetooth addon is enabled, and if so, ask it to stop bluetooth scanning for a little while
+			const bluetooth_view_el = document.getElementById('#extension-bluetoothpairing-view');
+			if(bluetooth_view_el){
+                window.API.postJson(
+					`/extensions/bluetoothpairing/api/ajax`,
+					{'action':'shh'}
+				).then((body) => { 
+					if(this.debug){
+                        console.log("matter adapter debug: asked bluetooth addon to stop scanning for a little while: response body: ", body);
+                    }
+					if(typeof body.state == 'boolean'){
+						if(body.state == false){
+							this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
+						}
+						else if(body.state == true){
+							if(this.debug){
+		                        console.log("matter adapter debug: succesfully requested the Bluetooth addon to stop scanning for a little while");
+							}
+						}
+					}
+                
+				}).catch((err) => {
+					if(this.debug){
+                        console.error("matter adapter debug: caught error asking the Bluetooth addon to stop scanning for a little while: ", err);
+					}
+                    //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
+				});
+			}
+			
 			const wireless_type = this.view.querySelector('input[name="extension-matter-adapter-wireless-type"]:checked').value;
             
             //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.add('extension-matter-adapter-hidden');
@@ -2702,10 +2773,12 @@
 					if(this.debug){
                         console.log("matter adapter debug: pair device via commission_with_code response: ", body);
                     }
-					if(typeof body.state != 'undefined'){
+					if(typeof body.state == 'boolean'){
 						if(body.state == false){
 							//this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
 							this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
+							this.busy_pairing = false;
+							this.flash_message('Controller did not start pairing process');
 						}
 						else if(body.state == true){
 							if(this.debug){
@@ -2714,12 +2787,12 @@
 						}
 					}
                 
-                
 				}).catch((err) => {
                     this.busy_pairing = false;
 					if(this.debug){
                         console.error("matter adapter debug: error making commission_with_code pairing request: ", err);
 					}
+					this.flash_message('Failed to start the pairing process: connection error?');
                     //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
 				});
 				
@@ -3376,15 +3449,21 @@
 						old_code_item_el.classList.add('extension-matter-adapter-flex-align-center');
 						old_code_item_el.classList.add('extension-matter-adapter-flex-between');
 						
+						
+						const names_wrapper_el = document.createElement('div');
+						names_wrapper_el.classList.add('extension-matter-adapter-flex-wrap-when-narrow');
+						
 						const vendor_name_el = document.createElement('span');
 						vendor_name_el.classList.add('extension-matter-adapter-old-pairing-code-item-vendor-name');
 						vendor_name_el.textContent = device_details['vendor_name'];
-						old_code_item_el.appendChild(vendor_name_el);
+						names_wrapper_el.appendChild(vendor_name_el);
 						
 						const product_name_el = document.createElement('span');
 						product_name_el.classList.add('extension-matter-adapter-old-pairing-code-item-product-name');
 						product_name_el.textContent = device_details['product_name'];
-						old_code_item_el.appendChild(product_name_el);
+						names_wrapper_el.appendChild(product_name_el);
+						
+						old_code_item_el.appendChild(names_wrapper_el);
 						
 						const qr_code_el = document.createElement('div');
 						qr_code_el.classList.add('extension-matter-adapter-old-pairing-code-item-qr-code');
@@ -3455,7 +3534,7 @@
 								print_style_el = document.createElement('style');
 								print_style_el.setAttribute('id','extension-matter-adapter-print-css');
 								print_style_el.textContent = print_css;
-								document.head.appendChild(styleElement);
+								document.head.appendChild(print_style_el);
 								if(this.debug){
 									console.log('matter adapter debug: print CSS added to head');
 								}
@@ -3474,8 +3553,10 @@
 								}
 							}
 							
-
-							window.print();
+							setTimeout(() => {
+								window.print();
+							},10);
+							
 							console.log("I am after window.print()");
 							
 						});

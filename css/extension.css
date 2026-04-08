@@ -775,6 +775,9 @@
     text-align: center;
 	cursor:pointer;
 	transition: background .6s ease-in-out;
+	margin-bottom:2rem;
+	background-image:url(../images/qr_code_bg.svg);
+	background-size:cover;
 }
 #extension-matter-adapter-pairing-use-previously-scanned-code:hover{
 	background-color:rgba(255, 255, 255, .3);
@@ -1222,38 +1225,59 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 #extension-matter-adapter-pairing-old-pairing-codes-list{
 	margin-top:1px;
 	padding:0;
+	padding-bottom:2rem;
 }
 
 .extension-matter-adapter-old-pairing-code-item{
 	padding:2rem;
 	transition: background .6s ease-in-out;
 	box-sizing:border-box;
-	border-radius: 1rem;
+	border-radius:1rem;
+	margin-bottom:1px;
+	cursor:pointer;
 }
 
 .extension-matter-adapter-old-pairing-code-item:hover{
 	background-color:rgba(0,0,0,.2);
 }
-
+/*
 .extension-matter-adapter-old-pairing-code-item:not(:last-of-type){
 	border-bottom:1px solid rgba(255,255,255,.2);
 }
+*/
 
-.extension-matter-adapter-old-pairing-code-item > span:not(:last-of-type){
+.extension-matter-adapter-old-pairing-code-item > div > span:not(:last-of-type){
 	margin-right:2rem;
 	font-style:italic;
+	min-width:100px;
+	opacity:.7;
 }
 
 .extension-matter-adapter-old-pairing-code-item-qr-code{
 	border:1rem solid white;
+	min-width:50px;
 }
 
 
-#extension-matter-adapter-print-old-codes-button{
-	background: url("../images/printer.svg") no-repeat left/contain;
-	padding-left:3rem;
-	display:block;
-	margin-left:auto;
+#extension-matter-adapter-view #extension-matter-adapter-print-old-codes-button{
+	background-image:url("../images/printer.svg");
+	background-repeat:no-repeat;
+	background-position:center left 1rem;;
+	background-size: 2rem;
+    padding-left: 4rem;
+    display: block;
+    margin: 2rem 2rem 0 auto;
+	width:90px;
+}
+
+
+
+
+
+/*  ADVANCED SETTINGS  */
+
+#extension-matter-adapter-advanced-settings-button:not(.extension-matter-adapter-hidden) + div{
+	display:none;
 }
 
 
@@ -1421,6 +1445,10 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 		content: 'Delete';
 		padding-left: 1rem;
 		padding-right: 1rem;
+	}
+	
+	.extension-matter-adapter-old-pairing-code-item > div > span:not(:last-of-type){
+		margin-bottom:.5rem;
 	}
 
 

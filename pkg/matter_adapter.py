@@ -2468,7 +2468,7 @@ class MatterAdapter(Adapter):
                         if len(discriminator) == 4 and len(passcode) == 8:
 
                             self.pairing_phase = 6
-                            self.turn_wifi_back_on_at = time.time() + 60
+                            self.turn_wifi_back_on_at = time.time() + 55
                             self.pairing_phase_message = 'Turning of WiFi for 60 seconds in an attempt to limit Bluetooth interference'
                             time.sleep(3)
                             self.pairing_phase = 8

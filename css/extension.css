@@ -104,6 +104,9 @@
 	text-align:center;
 }
 
+##extension-matter-adapter-wifi-restore-countdown{
+	opacity:.7;
+}
 #extension-matter-adapter-wifi-restore-countdown:empty{
 	display:none;
 }
@@ -985,8 +988,8 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
 }
 */
 
-#extension-matter-adapter-second-pag.extension-matter-adapter-busy-pairing .extension-matter-adapter-hide-if-busy-pairing,
-#extension-matter-adapter-second-page:not(.extension-matter-adapter-busy-pairing) .extension-matter-adapter-show-if-busy-pairing{
+#extension-matter-adapter-view.extension-matter-adapter-busy-pairing .extension-matter-adapter-hide-if-busy-pairing,
+#extension-matter-adapter-view:not(.extension-matter-adapter-busy-pairing) .extension-matter-adapter-show-if-busy-pairing{
 	display:none!important;
 }
 
@@ -1279,6 +1282,37 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 #extension-matter-adapter-advanced-settings-button:not(.extension-matter-adapter-hidden) + div{
 	display:none;
 }
+
+
+
+
+
+
+
+
+
+
+.extension-matter-adapter-busy-pairing #extension-matter-adapter-show-second-page-button{
+    background:transparent;
+    background-size: 300% 300%!important;
+    background-image: linear-gradient(
+          -90deg,
+          rgba(59,173,227,.5) 0%,
+		  rgba(59,173,227,.5) 30%,
+          rgba(87,111,230,.5) 50%,
+          rgba(152,68,183,.5) 51%,
+		  rgba(59,173,227,.5) 60%,
+          rgba(59,173,227,.5) 100%
+    )!important;
+    animation: extension-matter-adapter-bg-sweep-to-right 2s ease infinite;
+}
+
+@keyframes extension-matter-adapter-bg-sweep-to-right {
+  0%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+
+
 
 
 

@@ -96,6 +96,9 @@
             // This is not needed, but might be interesting to see. It will show you the API that the controller has available. For example, you can get a list of all the things this way.
             //console.log("window API: ", window.API);
             
+			
+			
+			
 	    }
 
 
@@ -810,7 +813,7 @@
 			}
 			
 			try{
-                if(document.getElementById('extension-matter-adapter-menu-item').classList.contains('selected') == false){
+                if(this.busy_pairing == false && document.getElementById('extension-matter-adapter-menu-item').classList.contains('selected') == false){
                     this.view.innerHTML = "";
                 }
 			}
@@ -1044,20 +1047,21 @@
 				if(thread_details_el){
 					if(typeof body.found_thread_radio_again == 'boolean' && typeof body.found_new_thread_radio == 'boolean'){
 						thread_details_el.innerHTML = '';
-                        const add_radio_button_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-button-container');
+                        const add_radio_button_container_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-button-container');
 						if(body.found_new_thread_radio){
 							thread_details_el.innerHTML += '<span>NEW Thread radio detected</span>';
-                            if(add_radio_button_el){
-                                add_radio_button_el.classList.add('extension-matter-adapter-hidden');
+                            if(add_radio_button_container_el){
+                                add_radio_button_container_el.classList.add('extension-matter-adapter-hidden');
                             }
 							this.started_thread_radio_wizard = false;
 							this.view.querySelector('#extension-matter-adapter-find-thread-radio-container').classList.add('extension-matter-adapter-hidden');
 		                    this.view.querySelector('#extension-matter-adapter-find-thread-radio-step2').classList.add('extension-matter-adapter-hidden');
 						}
 						else if(body.found_thread_radio_again){
+							this.started_thread_radio_wizard = false;
 							thread_details_el.innerHTML += '<span>Thread radio detected</span>';
-                            if(add_radio_button_el){
-                                add_radio_button_el.classList.add('extension-matter-adapter-hidden');
+                            if(add_radio_button_container_el){
+                                add_radio_button_container_el.classList.add('extension-matter-adapter-hidden');
                             }
 						}
 						else{
@@ -1066,8 +1070,8 @@
 								console.warn("matter adapter: debug: No Thread radio detected (yet)");
 							}
 
-                            if(add_radio_button_el && this.started_thread_radio_wizard == false){
-                                add_radio_button_el.classList.remove('extension-matter-adapter-hidden');
+                            if(add_radio_button_container_el && this.started_thread_radio_wizard == false){
+                                add_radio_button_container_el.classList.remove('extension-matter-adapter-hidden');
                             }
 							
 						}
@@ -1142,19 +1146,12 @@
 					if(this.debug){
                         console.log("matter adapter debug: pairing_poll: this.busy_pairing is now: ", this.busy_pairing);
 					}
-					if(this.second_page_el){
-	                    if(this.busy_pairing){
-	                        this.second_page_el.classList.add('extension-matter-adapter-busy-pairing');
-	                    }
-	                    else{
-	                        this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-	                    }
-					}
-					else{
-						if(this.debug){
-							console.error("matter adapter: could not find #extension-matter-adapter-second-page");
-						}
-					}
+                    if(this.busy_pairing){
+                        this.view.classList.add('extension-matter-adapter-busy-pairing');
+                    }
+                    else{
+                        this.view.classList.remove('extension-matter-adapter-busy-pairing');
+                    }
                     
                 }
 				
@@ -1226,7 +1223,12 @@
 							if(this.second_page_el){
 								if(this.second_page_el.classList.contains('extension-matter-adapter-busy-pairing')){
 		                            this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-									this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
+									const pairing_failed_el = this.view.querySelector('#extension-matter-adapter-pairing-failed-hint');
+									if(pairing_failed_el){
+										pairing_failed_el.classList.remove('extension-matter-adapter-hidden');
+										pairing_failed_el.scrollIntoView({ 'block': 'center',  'behavior': 'smooth' });
+									}
+									
 								}
 							}
 						
@@ -1305,18 +1307,16 @@
 						this.start_thread_radio_serial_port_el.textContent = body.thread_radio_serial_port.replaceAll('_',' ');
 					}
 					
-                    if(this.start_thread_radio_wizard_button_el == null){
-                        this.start_thread_radio_wizard_button_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-button');
-                    }
-                    if(this.start_thread_radio_wizard_button_el){
+                    this.start_thread_radio_wizard_button_container_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-button-container');
+                    if(this.start_thread_radio_wizard_button_container_el){
                         if(
                             (typeof body.thread_radio_serial_port == 'object' && body.thread_radio_serial_port == null) ||
                             (typeof body.thread_radio_went_missing == 'boolean' && body.thread_radio_went_missing == true)
                         ){
-                            this.start_thread_radio_wizard_button_el.classList.remove('extension-matter-adapter-hidden');
+                            this.start_thread_radio_wizard_button_container_el.classList.remove('extension-matter-adapter-hidden');
                         }
                         else{
-                            this.start_thread_radio_wizard_button_el.classList.add('extension-matter-adapter-hidden');
+                            this.start_thread_radio_wizard_button_container_el.classList.add('extension-matter-adapter-hidden');
                         }
                     }
                 }
@@ -1521,7 +1521,17 @@
 								console.log("matter adapter debug: THE DEVICE LIST IS LONGER NOW, PAIRING MUST HAVE SUCCEEDED");
 							}
 	                        this.view.querySelector('#extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
-	                        this.view.querySelector('#extension-matter-adapter-pairing-success-hint').classList.remove('extension-matter-adapter-hidden');
+							const succes_hint_el = this.view.querySelector('#extension-matter-adapter-pairing-success-hint');
+	                       	if(succes_hint_el){
+	                       		succes_hint_el.classList.remove('extension-matter-adapter-hidden');
+								succes_hint_el.scrollIntoView({'block':'center','behavior':'smooth'});
+	                       	}
+							const pairing_start_area_el = this.view.querySelector('#extension-matter-adapter-pairing-start-area');
+							if(pairing_start_area_el){
+								pairing_start_area_el.classList.add('extension-matter-adapter-busy-pairing');
+							}
+							
+						    
 	                    }
 	                    this.nodez = body.nodez;
 	                    //this.regenenerate_items();
@@ -2696,15 +2706,19 @@
             
             const code = this.pairing_code;
             if(this.debug){
-                console.log("matter adapter: Pairing code: ", code);
+                console.log("matter adapter debug: Pairing code: ", code);
             }
             if(code.length < 5){
-                console.log("matter adapter: pairing code was too short");
+                if(this.debug){
+					console.log("matter adapter debug: pairing code was too short");
+				}
                 this.flash_message("That pairing code is too short");
                 return;
             }
             if(!code.startsWith('MT:')){
-                console.log("matter adapter: pairing code did not start with MT:");
+                if(this.debug){
+					console.log("matter adapter debug: pairing code did not start with MT:");
+				}
                 this.flash_message("The pairing code should start with 'MT:'");
                 return;
             }
@@ -2724,7 +2738,7 @@
 					{'action':'shh'}
 				).then((body) => { 
 					if(this.debug){
-                        console.log("matter adapter debug: asked bluetooth addon to stop scanning for a little while: response body: ", body);
+                        console.log("matter adapter debug: asked bluetooth addon to stop scanning for a little while. Its response body: ", body);
                     }
 					if(typeof body.state == 'boolean'){
 						if(body.state == false){

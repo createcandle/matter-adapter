@@ -285,7 +285,10 @@ class MatterAPIHandler(APIHandler):
                     
                     
                     elif action == 'find_thread_radio_before':
-                        self.adapter.serial_before = str(run_command('ls /dev/serial/by-id'))
+                        if os.path.isdir('/dev/serial/by-id'):
+                            self.adapter.serial_before = str(run_command('ls /dev/serial/by-id'))
+                        else:
+                            self.adapter.serial_before = ''
                         return APIResponse(
                           status=200,
                           content_type='application/json',

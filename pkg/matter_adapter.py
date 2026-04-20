@@ -192,6 +192,7 @@ class MatterAdapter(Adapter):
 
         self.server = None
         self.server_process = None
+        self.matter_server_type = 'Python'
         #self.client = None
         #self.unsubscribe = None
 
@@ -204,6 +205,9 @@ class MatterAdapter(Adapter):
         self.discovered = []
         self.nodes = []
 
+        self.raw_mdns = ''
+        self.last_get_nodes_timestamp = 0
+
         #self.switch_events = ['Switch latched','Initial press','Long press','Short release','Long release','Multi press ongoing','Multi press complete']
 
         self.certificates_updated = False
@@ -214,6 +218,7 @@ class MatterAdapter(Adapter):
         self.busy_discovering = False
         self.pairing_failed = False
         self.busy_pairing = False
+        self.last_pairing_start_time = 0
         self.pairing_phase = 0
         self.pairing_phase_message = ''
         self.pairing_attempt = -1
@@ -254,7 +259,7 @@ class MatterAdapter(Adapter):
         self.thread_error = ''
         self.otbr_agent_process = None
         self.otbr_stdout_messages = []
-        self.thread_channel = 15
+        self.thread_channel = 26
         self.thread_dataset = ''
         self.turn_wifi_back_on_at = 0
         self.extension_cable_recommended = False
@@ -490,6 +495,12 @@ class MatterAdapter(Adapter):
 
         if 'nodez' not in self.persistent_data:
             self.persistent_data['nodez'] = {}
+            self.should_save = True
+
+        if 'pairing_codes' not in self.persistent_data:
+            self.persistent_data['pairing_codes'] = {}
+            self.should_save = True
+
 
         #print("PERSISTENT DATA")
         #print(json.dumps(self.persistent_data, None,4))
@@ -777,8 +788,10 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     self.s_print("Thread channel preference was in settings: " + str(self.thread_channel))
 
-
-
+            if 'Matter server type' in config:
+                self.matter_server_type =  bool(config["Matter server type"])
+                if self.DEBUG:
+                    self.s_print("Matter server type preference was in settings: " + str(self.matter_server_type))
 
         except Exception as ex:
             self.s_print("caught error in add_from_config: " + str(ex))
@@ -828,45 +841,51 @@ class MatterAdapter(Adapter):
     def find_thread_radio(self):
         found_thread_radio_again = False
         found_new_thread_radio = False
-        serial_by_id_output = run_command('ls /dev/serial/by-id')
-        if isinstance(serial_by_id_output,str) and len(str(serial_by_id_output)) > 5:
+        if os.path.isdir('/dev/serial/by-id'):
+            serial_by_id_output = run_command('ls /dev/serial/by-id')
+            if isinstance(serial_by_id_output,str) and len(str(serial_by_id_output)) > 5:
 
-            if self.serial_before:
-                for line in serial_by_id_output.splitlines():
-                    line = str(line).strip().rstrip()
-                    if not line in self.serial_before:
-                        self.persistent_data['thread_radio_serial_port'] = line
-                        if self.DEBUG:
-                            self.s_print("Found a new thread radio: ", line)
-                        found_new_thread_radio = True
-                        self.serial_before = ''
-                        self.should_save = True
-                        break
-
-            if found_new_thread_radio == False:
-                if 'thread_radio_serial_port' in self.persistent_data and isinstance(self.persistent_data['thread_radio_serial_port'],str) and len(str(self.persistent_data['thread_radio_serial_port'])) > 3:
-                    for line in serial_by_id_output.splitlines():
-                        if str(self.persistent_data['thread_radio_serial_port']) == str(line).strip().rstrip():
-                            if self.found_thread_radio_again == False and self.otbr_started == False:
-                                if self.DEBUG:
-                                    self.s_print("Found the thread radio again")
-                            found_thread_radio_again = True
-                            break
-
-                # TODO: this should be removed, since the SkyConnect could also have zigbee firmware. Maybe leave it, but only run it if there is no zigbee2mqtt addon installed
-                """
-                if found_thread_radio_again == False:
-                    for line in serial_by_id_output.splitlines():
+                if 'No such file or directory' in str(serial_by_id_output):
+                    if self.DEBUG:
+                        print("ERROR, find_thread_radio: no /dev/serial/by-id!")
+                    return False
+            
+                if self.serial_before:
+                    for line in str(serial_by_id_output).splitlines():
                         line = str(line).strip().rstrip()
-                        if 'SkyConnect' in line or 'Nabu_Casa' in line:
+                        if not line in self.serial_before:
                             self.persistent_data['thread_radio_serial_port'] = line
-                            if self.otbr_started == False:
-                                if self.DEBUG:
-                                    self.s_print("Found a new thread radio: ", line)
-                                self.should_save = True
+                            if self.DEBUG:
+                                self.s_print("Found a new thread radio: ", line)
                             found_new_thread_radio = True
+                            self.serial_before = ''
+                            self.should_save = True
                             break
-                """
+
+                if found_new_thread_radio == False:
+                    if 'thread_radio_serial_port' in self.persistent_data and isinstance(self.persistent_data['thread_radio_serial_port'],str) and len(str(self.persistent_data['thread_radio_serial_port'])) > 3:
+                        for line in serial_by_id_output.splitlines():
+                            if str(self.persistent_data['thread_radio_serial_port']) == str(line).strip().rstrip():
+                                if self.found_thread_radio_again == False and self.otbr_started == False:
+                                    if self.DEBUG:
+                                        self.s_print("Found the thread radio again")
+                                found_thread_radio_again = True
+                                break
+
+                    # TODO: this should be removed, since the SkyConnect could also have zigbee firmware. Maybe leave it, but only run it if there is no zigbee2mqtt addon installed
+                    """
+                    if found_thread_radio_again == False:
+                        for line in serial_by_id_output.splitlines():
+                            line = str(line).strip().rstrip()
+                            if 'SkyConnect' in line or 'Nabu_Casa' in line:
+                                self.persistent_data['thread_radio_serial_port'] = line
+                                if self.otbr_started == False:
+                                    if self.DEBUG:
+                                        self.s_print("Found a new thread radio: ", line)
+                                    self.should_save = True
+                                found_new_thread_radio = True
+                                break
+                    """
 
         self.found_thread_radio_again = found_thread_radio_again
         self.found_new_thread_radio = found_new_thread_radio
@@ -874,6 +893,8 @@ class MatterAdapter(Adapter):
         if self.found_thread_radio_again or self.found_new_thread_radio:
             self.found_a_thread_radio_once = True
             if self.otbr_started == False and self.otbr_starting_timestamp == None:
+                if self.DEBUG:
+                    print("find_thread_radio: SUCCESS, setting should_start_otbr to True")
                 self.should_start_otbr = True
 
         else:
@@ -1166,80 +1187,7 @@ class MatterAdapter(Adapter):
             os.system('mkdir -p ' + str(self.data_path))
 
 
-        # ALL AVAILABLE FLAGS ARE DOCUMENTED HERE: https://github.com/matter-js/matterjs-server/blob/main/docs/cli.md
-        #matter_server_command = 'npm run server --
-
-        # node --enable-source-maps packages/matter-server/dist/esm/MatterServer.js
-
-        # self.matter_server_start_path = os.path.join(self.matter_server_base_path,'packages','matter-server','dist','esm','MatterServer.js')
-
-        matter_server_command = '/home/pi/node24 --enable-source-maps --disable-dashboard ' + self.matter_serverjs_start_path
-
-        matter_server_command = matter_server_command + ' --storage-path ' + str(self.data_path)
-
-
-
-        if self.DEBUG:
-            matter_server_command += ' --log-level debug'
-        else:
-            matter_server_command += ' --log-level critical'
-
-
-        if self.nmcli_installed == True:
-            matter_server_command = matter_server_command + " --primary-interface uap0"
-
-        # --listen-address 192.168.12.1  # REPEATABLE, so should then also bind to wpan0 if that has an IP address
-
-
-        #matter_server_command = matter_server_command + " --ble"
-
-        if self.vendor_id != "":
-            decimal_vendor_id = int(self.vendor_id, 16)
-            #matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
-            matter_server_command = matter_server_command + " --vendorid " + str(decimal_vendor_id)
-
-
-
-        #if not os.path.isdir('/data/credentials'):
-        #    os.system('mkdir -p /data/credentials')
-        #matter_server_command = matter_server_command + " --paa-root-cert-dir /data/credentials"
-
-        #bluetooth_check = str(run_command('hcitool dev'))
-        bluetooth_check = str(run_command('hciconfig -a'))
-        if 'hci0' in bluetooth_check:
-            matter_server_command = matter_server_command + " --bluetooth-adapter 0"
-        elif 'hci1' in bluetooth_check:
-            matter_server_command = matter_server_command + " --bluetooth-adapter 1"
-
-        #matter_server_command = matter_server_command + " --bypass-attestation-verifier true"
-
-        if not os.path.exists(self.lib_path):
-            self.s_print("ERROR LIB PATH DOES NOT EXIST")
-
-        if self.DEBUG:
-            self.s_print("")
-            self.s_print("full matter server start command: " + str(matter_server_command))
-            self.s_print("")
-
-        matter_server_command_array = matter_server_command.split()
-
-        if self.DEBUG:
-            self.s_print("full matter server start command array: " + str(matter_server_command_array))
-        #self.run_process(matter_server_command)
-
-
-        my_env = os.environ.copy()
-        #my_env["PYTHONPATH"] = str(self.lib_path) + ":" # + my_env["PYTHONPATH"]
-        #if self.DEBUG:
-        #    self.s_print("my_env[PYTHONPATH]: " + str(my_env["PYTHONPATH"]))
-
-        #'PYTHONPATH=/home/pi/.webthings/addons/matter-adapter/lib /usr/bin/python3.9 -m matter_server.server --storage-path /home/pi/.webthings/data/matter-adapter'
-
-        #self.server_process = subprocess.Popen("/usr/bin/python3.9 bla.py", stdout=subprocess.PIPE, env=my_env, shell=True)
-        #self.server_process = subprocess.Popen(matter_server_command_shell, stdout=subprocess.PIPE, env=my_env, shell=True)
-        self.server_process = subprocess.Popen(matter_server_command_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env, cwd=self.matter_server_base_path)
-        os.set_blocking(self.server_process.stdout.fileno(), False)
-        os.set_blocking(self.server_process.stderr.fileno(), False)
+        
 
 
         if self.DEBUG:
@@ -1255,78 +1203,177 @@ class MatterAdapter(Adapter):
 
     def start_matter_server(self):
         if self.DEBUG:
-            print("in start_matter_server")
-
-        python3_path = str(run_command('readlink $(which python3)'))
-        python3_path = "/usr/bin/" + str(python3_path).rstrip()
-
-        if self.DEBUG:
-            print("start_matter_server:  python3_path: ", python3_path)
-
-        if not os.path.exists(python3_path):
-            if self.DEBUG:
-                print("start_matter_server: error, could not find python binary at path: ", python3_path)
-            python3_path = 'python3'
-        # /home/pi/.webthings/addons/matter-adapter/lib/
-        #matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.data_path)
-        matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.hasdata_dir_path)
-
-        if self.vendor_id != "":
-            decimal_vendor_id = int(self.vendor_id, 16)
-            #matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
-            matter_server_command = matter_server_command + " --vendorid " + str(decimal_vendor_id)
-
-        if self.nmcli_installed == True:
-            matter_server_command = matter_server_command + " --primary-interface uap0"
-
-
-        #if not os.path.isdir('/data/credentials'):
-        #    os.system('mkdir -p /data/credentials')
-        #matter_server_command = matter_server_command + " --paa-root-cert-dir /data/credentials"
-
-        #bluetooth_check = str(run_command('hcitool dev'))
-        bluetooth_check = str(run_command('hciconfig -a'))
-
-        if 'hci0' in bluetooth_check:
-            matter_server_command = matter_server_command + " --bluetooth-adapter 0"
-        elif 'hci1' in bluetooth_check:
-            matter_server_command = matter_server_command + " --bluetooth-adapter 1"
-
-        #matter_server_command = matter_server_command + " --bypass-attestation-verifier true"
-
+            print("in start_matter_server.  version: ", version)
 
         if not os.path.exists(self.data_path):
-            self.s_print("ERROR DATA PATH DOES NOT EXIST")
-
-        if not os.path.exists(self.lib_path):
-            self.s_print("ERROR LIB PATH DOES NOT EXIST")
-
-        #matter_server_command = "PYTHONPATH=" + str(self.lib_path) + " " +  str(matter_server_command)
-
-        if self.DEBUG:
-            self.s_print("")
-            self.s_print("full matter server start command: " + str(matter_server_command))
-            self.s_print("")
-
-        matter_server_command_array = matter_server_command.split()
-
-        if self.DEBUG:
-            self.s_print("full matter server start command array: " + str(matter_server_command_array))
-        #self.run_process(matter_server_command)
+            self.s_print("start_matter_server: data dir did not exist yet. Creating it now.")
+            os.system('mkdir -p ' + str(self.data_path))
 
 
-        my_env = os.environ.copy()
-        my_env["PYTHONPATH"] = str(self.lib_path) + ":" # + my_env["PYTHONPATH"]
-        if self.DEBUG:
-            self.s_print("my_env[PYTHONPATH]: " + str(my_env["PYTHONPATH"]))
 
-        #'PYTHONPATH=/home/pi/.webthings/addons/matter-adapter/lib /usr/bin/python3.9 -m matter_server.server --storage-path /home/pi/.webthings/data/matter-adapter'
+        #
+        #  PYTHON VERSION
+        #
+        # This is the 'old' version, which will NOT get updates. 
+        # It uses less memory and disk space than the new Node JS version (below)
 
-        #self.server_process = subprocess.Popen("/usr/bin/python3.9 bla.py", stdout=subprocess.PIPE, env=my_env, shell=True)
-        #self.server_process = subprocess.Popen(matter_server_command_shell, stdout=subprocess.PIPE, env=my_env, shell=True)
-        self.server_process = subprocess.Popen(matter_server_command_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env)
-        os.set_blocking(self.server_process.stdout.fileno(), False)
-        os.set_blocking(self.server_process.stderr.fileno(), False)
+        if self.matter_server_type == 'Python':
+            
+            python3_path = str(run_command('readlink $(which python3)'))
+            python3_path = "/usr/bin/" + str(python3_path).rstrip()
+
+            if self.DEBUG:
+                print("start_matter_server:  python3_path: ", python3_path)
+
+            if not os.path.exists(python3_path):
+                if self.DEBUG:
+                    print("start_matter_server: error, could not find python binary at path: ", python3_path)
+                python3_path = 'python3'
+            # /home/pi/.webthings/addons/matter-adapter/lib/
+            #matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.data_path)
+            matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.hasdata_dir_path)
+
+            if self.vendor_id != "":
+                decimal_vendor_id = int(self.vendor_id, 16)
+                #matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
+                matter_server_command = matter_server_command + " --vendorid " + str(decimal_vendor_id)
+
+            if self.nmcli_installed == True:
+                matter_server_command = matter_server_command + " --primary-interface uap0"
+
+
+            #if not os.path.isdir('/data/credentials'):
+            #    os.system('mkdir -p /data/credentials')
+            #matter_server_command = matter_server_command + " --paa-root-cert-dir /data/credentials"
+
+            #bluetooth_check = str(run_command('hcitool dev'))
+            bluetooth_check = str(run_command('hciconfig -a'))
+
+            if 'hci0' in bluetooth_check:
+                matter_server_command = matter_server_command + " --bluetooth-adapter 0"
+            elif 'hci1' in bluetooth_check:
+                matter_server_command = matter_server_command + " --bluetooth-adapter 1"
+
+            #matter_server_command = matter_server_command + " --bypass-attestation-verifier true"
+
+
+            if not os.path.exists(self.data_path):
+                self.s_print("ERROR DATA PATH DOES NOT EXIST")
+
+            if not os.path.exists(self.lib_path):
+                self.s_print("ERROR LIB PATH DOES NOT EXIST")
+
+            #matter_server_command = "PYTHONPATH=" + str(self.lib_path) + " " +  str(matter_server_command)
+
+            if self.DEBUG:
+                self.s_print("")
+                self.s_print("full matter server start command: " + str(matter_server_command))
+                self.s_print("")
+
+            matter_server_command_array = matter_server_command.split()
+
+            if self.DEBUG:
+                self.s_print("full matter server start command array: " + str(matter_server_command_array))
+            #self.run_process(matter_server_command)
+
+
+            my_env = os.environ.copy()
+            my_env["PYTHONPATH"] = str(self.lib_path) + ":" # + my_env["PYTHONPATH"]
+            if self.DEBUG:
+                self.s_print("my_env[PYTHONPATH]: " + str(my_env["PYTHONPATH"]))
+
+            #'PYTHONPATH=/home/pi/.webthings/addons/matter-adapter/lib /usr/bin/python3.9 -m matter_server.server --storage-path /home/pi/.webthings/data/matter-adapter'
+
+            #self.server_process = subprocess.Popen("/usr/bin/python3.9 bla.py", stdout=subprocess.PIPE, env=my_env, shell=True)
+            #self.server_process = subprocess.Popen(matter_server_command_shell, stdout=subprocess.PIPE, env=my_env, shell=True)
+            self.server_process = subprocess.Popen(matter_server_command_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env)
+            os.set_blocking(self.server_process.stdout.fileno(), False)
+            os.set_blocking(self.server_process.stderr.fileno(), False)
+            
+            
+        #
+        #  NODE JS VERSION
+        #
+        # This is the 'new' version, which will get updates. 
+        # But it's currently (early 2026) in an alpha state. And it uses more memory and disk space.
+        
+        else:
+            
+            
+            # ALL AVAILABLE FLAGS ARE DOCUMENTED HERE: https://github.com/matter-js/matterjs-server/blob/main/docs/cli.md
+            #matter_server_command = 'npm run server --
+
+            # node --enable-source-maps packages/matter-server/dist/esm/MatterServer.js
+
+            # self.matter_server_start_path = os.path.join(self.matter_server_base_path,'packages','matter-server','dist','esm','MatterServer.js')
+
+            matter_server_command = '/home/pi/node24 --enable-source-maps --disable-dashboard ' + self.matter_serverjs_start_path
+
+            matter_server_command = matter_server_command + ' --storage-path ' + str(self.data_path)
+
+
+
+            if self.DEBUG:
+                matter_server_command += ' --log-level debug'
+            else:
+                matter_server_command += ' --log-level critical'
+
+
+            if self.nmcli_installed == True:
+                matter_server_command = matter_server_command + " --primary-interface uap0"
+
+            # --listen-address 192.168.12.1  # REPEATABLE, so should then also bind to wpan0 if that has an IP address
+
+
+            #matter_server_command = matter_server_command + " --ble"
+
+            if self.vendor_id != "":
+                decimal_vendor_id = int(self.vendor_id, 16)
+                #matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
+                matter_server_command = matter_server_command + " --vendorid " + str(decimal_vendor_id)
+
+
+
+            #if not os.path.isdir('/data/credentials'):
+            #    os.system('mkdir -p /data/credentials')
+            #matter_server_command = matter_server_command + " --paa-root-cert-dir /data/credentials"
+
+            #bluetooth_check = str(run_command('hcitool dev'))
+            bluetooth_check = str(run_command('hciconfig -a'))
+            if 'hci0' in bluetooth_check:
+                matter_server_command = matter_server_command + " --bluetooth-adapter 0"
+            elif 'hci1' in bluetooth_check:
+                matter_server_command = matter_server_command + " --bluetooth-adapter 1"
+
+            #matter_server_command = matter_server_command + " --bypass-attestation-verifier true"
+
+            if not os.path.exists(self.lib_path):
+                self.s_print("ERROR LIB PATH DOES NOT EXIST")
+
+            if self.DEBUG:
+                self.s_print("")
+                self.s_print("full matter server start command: " + str(matter_server_command))
+                self.s_print("")
+
+            matter_server_command_array = matter_server_command.split()
+
+            if self.DEBUG:
+                self.s_print("full matter server start command array: " + str(matter_server_command_array))
+            #self.run_process(matter_server_command)
+
+
+            my_env = os.environ.copy()
+            #my_env["PYTHONPATH"] = str(self.lib_path) + ":" # + my_env["PYTHONPATH"]
+            #if self.DEBUG:
+            #    self.s_print("my_env[PYTHONPATH]: " + str(my_env["PYTHONPATH"]))
+
+            #'PYTHONPATH=/home/pi/.webthings/addons/matter-adapter/lib /usr/bin/python3.9 -m matter_server.server --storage-path /home/pi/.webthings/data/matter-adapter'
+
+            #self.server_process = subprocess.Popen("/usr/bin/python3.9 bla.py", stdout=subprocess.PIPE, env=my_env, shell=True)
+            #self.server_process = subprocess.Popen(matter_server_command_shell, stdout=subprocess.PIPE, env=my_env, shell=True)
+            self.server_process = subprocess.Popen(matter_server_command_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env, cwd=self.matter_server_base_path)
+            os.set_blocking(self.server_process.stdout.fileno(), False)
+            os.set_blocking(self.server_process.stderr.fileno(), False)
 
 
         if self.DEBUG:
@@ -2044,7 +2091,8 @@ class MatterAdapter(Adapter):
 
     def get_nodes(self):
         try:
-            if self.client_connected:
+            if self.client_connected and self.last_get_nodes_timestamp < time.time() - 30:
+                self.last_get_nodes_timestamp = time.time()
 
                 if self.DEBUG:
                     self.s_print("get_nodes: Client is connected, so asking for latest node list")
@@ -2059,10 +2107,11 @@ class MatterAdapter(Adapter):
                 return True
             else:
                 if self.DEBUG:
-                    self.s_print("Error in get_nodes: client was not connected yet")
+                    self.s_print("Error in get_nodes: client was not connected yet, or already did get_nodes recently")
 
         except Exception as ex:
-            self.s_print("Error in get_nodes: " + str(ex))
+            if self.DEBUG:
+                self.s_print("caught error in get_nodes: " + str(ex))
 
         return False
 
@@ -2230,7 +2279,7 @@ class MatterAdapter(Adapter):
             return True
 
 
-    
+
     # Pass WiFi credentials to Matter
     def set_wifi_credentials(self):
         if self.DEBUG:
@@ -2367,7 +2416,8 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             self.s_print("\n\n\n\nin start_matter_pairing. Pairing type: " + str(pairing_type))
         try:
-            if self.turn_wifi_back_on_at > time.time():
+            self.last_pairing_start_time = time.time()
+            if self.turn_wifi_back_on_at > self.last_pairing_start_time:
                 self.turn_wifi_back_on_at = 0
                 if self.DEBUG:
                     print("start_matter_pairing: turning WiFi back on first")
@@ -2455,7 +2505,7 @@ class MatterAdapter(Adapter):
                         if len(discriminator) == 4 and len(passcode) == 8:
 
                             self.pairing_phase = 6
-                            self.turn_wifi_back_on_at = time.time() + 60
+                            self.turn_wifi_back_on_at = time.time() + 55
                             self.pairing_phase_message = 'Turning of WiFi for 60 seconds in an attempt to limit Bluetooth interference'
                             time.sleep(3)
                             self.pairing_phase = 8
@@ -2637,8 +2687,6 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             self.s_print("in clock")
 
-
-
         #print("clock: self.running: " + str(self.running))
         last_tick_tock_time = time.time()
         dd = 1
@@ -2680,24 +2728,43 @@ class MatterAdapter(Adapter):
                 if self.found_a_thread_radio_once == True and self.thread_radio_went_missing == False and 'thread_radio_serial_port' in self.persistent_data and isinstance(self.persistent_data['thread_radio_serial_port'],str) and len(str(self.persistent_data['thread_radio_serial_port'])) > 3:
 
                     if self.thread_running == True:
-
-                        serial_by_id_output = run_command('ls /dev/serial/by-id')
-                        if isinstance(serial_by_id_output,str) and len(str(serial_by_id_output)) > 5:
+                        if os.path.isdir('/dev/serial/by-id'):
+                            serial_by_id_output = run_command('ls /dev/serial/by-id')
+                        else:
+                            serial_by_id_output = ''
+                            
+                        if isinstance(serial_by_id_output,str):  # and len(str(serial_by_id_output)) > 5
                             if not str(self.persistent_data['thread_radio_serial_port']) in serial_by_id_output:
                                 if self.DEBUG:
-                                    self.s_print("Thread modem was just unplugged?")
+                                    self.s_print("Thread radio was just unplugged? did not spot radio in serial ports list: ", self.persistent_data['thread_radio_serial_port'])
                                 self.found_thread_radio_again == False
                                 self.found_new_thread_radio == False
                                 if self.thread_radio_went_missing == False:
                                     self.send_pairing_prompt("Thread radio was unplugged")
+                                    self.found_thread_radio_again = False
+                                    self.found_new_thread_radio = False
                                     self.really_stop_otbr()
+                                
+                                    if self.busy_pairing:
+                                        if self.DEBUG:
+                                            print("Thread radio was uplugged during pairing.")
+                                        self.busy_pairing = False
+                                        if self.turn_wifi_back_on_at > 0:
+                                            self.turn_wifi_back_on_at = 0
+                                            if self.DEBUG:
+                                                print("Thread radio was uplugged during pairing -> Forcing WiFi back on.")
+                                            run_command('nmcli radio wifi on')
+
+                                        self.pairing_failed = True
+                                        self.pairing_phase = -1
+                                
                                 self.thread_radio_went_missing = True
 
                         if self.thread_radio_went_missing == False:
                             wpan0_check = run_command('ip link show')
                             if isinstance(wpan0_check,str) and not 'wpan0' in wpan0_check:
                                 if self.DEBUG:
-                                    self.s_print("\nERROR: wpan0 no longer seems to exist even thought in theory Thread is running")
+                                    self.s_print("\nERROR: wpan0 no longer seems to exist even though in theory Thread is running")
                                 self.really_stop_otbr()
                                 self.should_start_otbr = True
 
@@ -2815,12 +2882,12 @@ class MatterAdapter(Adapter):
                             if self.DEBUG:
                                 self.s_print("\n\nERROR: matter server running twice?\n\n")
 
-                        if 'Traceback' in line:
-                            self.pairing_failed = True
-                            self.busy_pairing = False
-                            self.send_pairing_prompt("Error, Matter server crashed")
-                            self.pairing_phase_message = 'Matter crashed!'
-                            self.pairing_phase = -1
+                        #if 'Traceback' in line:
+                        #    self.pairing_failed = True
+                        #    self.busy_pairing = False
+                        #    self.send_pairing_prompt("Error, Matter server crashed")
+                        #    self.pairing_phase_message = 'Matter crashed!'
+                        #    self.pairing_phase = -1
                         if 'over BLE failed' in line:
                             self.pairing_failed = True
                             self.busy_pairing = False
@@ -2926,11 +2993,14 @@ class MatterAdapter(Adapter):
                                             target_device.connected_notify(False)
                                             try:
                                                 for dev in self.devices:
-                                                    print("devva: ", dev)
+                                                    if self.DEBUG:
+                                                        print("checking is device is connedted ", dev)
                                                     if 'id' in dev and 'connected' in dev:
-                                                        print("device.connected: ", device.id, device.connected)
+                                                        if self.DEBUG:
+                                                            print("device.connected: ", device.id, device.connected)
                                             except Exception as ex:
-                                                print("caught error checking which devices are connected: ", ex)
+                                                if self.DEBUG:
+                                                    print("caught error checking which devices are connected: ", ex)
 
 
                         if 'is not (yet) available' in line:
@@ -3540,9 +3610,13 @@ class MatterAdapter(Adapter):
             target_device = self.get_device(device_id)
             if target_device == None:
                 if self.DEBUG:
-                    self.s_print("parse_node: this device does not exist yet. It must be created.")
+                    self.s_print("parse_node: this device does not exist yet. Creating it now.")
 
-                new_device = MatterDevice(self, device_id, node)
+                pairing_code = None
+                if isinstance(self.last_found_pairing_code,str) and self.last_found_pairing_code not in self.persistent_data['pairing_codes'] and self.last_pairing_start_time > time.time() - 120:
+                    pairing_code = "" + str(self.last_found_pairing_code)
+
+                new_device = MatterDevice(self, device_id, node, pairing_code)
                 self.handle_device_added(new_device)
 
             else:
@@ -3963,8 +4037,3 @@ def run_command(cmd, timeout_seconds=30):
         print("caught error in run_command: "  + str(ex))
         return None
 """
-
-
-
-
-

@@ -47,7 +47,7 @@
 
 
                     <div id="extension-matter-adapter-find-thread-radio-container" class="extension-matter-adapter-hidden">
-						<div id="extension-matter-adapter-find-thread-radio-step1" class="extension-matter-adapter-area">
+						<div id="extension-matter-adapter-find-thread-radio-step1" class="extension-matter-adapter-hidden extension-matter-adapter-area">
 							<h3>1. Make sure it's unplugged first</h3>
 							<p>Before we begin, make sure your Thread radio is <span class="extension-matter-adapter-bold">unplugged</span>.</p>
 							<div class="extension-matter-adapter-align-right">
@@ -130,7 +130,7 @@
 						<p style="text-align:center">Click on the <img src="/images/add.svg" alt="(+)" class="extension-matter-adapter-tiny-plus-button"> button in the bottom right corner if you want to connect a Matter device.</p>
 					</div>
 					
-					<button id="extension-matter-adapter-advanced-settings-button" class="text-button">Advanced settings</button>
+					
 					<div class="extension-matter-adapter-flex-between extension-matter-adapter-area" style="margin:10rem 0">
                     	<!--<button id="extension-matter-adapter-refresh-paired-list-button" class="text-button extension-matter-adapter-hidden">Refresh</button>
 						<button id="extension-matter-adapter-stop-refreshing-list-button" class="text-button extension-matter-adapter-show-if-developer">Stop refreshing</button>-->
@@ -145,7 +145,7 @@
                     <pre id="extension-matter-adapter-paired-devices-list-pre" class="extension-matter-adapter-show-if-developer"></pre>
 
 
-                    <button id="extension-matter-adapter-show-second-page-button" class="icon-button extension-matter-adapter-hidden"></button>
+                    <button id="extension-matter-adapter-show-second-page-button" class="icon-button"></button>
 
                 </div>
 
@@ -241,12 +241,8 @@
 								</div>
 							</div>
 							<div id="extension-matter-adapter-pairing-use-previously-scanned-code" class="extension-matter-adapter-hidden">
-								<h4>Use last scanned code</h4>
+								<h4>Use previously scanned code</h4>
 							</div>
-							<div id="extension-matter-adapter-pairing-use-old-scanned-code" class="extension-matter-adapter-hidden">
-								<h4>Look up an old code</h4>
-							</div>
-							<div id="extension-matter-adapter-pairing-old-pairing-codes-list" class="extension-matter-adapter-area"></div>
 
 
 
@@ -405,15 +401,15 @@
 								<h4>Pairing failed</h4>
 	                            <p>Try pressing the "Start pairing" button again to give it another go.</p>
 								<p>If that doesn't work, then you can try starting from the beginning.</p>
-								<p>If something is using the Bluetooth connection, such as a wireles speaker or keyboard, try disabling that.</p>
-								<div class="extension-matter-adapter-flex-between" style="margin-top:2rem">
+								<p>If the Bluetooth addon is enabled, try disabling that, as it could interfere</p>
+								<div class="extension-matter-adapter-flex-between">
 	                                <button id="extension-matter-adapter-pairing-failed-back-to-the-start-button" class="text-button">Back to the start</button>
 									<button id="extension-matter-adapter-pairing-failed-try-again-button" class="text-button">Try again</button>
 	                            </div>
 							</div>
 							<div id="extension-matter-adapter-pairing-success-hint" class="extension-matter-adapter-area extension-matter-adapter-success extension-matter-adapter-hidden">
 								<h4>Pairing complete</h4>
-	                            <p>The next step is to accept the thing onto the Candle controller.</p>
+	                            <p>The final step is to add the new Thing to the Candle controller.</p>
 								<div class="extension-matter-adapter-align-right">
 	                                <button id="extension-matter-adapter-pairing-accept-thing-button" class="text-button">Next</button>
 	                            </div>

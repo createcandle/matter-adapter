@@ -64,7 +64,7 @@
     background-repeat: no-repeat;
     background-position: 0;
     background-image: url('../images/menu-icon.svg');
-	width:7rem;
+	width:7rem; 
 	margin:0 auto;
 }
 
@@ -104,9 +104,6 @@
 	text-align:center;
 }
 
-##extension-matter-adapter-wifi-restore-countdown{
-	opacity:.7;
-}
 #extension-matter-adapter-wifi-restore-countdown:empty{
 	display:none;
 }
@@ -127,18 +124,17 @@
 
 
 
-.extension-matter-adapter-centered-page{
+.extension-matter-adapter-centered-page{ 
     max-width:80rem;
     margin:0 auto;
 }
 
 
-.extension-matter-adapter-area{
+.extension-matter-adapter-area{ 
     background-color:rgba(0,0,0,.1);
     border-radius:.5rem;
     padding:2rem;
     margin:4rem 0;
-	box-sizing:border-box;
 }
 .extension-matter-adapter-error{
     background-color:#500;
@@ -182,12 +178,7 @@
 }
 
 
-
 /*  FIND THREAD RADIO WIZARD  */
-
-#extension-matter-adapter-thread-radio-container *{
-  box-sizing:border-box;
-}
 
 #extension-matter-adapter-find-thread-radio-container{
 	background-color:rgba(0,0,0,.1);
@@ -206,13 +197,11 @@
 }
 
 #extension-matter-adapter-thread-radio-serial-port{
-	display:flex;
-	align-items:center;
 	margin:2rem;
 	text-align:left;
+	max-width:65%;
 	font-style:italic;
 	opacity:.7;
-  word-break: break-word;
 }
 
 
@@ -350,7 +339,7 @@
 	display:none;
 	height:100%;
 	font-size:1.8rem;
-
+    
 }
 #extension-matter-adapter-view .rule-edit-overlay p{
     font-weight:bold;
@@ -619,7 +608,7 @@
     padding: 1rem 2rem;
     border: none;
     background-color: #7aadd1;
-    user-select: none;
+    user-select: none;    
     outline: 0;
     cursor: pointer;
     overflow: hidden;
@@ -692,9 +681,7 @@
 }
 */
 
-#extension-matter-adapter-pairing-success-hint{
-	background-color:#050;
-}
+
 
 
 
@@ -778,9 +765,6 @@
     text-align: center;
 	cursor:pointer;
 	transition: background .6s ease-in-out;
-	margin-bottom:2rem;
-	background-image:url(../images/qr_code_bg.svg);
-	background-size:cover;
 }
 #extension-matter-adapter-pairing-use-previously-scanned-code:hover{
 	background-color:rgba(255, 255, 255, .3);
@@ -896,8 +880,8 @@
 }
 */
 #extension-matter-adapter-mobile-qr-button{
-    background-color:white;
-    padding:2rem;
+    background-color:white; 
+    padding:2rem; 
     text-align:center;
     border-radius:1rem;
     margin: 1rem 0;
@@ -988,8 +972,8 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
 }
 */
 
-#extension-matter-adapter-view.extension-matter-adapter-busy-pairing .extension-matter-adapter-hide-if-busy-pairing,
-#extension-matter-adapter-view:not(.extension-matter-adapter-busy-pairing) .extension-matter-adapter-show-if-busy-pairing{
+#extension-matter-adapter-second-pag.extension-matter-adapter-busy-pairing .extension-matter-adapter-hide-if-busy-pairing,
+#extension-matter-adapter-second-page:not(.extension-matter-adapter-busy-pairing) .extension-matter-adapter-show-if-busy-pairing{
 	display:none!important;
 }
 
@@ -1199,122 +1183,6 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 
 
 
-/*  OLD PAIRING CODES LOOKUP  */
-
-#extension-matter-adapter-pairing-use-old-scanned-code{
-	background-image: url('../images/book.svg');
-	background-size:auto 80%;
-	background-repeat:no-repeat;
-	transition: background .6s ease-in-out; /* opacity .3s ease-in-out  */
-	background-position:center right 4rem;
-	padding-right:6rem;
-	font-size: 3rem;
-    padding: 2rem;
-    background-color: rgba(0, 0, 0, .1);
-    border-radius: 1rem;
-	cursor:pointer;
-}
-
-#extension-matter-adapter-pairing-use-old-scanned-code:hover{
-    background-color: rgba(255, 255, 255, .3);
-}
-
-
-
-#extension-matter-adapter-pairing-old-pairing-codes-list:empty{
-	display:none;
-}
-
-#extension-matter-adapter-pairing-old-pairing-codes-list{
-	margin-top:1px;
-	padding:0;
-	padding-bottom:2rem;
-}
-
-.extension-matter-adapter-old-pairing-code-item{
-	padding:2rem;
-	transition: background .6s ease-in-out;
-	box-sizing:border-box;
-	border-radius:1rem;
-	margin-bottom:1px;
-	cursor:pointer;
-}
-
-.extension-matter-adapter-old-pairing-code-item:hover{
-	background-color:rgba(0,0,0,.2);
-}
-/*
-.extension-matter-adapter-old-pairing-code-item:not(:last-of-type){
-	border-bottom:1px solid rgba(255,255,255,.2);
-}
-*/
-
-.extension-matter-adapter-old-pairing-code-item > div > span:not(:last-of-type){
-	margin-right:2rem;
-	font-style:italic;
-	min-width:100px;
-	opacity:.7;
-}
-
-.extension-matter-adapter-old-pairing-code-item-qr-code{
-	border:1rem solid white;
-	min-width:50px;
-}
-
-
-#extension-matter-adapter-view #extension-matter-adapter-print-old-codes-button{
-	background-image:url("../images/printer.svg");
-	background-repeat:no-repeat;
-	background-position:center left 1rem;;
-	background-size: 2rem;
-    padding-left: 4rem;
-    display: block;
-    margin: 2rem 2rem 0 auto;
-	width:90px;
-}
-
-
-
-
-
-/*  ADVANCED SETTINGS  */
-
-#extension-matter-adapter-advanced-settings-button:not(.extension-matter-adapter-hidden) + div{
-	display:none;
-}
-
-
-
-
-
-
-
-
-
-
-.extension-matter-adapter-busy-pairing #extension-matter-adapter-show-second-page-button{
-    background:transparent;
-    background-size: 300% 300%!important;
-    background-image: linear-gradient(
-          -90deg,
-          rgba(59,173,227,.5) 0%,
-		  rgba(59,173,227,.5) 30%,
-          rgba(87,111,230,.5) 50%,
-          rgba(152,68,183,.5) 51%,
-		  rgba(59,173,227,.5) 60%,
-          rgba(59,173,227,.5) 100%
-    )!important;
-    animation: extension-matter-adapter-bg-sweep-to-right 2s ease infinite;
-}
-
-@keyframes extension-matter-adapter-bg-sweep-to-right {
-  0%{background-position:100% 50%}
-  100%{background-position:0% 50%}
-}
-
-
-
-
 
 /*  loading spinner  */
 
@@ -1437,17 +1305,17 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 		display:flex;
 		flex-wrap:wrap;
 	}
-
+	
 	.extension-matter-adapter-item{
 		border-top-right-radius:2rem;
 	}
-
+	
 	.extension-matter-adapter-item-menu{
 		width:100%;
 		justify-content:space-between;
 		border-bottom: 1px solid rgba(255, 255, 255, .1);
 	}
-
+	
 	.extension-matter-adapter-item-right{
 		/*position: absolute;
 		top: 0;
@@ -1457,7 +1325,7 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 	    align-items: center;
 	    border-radius: .5rem;
 	}
-
+	
 	.extension-matter-adapter-item-delete-button{
 		width:auto;
 		height:auto;
@@ -1474,18 +1342,14 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 	    background-color: rgba(0, 0, 0, .2);
 	    padding: 1rem;
 	}
-
+	
 	.extension-matter-adapter-item-delete-button::after{
 		content: 'Delete';
 		padding-left: 1rem;
 		padding-right: 1rem;
 	}
 	
-	.extension-matter-adapter-old-pairing-code-item > div > span:not(:last-of-type){
-		margin-bottom:.5rem;
-	}
-
-
+	
 }
 
 @media screen and (min-width: 761px) {
@@ -1493,26 +1357,22 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
         justify-content:space-between;
         flex-direction:row;
     }
-
+	
     .extension-matter-adapter-item-menu{
         flex-direction:column;
         justify-content: space-around;
         border-top:0;
         border-left:1px solid rgba(255,255,255,.1);
     }
-
+	
     .extension-matter-adapter-item-right{
         margin-top:3rem;
     }
-
+	
 	.extension-matter-adapter-item-details-attribute-value{
 		display:inline;
 		margin-left:2rem;
 	}
-
-  #extension-matter-adapter-thread-radio-serial-port{
-  	max-width:65%;
-  }
 }
 
 
@@ -1521,3 +1381,5 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 		padding:4rem;
 	}
 }
+
+

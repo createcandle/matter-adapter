@@ -27,7 +27,6 @@
 			this.total_busy_polling_counter = 0;
             this.device_to_pair = null;
             this.pairing_code = "";
-			this.old_pairing_codes_count = 0;
             
             this.hotspot_addon_installed = false;
             this.use_hotspot = false;
@@ -37,7 +36,6 @@
             this.uuid == null; // used with qr scanner
             
             this.retried_init = false;
-			this.no_devices_hint_el_removed = false;
 			
 			this.scan_window = null;
 			this.matter_qr_scanner_url = null;
@@ -96,9 +94,6 @@
             // This is not needed, but might be interesting to see. It will show you the API that the controller has available. For example, you can get a list of all the things this way.
             //console.log("window API: ", window.API);
             
-			
-			
-			
 	    }
 
 
@@ -291,11 +286,12 @@
 						}
 						this.scan_window = window.open(this.matter_qr_scanner_url,'_blank');
 						
-						// start polling for data form the opened window
+						// start polling for data
 			            if(window.matter_adapter_poll_interval == null){
-			                window.matter_adapter_poll_interval = setInterval(() => {
+			                window.matter_adapter_poll_interval = setInterval(() =>{
 			                    this.pairing_poll();
 			                },5000);
+							
 			            }
 						this.busy_polling_counter = 0;
 						this.total_busy_polling_counter = 0;
@@ -443,7 +439,7 @@
 					}
                     try{
                         this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-showing-second-page');
-                        this.reset_pairing();
+                        this.abort_pairing();
         			}
         			catch(err){
         				if(this.debug){
@@ -612,12 +608,6 @@
                     this.show_pairing_page();
     			});
 				
-				
-				this.view.querySelector('#extension-matter-adapter-pairing-use-old-scanned-code').addEventListener('click', () => {
-					this.get_old_pairing_codes_list();
-				});
-				
-				
 				this.view.querySelector('#extension-matter-adapter-pairing-accept-thing-button').addEventListener('click', () => {
 					document.getElementById('add-button').click();
 				});
@@ -699,25 +689,17 @@
     			});
 				
 				
-                const reveal_advanced_settings_button_el = this.view.querySelector('#extension-matter-adapter-advanced-settings-button');
-				if(reveal_advanced_settings_button_el){
-					reveal_advanced_settings_button_el.addEventListener('click', (event) => {
-	                    if(this.debug){
-	                        console.log("matter adapter debug: clicked on advanced settings button");
-	                    }
-						reveal_advanced_settings_button_el.classList.add('extension-matter-adapter-hidden');
-	    			});
-				}
                 
+            
                 
-				
                 // Back button, shows main page
                 this.view.querySelector('#extension-matter-adapter-back-button-container').addEventListener('click', (event) => {
                     if(this.debug){
                         console.log("matter adapter debug: clicked on back button");
                     }
                     this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-showing-second-page');
-                    this.reset_pairing();
+                    this.abort_pairing();
+
     			});
             
             
@@ -785,7 +767,7 @@
 					console.log("seconds_remaining_until_wifi_restore: ", seconds_remaining_until_wifi_restore);
 				}
 				if(seconds_remaining_until_wifi_restore > 1){
-					wifi_seconds_until_restore_el.innerHTML = 'Turning WiFi back on in ' + seconds_remaining_until_wifi_restore + ' seconds...';
+					wifi_seconds_until_restore_el.innerHTML = '<p>Pairing in progress</p><h3>Turning WiFi back on in ' + seconds_remaining_until_wifi_restore + ' seconds...</h3>';
 				}
 				else{
 					wifi_seconds_until_restore_el.innerHTML = '';
@@ -813,7 +795,7 @@
 			}
 			
 			try{
-                if(this.busy_pairing == false && document.getElementById('extension-matter-adapter-menu-item').classList.contains('selected') == false){
+                if(document.getElementById('extension-matter-adapter-menu-item').classList.contains('selected') == false){
                     this.view.innerHTML = "";
                 }
 			}
@@ -897,16 +879,9 @@
 	        ).then((body) => {
                 
                 this.parse_body(body);
-				
-				const pairing_plus_button_el = this.view.querySelector('#extension-matter-adapter-show-second-page-button');
-				if(pairing_plus_button_el){
-					pairing_plus_button_el.classList.remove('extension-matter-adapter-hidden');
-				}
 			
 	        }).catch((err) => {
-	  			if(this.debug){
-					console.error("matter adapter debug: caught ERROR getting INIT data!: ", err);
-				}
+	  			console.log("Error getting MatterAdapter init2 data: ", err);
                 setTimeout(() => {
                     if(this.retried_init == false){
                         this.retried_init = true;
@@ -1002,9 +977,6 @@
                         
 					//}
                 }
-				if(typeof body.old_pairing_codes_count == 'number'){
-					this.old_pairing_codes_count = body.old_pairing_codes_count;
-				}
                 
                 if(typeof body.wifi_credentials_available == 'boolean' && typeof body.wifi_ssid == 'string'){
                     if(body.wifi_credentials_available && body.wifi_ssid != ""){
@@ -1047,21 +1019,20 @@
 				if(thread_details_el){
 					if(typeof body.found_thread_radio_again == 'boolean' && typeof body.found_new_thread_radio == 'boolean'){
 						thread_details_el.innerHTML = '';
-                        const add_radio_button_container_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-button-container');
+                        const add_radio_button_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-button-container');
 						if(body.found_new_thread_radio){
 							thread_details_el.innerHTML += '<span>NEW Thread radio detected</span>';
-                            if(add_radio_button_container_el){
-                                add_radio_button_container_el.classList.add('extension-matter-adapter-hidden');
+                            if(add_radio_button_el){
+                                add_radio_button_el.classList.add('extension-matter-adapter-hidden');
                             }
 							this.started_thread_radio_wizard = false;
 							this.view.querySelector('#extension-matter-adapter-find-thread-radio-container').classList.add('extension-matter-adapter-hidden');
 		                    this.view.querySelector('#extension-matter-adapter-find-thread-radio-step2').classList.add('extension-matter-adapter-hidden');
 						}
 						else if(body.found_thread_radio_again){
-							this.started_thread_radio_wizard = false;
 							thread_details_el.innerHTML += '<span>Thread radio detected</span>';
-                            if(add_radio_button_container_el){
-                                add_radio_button_container_el.classList.add('extension-matter-adapter-hidden');
+                            if(add_radio_button_el){
+                                add_radio_button_el.classList.add('extension-matter-adapter-hidden');
                             }
 						}
 						else{
@@ -1070,8 +1041,8 @@
 								console.warn("matter adapter: debug: No Thread radio detected (yet)");
 							}
 
-                            if(add_radio_button_container_el && this.started_thread_radio_wizard == false){
-                                add_radio_button_container_el.classList.remove('extension-matter-adapter-hidden');
+                            if(add_radio_button_el && this.started_thread_radio_wizard == false){
+                                add_radio_button_el.classList.remove('extension-matter-adapter-hidden');
                             }
 							
 						}
@@ -1132,30 +1103,6 @@
 				}
 				
 				
-				if(!this.second_page_el){
-					this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
-				}
-				
-                if(typeof body.busy_pairing == 'boolean'){
-					if(body.busy_pairing != this.busy_pairing){
-						if(this.debug){
-							console.warn("matter adapter debug: PAIRING STATE CHANGED from,to:", this.busy_pairing, body.busy_pairing);
-						}
-					}
-                    this.busy_pairing = body.busy_pairing;
-					if(this.debug){
-                        console.log("matter adapter debug: pairing_poll: this.busy_pairing is now: ", this.busy_pairing);
-					}
-                    if(this.busy_pairing){
-                        this.view.classList.add('extension-matter-adapter-busy-pairing');
-                    }
-                    else{
-                        this.view.classList.remove('extension-matter-adapter-busy-pairing');
-                    }
-                    
-                }
-				
-				
 				if(typeof body.pairing_phase == 'number'){
 					const pairing_progress_bar_el = this.view.querySelector('#extension-matter-adapter-pairing-progress-bar');
 					if(pairing_progress_bar_el){
@@ -1185,23 +1132,6 @@
 					if(pairing_progress_message_el){
 						pairing_progress_message_el.textContent = body.pairing_phase_message;
 					}
-					
-					if(body.pairing_phase_message == 'Pairing completed succesfully'){
-						
-						const busy_pairing_indicator_el = this.view.querySelector('#extension-matter-adapter-busy-pairing-indicator');
-						if(busy_pairing_indicator_el){
-							busy_pairing_indicator_el.classList.add('extension-matter-adapter-hidden');
-						}
-						
-						const succes_el = this.view.querySelector('#extension-matter-adapter-pairing-success-hint');
-						if(succes_el){
-							succes_el.classList.remove('extension-matter-adapter-hidden');
-						}
-						
-						
-						
-					}
-					
 				}
 				
 				if(typeof body.pairing_attempt == 'number'){
@@ -1223,12 +1153,7 @@
 							if(this.second_page_el){
 								if(this.second_page_el.classList.contains('extension-matter-adapter-busy-pairing')){
 		                            this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-									const pairing_failed_el = this.view.querySelector('#extension-matter-adapter-pairing-failed-hint');
-									if(pairing_failed_el){
-										pairing_failed_el.classList.remove('extension-matter-adapter-hidden');
-										pairing_failed_el.scrollIntoView({ 'block': 'center',  'behavior': 'smooth' });
-									}
-									
+									this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
 								}
 							}
 						
@@ -1295,7 +1220,7 @@
                     }
                 }
 
-                if(typeof body.thread_radio_serial_port == 'string'){
+                if(typeof body.thread_radio_serial_port != 'undefined'){
                     if(this.debug){
                         console.log("body.thread_radio_serial_port: ", body.thread_radio_serial_port);
                     }
@@ -1307,21 +1232,20 @@
 						this.start_thread_radio_serial_port_el.textContent = body.thread_radio_serial_port.replaceAll('_',' ');
 					}
 					
-                    this.start_thread_radio_wizard_button_container_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-button-container');
-                    if(this.start_thread_radio_wizard_button_container_el){
+                    if(this.start_thread_radio_wizard_button_el == null){
+                        this.start_thread_radio_wizard_button_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-button');
+                    }
+                    if(this.start_thread_radio_wizard_button_el){
                         if(
                             (typeof body.thread_radio_serial_port == 'object' && body.thread_radio_serial_port == null) ||
                             (typeof body.thread_radio_went_missing == 'boolean' && body.thread_radio_went_missing == true)
                         ){
-                            this.start_thread_radio_wizard_button_container_el.classList.remove('extension-matter-adapter-hidden');
+                            this.start_thread_radio_wizard_button_el.classList.remove('extension-matter-adapter-hidden');
                         }
                         else{
-                            this.start_thread_radio_wizard_button_container_el.classList.add('extension-matter-adapter-hidden');
+                            this.start_thread_radio_wizard_button_el.classList.add('extension-matter-adapter-hidden');
                         }
                     }
-                }
-				else if(body.thread_radio_serial_port == null && this.start_thread_radio_wizard_button_el){
-                	this.start_thread_radio_wizard_button_el.classList.remove('extension-matter-adapter-hidden');
                 }
 
 
@@ -1365,10 +1289,6 @@
             this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
             this.view.querySelector('#extension-matter-adapter-pairing-success-hint').classList.add('extension-matter-adapter-hidden');
 			
-			if(this.old_pairing_codes_count){
-				this.view.querySelector('#extension-matter-adapter-pairing-use-old-scanned-code').classList.remove('extension-matter-adapter-hidden');
-			}
-			
 			
 			let old_pairing_code = localStorage.getItem('extension-matter-adapter-last-pairing-code');
 			if(typeof old_pairing_code == 'string' && old_pairing_code.startsWith('MT')){
@@ -1404,7 +1324,7 @@
     
     
 
-        // is called once every few seconds by poll_interval to see if the opened scanning window has found a pairing code
+        // is called once every few seconds by poll_interval
         pairing_poll(){
             if(this.debug){
                 console.log("matter adapter debug: in pairing_poll.  this.busy_pairing, this.busy_polling_counter, this.total_busy_polling_counter: ", this.busy_pairing, this.busy_polling_counter, this.total_busy_polling_counter);
@@ -1417,8 +1337,7 @@
                 }
             }
 			
-			//if(this.busy_pairing == false){
-			if(this.busy_polling_counter == 0){
+            if(this.busy_pairing == false){
                 
 				window.API.postJson(
 					`/extensions/${this.id}/api/ajax`,
@@ -1428,7 +1347,8 @@
 	                if(this.debug){
 	                    console.log("matter adapter debug: poll response: ", body);
 	                }
-					
+	                this.busy_pairing = false;
+					this.busy_polling_counter = 0;
                 
 	                /*
 	                if(typeof body.busy_discovering != 'undefined'){
@@ -1521,30 +1441,17 @@
 								console.log("matter adapter debug: THE DEVICE LIST IS LONGER NOW, PAIRING MUST HAVE SUCCEEDED");
 							}
 	                        this.view.querySelector('#extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
-							const succes_hint_el = this.view.querySelector('#extension-matter-adapter-pairing-success-hint');
-	                       	if(succes_hint_el){
-	                       		succes_hint_el.classList.remove('extension-matter-adapter-hidden');
-								succes_hint_el.scrollIntoView({'block':'center','behavior':'smooth'});
-	                       	}
-							const pairing_start_area_el = this.view.querySelector('#extension-matter-adapter-pairing-start-area');
-							if(pairing_start_area_el){
-								pairing_start_area_el.classList.add('extension-matter-adapter-busy-pairing');
-							}
-							
-						    
+	                        this.view.querySelector('#extension-matter-adapter-pairing-success-hint').classList.remove('extension-matter-adapter-hidden');
 	                    }
 	                    this.nodez = body.nodez;
 	                    //this.regenenerate_items();
 	                }
                 
 	                if(typeof body.nodes != 'undefined'){
-                        if(this.debug){
-                            console.warn("matter adapter debug: parse_body: setting body.nodes to this.nodez");
-                        }
 	                    this.nodez = body.nodes;
 	                    //this.regenenerate_items();
 	                }
-	                if(typeof body.pairing_code == 'string'){
+	                if(typeof body.pairing_code != 'undefined'){
 	                    if(body.pairing_code.startsWith('MT:')){
 	                        if(this.debug){
 	                            console.log("matter adapter debug: GOT A GOOD PAIRING CODE: ", body.pairing_code);
@@ -1611,10 +1518,10 @@
 	                }
 					
 					
-					this.busy_polling_counter = 0;
+					
                 
 				}).catch((err) => {
-	                //this.busy_pairing = false;
+	                this.busy_pairing = false;
 					this.busy_polling_counter = 0;
 					if(this.debug){
                         console.error("matter adapter debug: caught pairing poll error: ", err);
@@ -1629,7 +1536,7 @@
             
 			this.total_busy_polling_counter++;
 			if(this.total_busy_polling_counter > 120){ // 10 minutes
-				this.flash_message("Scanning the QR code took more than 2 minutes. Stopping pairing.");
+				this.flash_message("Getting the QR code took too long");
 				this.show_pairing_page();
 			}
         }
@@ -1671,6 +1578,7 @@
 			
         }
         
+		
 		
 		reset_pairing(){
             this.busy_discovering = false;
@@ -1789,19 +1697,11 @@
 				
 				//list.innerHTML = "";
 		        
-				if(this.no_devices_hint_el_removed == false){
-					if(Object.keys(this.nodez).length){
-						const no_devices_hint_el = this.view.querySelector('#extension-matter-adapter-no-devices-yet-hint');
-						if(no_devices_hint_el){
-							no_devices_hint_el.remove();
-							this.no_devices_hint_el_removed = true;
-						}
-					}
-					else{
-						const no_devices_hint_el = this.view.querySelector('#extension-matter-adapter-no-devices-yet-hint');
-						if(no_devices_hint_el){
-							no_devices_hint_el.classList.remove('extension-matter-adapter-hidden');
-						}
+				
+				if(Object.keys(this.nodez).length){
+					const no_devices_hint_el = this.view.querySelector('#extension-matter-adapter-no-devices-yet-hint');
+					if(no_devices_hint_el){
+						no_devices_hint_el.remove();
 					}
 				}
 				
@@ -2706,19 +2606,15 @@
             
             const code = this.pairing_code;
             if(this.debug){
-                console.log("matter adapter debug: Pairing code: ", code);
+                console.log("matter adapter: Pairing code: ", code);
             }
             if(code.length < 5){
-                if(this.debug){
-					console.log("matter adapter debug: pairing code was too short");
-				}
+                console.log("matter adapter: pairing code was too short");
                 this.flash_message("That pairing code is too short");
                 return;
             }
             if(!code.startsWith('MT:')){
-                if(this.debug){
-					console.log("matter adapter debug: pairing code did not start with MT:");
-				}
+                console.log("matter adapter: pairing code did not start with MT:");
                 this.flash_message("The pairing code should start with 'MT:'");
                 return;
             }
@@ -2729,35 +2625,6 @@
                 return // shouldn't be possible, but just to be safe
             }
             */
-			
-			// Check if the Bluetooth addon is enabled, and if so, ask it to stop bluetooth scanning for a little while
-			const bluetooth_view_el = document.getElementById('#extension-bluetoothpairing-view');
-			if(bluetooth_view_el){
-                window.API.postJson(
-					`/extensions/bluetoothpairing/api/ajax`,
-					{'action':'shh'}
-				).then((body) => { 
-					if(this.debug){
-                        console.log("matter adapter debug: asked bluetooth addon to stop scanning for a little while. Its response body: ", body);
-                    }
-					if(typeof body.state == 'boolean'){
-						if(body.state == false){
-							this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-						}
-						else if(body.state == true){
-							if(this.debug){
-		                        console.log("matter adapter debug: succesfully requested the Bluetooth addon to stop scanning for a little while");
-							}
-						}
-					}
-                
-				}).catch((err) => {
-					if(this.debug){
-                        console.error("matter adapter debug: caught error asking the Bluetooth addon to stop scanning for a little while: ", err);
-					}
-                    //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
-				});
-			}
 			
 			const wireless_type = this.view.querySelector('input[name="extension-matter-adapter-wireless-type"]:checked').value;
             
@@ -2787,12 +2654,10 @@
 					if(this.debug){
                         console.log("matter adapter debug: pair device via commission_with_code response: ", body);
                     }
-					if(typeof body.state == 'boolean'){
+					if(typeof body.state != 'undefined'){
 						if(body.state == false){
 							//this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
 							this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-							this.busy_pairing = false;
-							this.flash_message('Controller did not start pairing process');
 						}
 						else if(body.state == true){
 							if(this.debug){
@@ -2801,12 +2666,12 @@
 						}
 					}
                 
+                
 				}).catch((err) => {
                     this.busy_pairing = false;
 					if(this.debug){
                         console.error("matter adapter debug: error making commission_with_code pairing request: ", err);
 					}
-					this.flash_message('Failed to start the pairing process: connection error?');
                     //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
 				});
 				
@@ -3411,178 +3276,6 @@
 			
 		}
 		
-		
-		
-		get_old_pairing_codes_list(){
-			if(this.debug){
-				console.log("matter adapter debug: in get_old_pairing_codes_list");
-			}
-			
-			window.API.postJson(
-				`/extensions/${this.id}/api/ajax`,
-				{'action':'get_old_pairing_codes'}
-            
-			).then((body) => {
-                if(this.debug){
-					console.log("matter adapter debug: get_old_pairing_codes response: ", body);
-				}
-                if(typeof body.state == 'boolean' && body.state == true){
-                    console.log("matter adapter debug: get_old_pairing_codes response was OK");
-					
-					if(typeof body.old_pairing_codes != 'undefined'){
-						this.old_pairing_codes = body.old_pairing_codes;
-						
-						this.render_old_pairing_codes_list();
-					}
-					
-                }
-                else{
-                    console.warn("matter adapter debug: get_old_pairing_codes response body indicates failure: ", body);
-                }
-            
-			}).catch((err) => {
-				if(this.debug){
-					console.error("matter adapter debug: caught error calling get_old_pairing_codes: ", err);
-				}
-			});
-		}
-		
-		render_old_pairing_codes_list(){
-			if(this.debug){
-				console.log("matter adapter debug: in render_old_pairing_codes_list");
-			}
-			if(this.old_pairing_codes){
-				const old_codes_list_el = this.view.querySelector('#extension-matter-adapter-pairing-old-pairing-codes-list');
-				if(old_codes_list_el){
-					for (const [pairing_code, device_details] of Object.entries(this.old_pairing_codes)) {
-						if(this.debug){
-							console.log("matter adapter debug: render_old_pairing_codes_list:  pairing_code,device_details: ", pairing_code, device_details);
-						}
-						const old_code_item_el = document.createElement('div');
-						old_code_item_el.classList.add('extension-matter-adapter-old-pairing-code-item');
-						old_code_item_el.classList.add('extension-matter-adapter-flex-align-center');
-						old_code_item_el.classList.add('extension-matter-adapter-flex-between');
-						
-						
-						const names_wrapper_el = document.createElement('div');
-						names_wrapper_el.classList.add('extension-matter-adapter-flex-wrap-when-narrow');
-						
-						const vendor_name_el = document.createElement('span');
-						vendor_name_el.classList.add('extension-matter-adapter-old-pairing-code-item-vendor-name');
-						vendor_name_el.textContent = device_details['vendor_name'];
-						names_wrapper_el.appendChild(vendor_name_el);
-						
-						const product_name_el = document.createElement('span');
-						product_name_el.classList.add('extension-matter-adapter-old-pairing-code-item-product-name');
-						product_name_el.textContent = device_details['product_name'];
-						names_wrapper_el.appendChild(product_name_el);
-						
-						old_code_item_el.appendChild(names_wrapper_el);
-						
-						const qr_code_el = document.createElement('div');
-						qr_code_el.classList.add('extension-matter-adapter-old-pairing-code-item-qr-code');
-			    	    let qrcode = new QRCode( qr_code_el, {
-			    		    width : 70,
-			    		    height : 70
-			    	    });
-			    	    qrcode.makeCode(pairing_code);
-						old_code_item_el.appendChild(qr_code_el);
-						
-						old_code_item_el.addEventListener('click', () => {
-							this.view.querySelector('#extension-matter-adapter-pairing-code-input').value = pairing_code;
-							this.pairing_code = pairing_code;
-							if(this.debug){
-								console.log("matter adapter debug: this.pairing_code from old codes list is now: ", this.pairing_code);
-							}
-							if(this.pairing_code.startsWith('MT:')){
-								this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
-								this.show_pairing_start_area();
-							}
-							else{f
-								this.flash_message('Sory, that old pairing code seems to be invalid');
-							}
-						});
-						
-						old_codes_list_el.appendChild(old_code_item_el);
-					}
-					
-					if(old_codes_list_el.childNodes.length){
-						const print_old_codes_button_el = document.createElement('button');
-						print_old_codes_button_el.setAttribute('id','extension-matter-adapter-print-old-codes-button');
-						print_old_codes_button_el.textContent = 'Print';
-						print_old_codes_button_el.classList.add('text-button');
-						print_old_codes_button_el.addEventListener('click', () => {
-							if(!old_codes_list_el){
-								return // what are the odds of this happening? Zero?
-							}
-							old_codes_list_el.classList.add('printable');
-							
-							const cleanup = () => {
-								window.removeEventListener('focus', cleanup);
-								const remove_me = document.getElementById('extension-matter-adapter-print-css');
-								if(remove_me){
-									if(this.debug){
-										console.log("matter adapter debug: found and removed the style element with print CSS");
-									}
-									remove_me.remove();
-								}
-								else if(this.debug){
-									console.warn("matter adapter debug: could not find the print CSS style element. Already removed?");
-								}
-								old_codes_list_el.classList.remove('printable');
-							}
-							
-							
-							// temporarily add a stylesheet that limits printing to only the list
-							const print_css = `
-								@media print {
-								  body *:not(.printable, .printable *) {
-								    // hide everything but printable elements and their children
-								    display: none!important;
-								  }
-								}
-							`;
-							
-							let print_style_el = document.getElementById('extension-matter-adapter-print-css');
-							if(print_style_el == null){
-								print_style_el = document.createElement('style');
-								print_style_el.setAttribute('id','extension-matter-adapter-print-css');
-								print_style_el.textContent = print_css;
-								document.head.appendChild(print_style_el);
-								if(this.debug){
-									console.log('matter adapter debug: print CSS added to head');
-								}
-								
-								window.onafterprint = () => {
-								   console.log("window.onafterprint: Printing completed...?");
-								}
-								window.addEventListener('focus', () => {
-									console.log("window gained focus.. after printing?");
-									cleanup();
-								});
-							}
-							else{
-								if(this.debug){
-									console.warn("matter adapter debug: unexpectedly the print css style element already exists");
-								}
-							}
-							
-							setTimeout(() => {
-								window.print();
-							},10);
-							
-							console.log("I am after window.print()");
-							
-						});
-						
-						old_codes_list_el.appendChild(print_old_codes_button_el);
-					}
-					
-				}
-				
-			}
-			
-		}
 		
 		
 		

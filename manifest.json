@@ -28,11 +28,13 @@
   "options": {
     "default": {
       "Brightness transition duration":0,
+	  "Days between updating certificates":14,
       "Do not use Hotspot as WiFi network for devices": false,
       "Vendor ID":"",
 	  "Thread dataset":"",
 	  "Thread channel":15,
 	  "Matter server type":"Python",
+	  "Enable Matter server dashboard": false,
       "Debugging": false
     },
     "schema": {
@@ -42,6 +44,12 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 10
+        },
+        "Days between updating certificates":{
+            "description": "During pairing Matter depends on certicates that validate official Matter devices. Whenever you start a pairing process, and a few days have passed, then this addon will try to download the latest certificates from csa-iot.org. What's the minimum amount of days before an update should be attempted? The default is 14 days. Set it to zero to fully disable updating (which means you will unable to pair newly released Matter devices).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 28
         },
         "Do not use Hotspot as WiFi network for devices":{
             "type": "boolean",
@@ -68,6 +76,10 @@
               "NodeJS"
             ],
             "description": "Advanced. You can choose which Matter server to run, the old but stable Python version, or the new but barely tested Node JS version (which also uses more memory). The default is Python."
+        },
+        "Enable Matter server dashboard": {
+          "type": "boolean",
+          "description": "Advanced. The Matter Server comes with it's own little webserver (on port 5580) that offers details about the Matter network. This feature is disabled by default, but you can enable it here."
         },
         "Debugging": {
           "type": "boolean",

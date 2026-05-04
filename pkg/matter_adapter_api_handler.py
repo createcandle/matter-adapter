@@ -118,7 +118,8 @@ class MatterAPIHandler(APIHandler):
                                       'wifi_credentials_available': wifi_credentials_available,
                                       'client_connected': self.adapter.client_connected,
                                       #'nodes': self.adapter.nodes,
-                                      'nodez': self.adapter.persistent_data['nodez']
+                                      'nodez': self.adapter.persistent_data['nodez'],
+                                      'disable_matter_dashboard':self.adapter.disable_matter_dashboard
                                       }),
                         )
                         

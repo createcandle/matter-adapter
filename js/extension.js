@@ -10,6 +10,12 @@
             
 			//console.log("Adding matter-adapter addon to main menu");
 			this.addMenuEntry('Matter');
+
+            this.kiosk = false;
+            if(document.getElementById('virtualKeyboardChromeExtension') != null){
+                document.body.classList.add('kiosk');
+                this.kiosk = true;
+            }
         
             this.discovered = null;
             this.nodez = null;
@@ -451,7 +457,17 @@
 						}
         			} 
     			});
-			
+                
+                if(!this.kiosk){
+                    this.view.querySelector('#extension-matter-adapter-dashboard-button').addEventListener('click', () => {
+                        const dashboard_url = window.location.protocol + '//' + window.location.host + ':5580';
+                        if(this.debug){
+                            console.log("opening dashboard_url: ", dashboard_url);
+                        }
+                        window.open(dashboard_url, '_blank');
+                    });
+                }
+
 			
                 // DEV
     			this.view.querySelector('#extension-matter-adapter-stop-poll-button').addEventListener('click', () => {
@@ -1029,6 +1045,12 @@
                 */
 				
 				
+                if(typeof body.disable_matter_dashboard == 'boolean' && body.disable_matter_dashboard == false){
+                    const matter_dashboard_link_container_el = this.view.querySelector('#extension-matter-adapter-dashboard-link-container');
+                    if(matter_dashboard_link_container_el){
+                        matter_dashboard_link_container_el.classList.remove('extension-matter-adapter-hidden')
+                    }
+                }
 				
 				// MAIN POLL
 				if(typeof body.client_connected == 'boolean'){

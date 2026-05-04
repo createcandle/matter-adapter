@@ -132,7 +132,8 @@ DEFAULT_VENDOR_ID = 0xFFF1
 DEFAULT_FABRIC_ID = 1
 DEFAULT_PORT = 5580
 DEFAULT_URL = f"http://127.0.0.1:{DEFAULT_PORT}/ws"
-DEFAULT_STORAGE_PATH = '/home/pi/.webthings/hasdata' #os.path.join(Path.home(), ".matter_server")
+#DEFAULT_STORAGE_PATH = '/home/pi/.webthings/data/matter-adapter/hasdata' #os.path.join(Path.home(), ".matter_server")
+DEFAULT_STORAGE_PATH = os.path.join(Path.home(), ".webthings","data","matter-adapter","hasdata")
 
 #print("Path.home(): " + str(Path.home()))
 
@@ -199,6 +200,7 @@ class MatterAdapter(Adapter):
         self.port = 5580
         self.message_counter = 0
         self.client_connected = False
+        self.disable_matter_dashboard = True
 
         self.vendor_id = ""
 
@@ -212,7 +214,6 @@ class MatterAdapter(Adapter):
 
         self.certificates_updated = False
         self.busy_updating_certificates = False
-        self.last_certificates_download_time = 0
         self.time_between_certificate_downloads = 14 * 86400 # 14 days
 
         self.busy_discovering = False
@@ -359,21 +360,29 @@ class MatterAdapter(Adapter):
         self.lib_path = os.path.join(self.addon_path, 'lib')
         self.data_path = os.path.join(self.user_profile['dataDir'], self.addon_id)
 
+        self.hasdata_dir_path = os.path.join(self.data_path,'hasdata')
+        self.hasdata_backup_dir_path = os.path.join(self.data_path,'hasdata_backup')
 
         # Create the data directory if it doesn't exist yet
         if not os.path.isdir(self.data_path):
             #print("making missing data directory")
             os.system('mkdir -p ' + str(self.data_path))
+        
+        if not os.path.isdir(self.hasdata_dir_path):
+            #print("making missing data directory")
+            os.system('mkdir -p ' + str(self.hasdata_dir_path))
 
         self.persistence_file_path = os.path.join(self.data_path, 'persistence.json') # dataDir points to the directory where the addons are allowed to store their data (/home/pi/.webthings/data)
-        self.hasdata_dir_path = os.path.join(self.user_profile['baseDir'],'hasdata')
+        #self.hasdata_dir_path = os.path.join(self.user_profile['baseDir'],'hasdata')
+        
         self.chip_factory_ini_file_path = os.path.join(self.hasdata_dir_path,'chip_factory.ini')
         self.data_chip_factory_ini_file_path = os.path.join(self.data_path, 'chip_factory.ini')
-        #self.certs_dir_path = os.path.join(self.data_path, 'paa-root-certs')
-
-        self.matter_server_base_path = os.path.join(self.addon_path,'matterjs-server')
+        #self.credentials_dir_path = os.path.join(self.data_path, 'paa-root-certs')
+        self.credentials_dir_path = os.path.join(self.data_path,'credentials','development','paa-root-certs')
+        #self.matter_server_base_path = os.path.join(self.addon_path,'matterjs-server')
         #self.matter_serverjs_start_path = os.path.join(self.matter_server_base_path,'packages','matter-server','dist','esm','MatterServer.js') # node_modules/matter-server/dist/esm
-        self.matter_serverjs_start_path = os.path.join(self.matter_server_base_path,'node_modules','matter-server','dist','esm','MatterServer.js')
+        #self.matter_serverjs_start_path = os.path.join(self.matter_server_base_path,'node_modules','matter-server','dist','esm','MatterServer.js')
+        self.matter_serverjs_start_path = os.path.join(self.addon_path,'node_modules','matter-server','dist','esm','MatterServer.js')
 
 
 
@@ -415,9 +424,9 @@ class MatterAdapter(Adapter):
         pwd = str(run_command('pwd'))
         pwd = pwd.rstrip()
 
-        self.certs_dir_path = os.path.join(self.data_path,'credentials','development','paa-root-certs')
-        self.certs_dir_path = pwd + '/credentials/development/paa-root-certs'
-        #print("self.certs_dir_path: " + str(self.certs_dir_path))
+        #self.credentials_dir_path = os.path.join(self.data_path,'credentials','development','paa-root-certs')
+        #self.credentials_dir_path = pwd + '/credentials/development/paa-root-certs'
+        #print("self.credentials_dir_path: " + str(self.credentials_dir_path))
 
 
         self.certs_downloader_path = os.path.join(self.addon_path, 'download_certificates.py')
@@ -581,18 +590,23 @@ class MatterAdapter(Adapter):
                 self.s_print("creating matter_server storage path: " + str(self.data_path))
             os.mkdir(self.data_path)
 
-        if not os.path.isdir(self.certs_dir_path):
+        if not os.path.isdir(self.credentials_dir_path):
             if self.DEBUG:
                 self.s_print("making certificates directory")
-            os.system('mkdir -p ' + self.certs_dir_path)
+            os.system('mkdir -p ' + str(self.credentials_dir_path))
+            self.download_certs()
+
+
+        if not os.path.isdir(self.hasdata_dir_path):
+            os.system('mkdir -p ' + str(self.hasdata_dir_path))
 
         # /data
         if not os.path.exists("/data"):
             if self.DEBUG:
-                self.s_print("Error! Could not find /data, which the server will be looking for")
+                self.s_print("Warning, could not find /data, which the Matter-server will be looking for. Creating symlink to ~/.webthings/data/matter-adapter")
             #while self.running:
             #    time.sleep(1)
-
+            os.system('sudo ln -s ' + str(self.data_path) + ' /data')
 
         # Start clock thread
         if self.DEBUG:
@@ -756,6 +770,9 @@ class MatterAdapter(Adapter):
             if self.DEBUG:
                 self.s_print("matter adapter config: ", str(config)) # Print the entire config data
 
+            if "Days between updating certificates" in config:
+                self.time_between_certificate_downloads = int(config["Days between updating certificates"]) * 86400
+
             if "Do not use Hotspot as WiFi network for devices" in config:
                 self.use_hotspot = not bool(config["Do not use Hotspot as WiFi network for devices"])
                 if self.DEBUG:
@@ -788,10 +805,18 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     self.s_print("Thread channel preference was in settings: " + str(self.thread_channel))
 
+            if 'Enable Matter server dashboard' in config:
+                self.disable_matter_dashboard = not bool(config["Enable Matter server dashboard"])
+                if self.DEBUG:
+                    self.s_print("Matter server dashboard preference was in settings. self.disable_matter_dashboard is now: " + str(self.disable_matter_dashboard))
+
             if 'Matter server type' in config:
-                self.matter_server_type =  bool(config["Matter server type"])
+                self.matter_server_type = str(config["Matter server type"])
                 if self.DEBUG:
                     self.s_print("Matter server type preference was in settings: " + str(self.matter_server_type))
+
+            
+
 
         except Exception as ex:
             self.s_print("caught error in add_from_config: " + str(ex))
@@ -1178,38 +1203,19 @@ class MatterAdapter(Adapter):
     #  START MATTER.SERVER
     #
 
-    def start_matter_server_js(self):
-        if self.DEBUG:
-            print("in start_matter_server")
-
-        if not os.path.exists(self.data_path):
-            self.s_print("ERROR DATA PATH DOES NOT EXIST")
-            os.system('mkdir -p ' + str(self.data_path))
-
-
-        
-
-
-        if self.DEBUG:
-            print("Started Matter.server")
-
-
-
-
-
-
-
-
 
     def start_matter_server(self):
         if self.DEBUG:
-            print("in start_matter_server.  version: ", version)
+            print("in start_matter_server.  self.matter_server_type: ", self.matter_server_type)
 
-        if not os.path.exists(self.data_path):
-            self.s_print("start_matter_server: data dir did not exist yet. Creating it now.")
-            os.system('mkdir -p ' + str(self.data_path))
+        if not os.path.exists(self.hasdata_dir_path):
+            self.s_print("\nERROR, start_matter_server: hasdata_dir_path did not exist yet. Creating it now.")
+            os.system('mkdir -p ' + str(self.hasdata_dir_path))
 
-
+        if not os.path.exists(self.matter_serverjs_start_path):
+            if self.DEBUG:
+                print("\nERROR, falling back to Python because matter_serverjs_start_path could not be found: ", self.matter_serverjs_start_path)
+            self.matter_server_type = 'Python'
 
         #
         #  PYTHON VERSION
@@ -1218,7 +1224,8 @@ class MatterAdapter(Adapter):
         # It uses less memory and disk space than the new Node JS version (below)
 
         if self.matter_server_type == 'Python':
-            
+            if self.DEBUG:
+                print("\n\n Starting PYTHON version of Matter.server\n\n")
             python3_path = str(run_command('readlink $(which python3)'))
             python3_path = "/usr/bin/" + str(python3_path).rstrip()
 
@@ -1298,18 +1305,25 @@ class MatterAdapter(Adapter):
         # But it's currently (early 2026) in an alpha state. And it uses more memory and disk space.
         
         else:
-            
+            if self.DEBUG:
+                print("\n\n Starting NodeJS version of Matter.server\n\n")
             
             # ALL AVAILABLE FLAGS ARE DOCUMENTED HERE: https://github.com/matter-js/matterjs-server/blob/main/docs/cli.md
             #matter_server_command = 'npm run server --
 
             # node --enable-source-maps packages/matter-server/dist/esm/MatterServer.js
 
+
+            # npm run server -- 
+
             # self.matter_server_start_path = os.path.join(self.matter_server_base_path,'packages','matter-server','dist','esm','MatterServer.js')
 
-            matter_server_command = '/home/pi/node24 --enable-source-maps --disable-dashboard ' + self.matter_serverjs_start_path
-
-            matter_server_command = matter_server_command + ' --storage-path ' + str(self.data_path)
+            #matter_server_command = '/home/pi/node24 ' + self.matter_serverjs_start_path + ' --enable-source-maps --disable-dashboard '
+            matter_server_command = 'node --enable-source-maps ' + self.matter_serverjs_start_path  #+ ' --disable-dashboard '
+            if self.disable_matter_dashboard:
+                matter_server_command += ' --disable-dashboard'
+            #node --enable-source-maps packages/matter-server/dist/esm/MatterServer.js
+            matter_server_command = matter_server_command + ' --storage-path ' + str(self.hasdata_dir_path)
 
 
 
@@ -1371,7 +1385,8 @@ class MatterAdapter(Adapter):
 
             #self.server_process = subprocess.Popen("/usr/bin/python3.9 bla.py", stdout=subprocess.PIPE, env=my_env, shell=True)
             #self.server_process = subprocess.Popen(matter_server_command_shell, stdout=subprocess.PIPE, env=my_env, shell=True)
-            self.server_process = subprocess.Popen(matter_server_command_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env, cwd=self.matter_server_base_path)
+            #self.server_process = subprocess.Popen(matter_server_command_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env, cwd=self.matter_server_base_path)
+            self.server_process = subprocess.Popen(matter_server_command_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env, cwd=self.addon_path)
             os.set_blocking(self.server_process.stdout.fileno(), False)
             os.set_blocking(self.server_process.stderr.fileno(), False)
 
@@ -1946,7 +1961,7 @@ class MatterAdapter(Adapter):
                         self.busy_pairing = False
                         self.pairing_phase = 100
                         self.pairing_phase_message = 'Pairing completed succesfully'
-                        self.get_nodes()
+                        self.get_nodes(True) # True = force
 
                     elif message['message_id'] == 'start_listening':
                         if self.DEBUG:
@@ -2089,25 +2104,29 @@ class MatterAdapter(Adapter):
         #print("ws: " + str(ws))
 
 
-    def get_nodes(self):
+    def get_nodes(self, forced=False):
         try:
-            if self.client_connected and self.last_get_nodes_timestamp < time.time() - 30:
-                self.last_get_nodes_timestamp = time.time()
+            if self.client_connected:
+                if forced or self.last_get_nodes_timestamp < time.time() - 30:
+                    self.last_get_nodes_timestamp = time.time()
 
-                if self.DEBUG:
-                    self.s_print("get_nodes: Client is connected, so asking for latest node list")
+                    if self.DEBUG:
+                        self.s_print("get_nodes: Client is connected. Asking for latest node list.  forced: ", forced)
 
-                message = {
-                        "message_id": "get_nodes",
-                        "command": "get_nodes"
-                      }
-                json_message = json.dumps(message)
-                self.ws.send(json_message)
+                    message = {
+                            "message_id": "get_nodes",
+                            "command": "get_nodes"
+                        }
+                    json_message = json.dumps(message)
+                    self.ws.send(json_message)
 
-                return True
+                    return True
+                else:
+                    if self.DEBUG:
+                        self.s_print("get_nodes: skipping 'get_nodes' command: already did get_nodes recently")
             else:
                 if self.DEBUG:
-                    self.s_print("Error in get_nodes: client was not connected yet, or already did get_nodes recently")
+                    self.s_print("Error in get_nodes: client was not connected yet")
 
         except Exception as ex:
             if self.DEBUG:
@@ -2238,13 +2257,20 @@ class MatterAdapter(Adapter):
     def download_certs(self):
         if self.DEBUG:
             self.s_print("in download_certs")
+
+        if self.time_between_certificate_downloads == 0:
+            if self.DEBUG:
+                self.s_print("download_certs: time_between_certificate_downloads is zero. Aborting update attempt")
+            self.certificates_updated = True
+            return True
+
         if time.time() - self.time_between_certificate_downloads > self.persistent_data['last_certificates_download_time']:
             if self.DEBUG:
                 self.s_print("downloading latest certificates")
             self.pairing_phase_message = 'Updating certificates'
             self.busy_updating_certificates = True
             self.certificates_updated = False
-            certificates_download_command = "python3 " + str(self.certs_downloader_path) + " --use-main-net-http --paa-trust-store-path " + str(self.certs_dir_path)
+            certificates_download_command = "python3 " + str(self.certs_downloader_path) + " --use-main-net-http --paa-trust-store-path " + str(self.credentials_dir_path)
             if self.DEBUG:
                 self.s_print("certificates download command: " + str(certificates_download_command))
             download_certs_output = run_command(certificates_download_command,300)
@@ -2257,18 +2283,21 @@ class MatterAdapter(Adapter):
             self.busy_updating_certificates = False
             if download_certs_output != None:
                 self.certificates_updated = True
+                self.persistent_data['last_certificates_download_time'] = int(time.time())
+                self.should_save = True
 
-                if len(str(download_certs_output)) > 5:
+                #if len(str(download_certs_output)) > 5:
+                if os.path.isdir(self.credentials_dir_path) and len(os.listdir(self.credentials_dir_path)) > 10:
                     self.certificates_updated = True
-                    #self.last_certificates_download_time = time.time()
                     self.persistent_data['last_certificates_download_time'] = int(time.time())
                     self.should_save = True
-                    return True
+                    #return True
                 else:
                     if self.DEBUG:
                         self.s_print("Error, certificates didn't seem to download (output was None)")
                     self.send_pairing_prompt("failed to download certificates")
-                    return False
+                    #return False
+                return True
 
             else:
                 if self.DEBUG:
@@ -2446,6 +2475,8 @@ class MatterAdapter(Adapter):
                 self.pairing_attempt = -1
                 self.pairing_phase_message = 'All pairing attempts failed'
                 self.busy_pairing = False
+                if self.DEBUG:
+                    print("start_matter_pairing: it seems all pairing attempts failed")
                 return False
 
 
@@ -2710,7 +2741,7 @@ class MatterAdapter(Adapter):
                     self.noise_delta = self.noise_counter - self.previous_noise_counter
                     self.previous_noise_counter = self.noise_counter
 
-                #self.s_print("tick tock")
+                self.s_print("tick tock")
                 passed_time = time.time() - last_tick_tock_time
 
                 #if self.DEBUG:
@@ -2814,7 +2845,9 @@ class MatterAdapter(Adapter):
 
             if self.turn_wifi_back_on_at != 0 and self.turn_wifi_back_on_at < time.time():
                 self.turn_wifi_back_on_at = 0
-                self.send_pairing_prompt("Turning on WiFi again")
+                if self.DEBUG:
+                        self.s_print("Turning WiFi on gain")
+                self.send_pairing_prompt("Turning WiFi on again")
                 run_command('nmcli radio wifi on')
                 if self.pairing_phase > 0 and self.pairing_phase != 100:
                     self.pairing_phase += 10
@@ -2876,11 +2909,16 @@ class MatterAdapter(Adapter):
                         if 'collides with an existing FabricAdmin instance' in line:
                             if self.DEBUG:
                                 self.s_print("\n\nERROR: matter server fabric config issue\n\n")
+                            #TODO: Is this a good idea?
                             self.reset_matter()
 
                         if 'address already in use' in line:
                             if self.DEBUG:
                                 self.s_print("\n\nERROR: matter server running twice?\n\n")
+                            self.pairing_failed = True
+                            self.busy_pairing = False
+                            self.pairing_phase_message = 'Matter server is running twice?'
+                            self.pairing_phase = -1
 
                         #if 'Traceback' in line:
                         #    self.pairing_failed = True
@@ -2952,8 +2990,6 @@ class MatterAdapter(Adapter):
                             self.send_pairing_prompt("Bluetooth got wireless interference.")
                             self.pairing_phase_message = 'Could not connect to new device via Bluetooth. Possibly because of wireless interference'
                             self.pairing_phase = -1
-                        if 'address already in use' in line:
-                            self.s_print("ERROR, THERE ALREADY IS A MATTER SERVER RUNNING")
 
                         if 'Subscription succeeded with report interval' in line or 'Re-Subscription succeeded' in line:
                             if self.DEBUG:
@@ -3027,7 +3063,7 @@ class MatterAdapter(Adapter):
                 #if self.DEBUG:
                 #    self.s_print("clock run_process: beyond the for loop")
             except Exception as ex:
-                self.s_print("Error in clock try: " + str(ex))
+                self.s_print("caught error in clock message parsing: " + str(ex))
             #else:
             #    self.s_print("self.server_process is None")
 
@@ -3043,7 +3079,7 @@ class MatterAdapter(Adapter):
 
             # Synchronize time
             now_stamp = time.time()
-            if now_stamp - self.last_time_sync_time > self.time_sync_interval:
+            if self.client_connected and now_stamp - self.last_time_sync_time > self.time_sync_interval:
                 if self.DEBUG:
                     print("CLOCK: time to sync time")
                 self.last_time_sync_time = now_stamp
@@ -3722,11 +3758,12 @@ class MatterAdapter(Adapter):
 
         self.really_stop_otbr()
 
-        if os.path.isdir('/home/pi/.webthings/hasdata_backup'):
-            os.system('rm -rf /home/pi/.webthings/hasdata_backup')
-        os.system('mkdir -p /home/pi/.webthings/hasdata_backup')
-        os.system('mv /home/pi/.webthings/hasdata/* /home/pi/.webthings/hasdata_backup/')
-
+        if os.path.isdir(self.hasdata_backup_dir_path):
+            os.system('rm -rf ' + str(self.hasdata_backup_dir_path))
+        os.system('mkdir -p ' + str(self.hasdata_backup_dir_path))
+        #os.system('mv ' + str() + '/* /home/pi/.webthings/hasdata_backup/')
+        os.system('mv ' + str(os.path.join(self.hasdata_dir_path,"*")) + ' ' + str(self.hasdata_backup_dir_path) + '/') # TODO: is the slash necessary?
+        
 
 
 
@@ -3916,7 +3953,7 @@ class MatterAdapter(Adapter):
                 self.s_print("remove_node: ERROR, client is not connected") # TODO: assuming that the matter server can even remove devices from thread
             return False
 
-        self.get_nodes()
+        self.get_nodes(True)
         time.sleep(3)
         matter_id = 'matter-' + str(node_id)
 
@@ -3984,12 +4021,13 @@ class MatterAdapter(Adapter):
             my_env["LD_LIBRARY_PATH"] = '{}'.format(self.addon_thread_dir_path)
 
             data_path = '/data'
-            #my_env["TMPDIR"] = '{}'.format(self.data_thread_dir_path)
-            my_env["TMPDIR"] = '{}'.format(data_path)
+            my_env["TMPDIR"] = '{}'.format(self.data_thread_dir_path)
+            #my_env["TMPDIR"] = '{}'.format(data_path)
 
             command = 'sudo ' + str(self.ot_ctl_path) + ' ' + str(cmd)
             if 'dataset' in cmd and cmd != 'dataset':
-                command = command + ' --storage-directory ' + str(data_path)
+                #command = command + ' --storage-directory ' + str(data_path)
+                command = command + ' --storage-directory ' + str(self.data_thread_dir_path)
 
             if self.DEBUG:
                 self.s_print("run_ot_ctl_command: \n" + str(command))

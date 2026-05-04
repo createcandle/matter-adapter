@@ -66,6 +66,7 @@
     background-image: url('../images/menu-icon.svg');
 	width:7rem;
 	margin:0 auto;
+	user-select: none;
 }
 
 #extension-matter-adapter-view.extension-matter-adapter-title-easter-egg #extension-matter-adapter-title{
@@ -104,7 +105,7 @@
 	text-align:center;
 }
 
-##extension-matter-adapter-wifi-restore-countdown{
+#extension-matter-adapter-wifi-restore-countdown{
 	opacity:.7;
 }
 #extension-matter-adapter-wifi-restore-countdown:empty{
@@ -145,10 +146,11 @@
 	color:white;
 }
 
-
+body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 .extension-matter-adapter-hidden{
     display:none!important;
 }
+
 
 
 .extension-matter-adapter-flex-wrap-when-narrow{
@@ -1486,6 +1488,29 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 	}
 
 
+}
+
+@media screen and (max-width: 640px) {
+	#extension-matter-adapter-reset-matter-button{
+		margin-bottom: 2rem;
+		width:100%;
+	}
+	#extension-matter-adapter-dashboard-button,
+	#extension-matter-adapter-reset-customizations-button{
+		width:100%;
+	}
+	#extension-matter-adapter-dashboard-button{
+		margin-top:2rem;
+	}
+
+	.extension-matter-adapter-radio-buttons-container{
+		flex-direction: column;
+	}
+	.extension-matter-adapter-radio-buttons-container > *{
+		width:100%;
+		box-sizing: border-box;
+		margin:1rem 0;
+	}
 }
 
 @media screen and (min-width: 761px) {

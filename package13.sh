@@ -77,32 +77,19 @@ ls /
 echo
 
 
-python3.13 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir
-
-#python3 -m pip install home-assistant-chip-core --force-reinstall -t lib --prefix "" --no-cache-dir --upgrade
+python3.13 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
 python3.13 -m pip install home-assistant-chip-core -t lib --prefix "" --no-cache-dir --upgrade
+#python3.11 -m pip install home_assistant_chip_core -t lib --prefix "" --no-cache-dir --upgrade
 
-python3.13 -m pip install home_assistant_chip_clusters -t lib --prefix "" --no-cache-dir
+python3.13 -m pip install home-assistant-chip-clusters -t lib --prefix "" --no-cache-dir --upgrade
 
-#python3 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
-
-
-
-
-
-python3.13 -m pip install \
-    zeroconf \
-    -t lib --prefix "" --no-cache-dir
-
-
-python3.13 -m pip install \
-    atomicwrites \
-    -t lib --prefix "" --no-cache-dir
-
+python3.13 -m pip install zeroconf -t lib --prefix "" --no-cache-dir --upgrade
+python3.13 -m pip install atomicwrites -t lib --prefix "" --no-cache-dir --upgrade
+python3.13 -m pip install orjson -t lib --prefix "" --no-cache-dir --upgrade
 
 python3.13 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
 
-python3 -m pip install silabs-flasher -t lib --prefix "" --no-cache-dir --upgrade
+python3.13 -m pip install silabs-flasher -t lib --prefix "" --no-cache-dir --upgrade
 
 echo ""
 echo ""

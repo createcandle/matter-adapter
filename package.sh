@@ -146,6 +146,21 @@ echo ""
 #exit 0
 #echo "I SHOULD NOT BE SEEN"
 
+if [ -d lib ]; then
+      echo ""
+      echo "WARNING, lib dir already existed! (left-over from python 3.13 version creation?)"
+      echo ""
+      rm -rf ./lib
+fi
+
+if [ -d package ]; then
+      echo ""
+      echo "WARNING, package dir already existed! (left-over from python 3.13 version creation?)"
+      echo ""
+      rm -rf ./package
+fi
+
+
 # Prep new package
 echo "package.sh: creating package"
 mkdir -p lib package

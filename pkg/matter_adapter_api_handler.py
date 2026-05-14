@@ -286,22 +286,92 @@ class MatterAPIHandler(APIHandler):
                     
                     
                     elif action == 'find_thread_radio_before':
+                        state = False
                         if os.path.isdir('/dev/serial/by-id'):
                             self.adapter.serial_before = str(run_command('ls /dev/serial/by-id'))
+                            state = True
                         else:
                             self.adapter.serial_before = ''
                         return APIResponse(
                           status=200,
                           content_type='application/json',
-                          content=json.dumps({'state':True}),
+                          content=json.dumps({'state':state,'serial_before':self.adapter.serial_before}),
                         )
                     
                     elif action == 'find_thread_radio':
                         self.adapter.find_thread_radio()
+                        time.sleep(3)
                         return APIResponse(
                           status=200,
                           content_type='application/json',
                           content=json.dumps({'state':self.adapter.found_new_thread_radio}),
+                        )
+
+
+                    elif action == 'get_thread_network_code':
+                        state = False
+                        if 'thread_dataset' in self.adapter.persistent_data and isinstance(self.adapter.persistent_data['thread_dataset'],str) and len(self.adapter.persistent_data['thread_dataset']) > 40:
+                            state = True
+                        
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':state,'thread_network_code':self.adapter.persistent_data['thread_dataset']}),
+                        )
+                    
+
+                    elif action == 'save_thread_network_code':
+                        state = False
+                        if self.DEBUG:
+                            print("handling requested action: save_thread_network_code")
+
+                        try:
+                            if 'code' in request.body:
+                                provided_thread_network_code = str(request.body['code'])
+                                if len(provided_thread_network_code) > 30:
+                                    if self.DEBUG:
+                                        print("save_thread_network_code: provided Thread network code is long enough")
+
+                                    if provided_thread_network_code == self.adapter.persistent_data['thread_dataset']:
+                                        if self.DEBUG:
+                                            print("save_thread_network_code: provided Thread network code is the same as the existing one")
+                                        state = True
+                                    
+                                    else:
+                                        elif self.adapter.thread_running == True or self.adapter.should_start_otbr == True or self.adapter.otbr_started == True:
+                                            if self.DEBUG:
+                                                print("save_thread_network_code: stopping OTBR first")
+                                            if self.adapter.really_stop_otbr():
+                                                if self.DEBUG:
+                                                    print("save_thread_network_code: OTBR stopped succesfully")
+                                                time.sleep(2)
+                                                self.adapter.thread_dataset = provided_thread_network_code
+                                                self.adapter.persistent_data['thread_dataset'] = provided_thread_network_code
+                                                self.adapter.save_persistent_data()
+                                                state = True
+                                            else:
+                                                if self.DEBUG:
+                                                    print("\nERROR, save_thread_network_code:  calling save_thread_network_code returned false")
+                                        else:
+                                            self.adapter.thread_dataset = provided_thread_network_code
+                                            self.adapter.persistent_data['thread_dataset'] = provided_thread_network_code
+                                            self.adapter.save_persistent_data()
+                                            state = True
+
+                                        if state == True:
+                                            self.adapter.last_time_otbr_restarted = 0
+                                            self.adapter.should_start_otbr = True
+                                            self.adapter.otbr_starting_timestamp = None
+
+
+                        except Exception as ex:
+                            print("caught error handling save_thread_network_code API request: ", ex)
+
+                        
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':state}),
                         )
                     
                     
@@ -353,7 +423,7 @@ class MatterAPIHandler(APIHandler):
                                 
                                 if pairing_type == 'commission_with_code':
                                     
-                                    if code and isinstance(code,str) and len(code) > 10 and code.startswith('MT:'):
+                                    if code and isinstance(code,str) and (len(code) > 10 and code.startswith('MT:') or (len(code) > 6 and code.isdigit())):
                                         if self.DEBUG:
                                             print("start_matter_pairing: setting last_found_pairing_code to: ", code)
                                         self.adapter.last_found_pairing_code = code

@@ -99,6 +99,48 @@
   	background-image: url('../images/menu-icon.svg');
 }
 
+/*  TABS  */
+
+#extension-matter-adapter-view button {
+    /*font-size: 1.6rem;
+    padding: 1rem;*/
+    border: none;
+}
+
+.extension-matter-adapter-tab-buttons {
+    background-color: rgba(255, 255, 255, .1);
+    border-radius: 0.7rem;
+    overflow: hidden;
+    font-size: 0;
+    max-width: 50rem;
+    margin: 4rem auto 0 auto;
+    display: flex;
+}
+
+#extension-matter-adapter-view .extension-matter-adapter-tab-buttons button {
+    background-color: transparent;
+    border-right: 1px solid rgba(0, 0, 0, .1);
+    color: #eee;
+    cursor: pointer;
+    font-size: 1.8rem;
+    flex-grow: 1;
+}
+
+#extension-matter-adapter-view .extension-matter-adapter-tab-buttons button:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    color: white;
+}
+
+body #extension-matter-adapter-view .extension-matter-adapter-tab-selected {
+    color: white;
+    background-color: rgba(0, 0, 0, 0.18) !important;
+}
+
+
+
+
+
+
 
 #extension-matter-adapter-wifi-restore-countdown,
 #extension-matter-adapter-still-starting-hint{
@@ -653,6 +695,41 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 
 
 
+/*  THREAD TAB  */
+
+#extension-matter-adapter-thread-network-code:empty,
+#extension-matter-adapter-thread-network-code:empty + span{
+	display:none;
+}
+
+
+#extension-matter-adapter-copy-thread-network-code-to-clipboard-button{
+	padding:1rem;
+	font-size:5rem;
+	opacity:.7;
+	cursor:pointer;
+	background-color: rgba(0, 0, 0, .5);
+}
+#extension-matter-adapter-copy-thread-network-code-to-clipboard-button:hover{
+	opacity:1;
+}
+
+#extension-matter-adapter-thread-network-code-input{
+    width: 100%;
+    min-height: 10rem;
+    padding: .5rem;
+    box-sizing: border-box;
+}
+
+#extension-matter-adapter-thread-network-code{
+	word-wrap: break-word;
+	max-width: calc(100% - 5rem);
+}
+
+
+
+
+
 
 /*  PAIRING  */
 
@@ -788,6 +865,38 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	background-color:rgba(255, 255, 255, .3);
 }
 
+
+#extension-matter-adapter-show-manual-pairing-code-input-button{
+	position:relative;
+	background-color: rgba(0, 0, 0, .1);
+    border-radius: 1rem;
+    display: flex;
+    text-align: center;
+	cursor:pointer;
+	transition: background .6s ease-in-out;
+	margin-bottom:2rem;
+	background-color: rgba(0, 0, 0, .1);
+	overflow:hidden;
+
+}
+#extension-matter-adapter-show-manual-pairing-code-input-button::after{
+	content:'612572441434';
+	position:absolute;
+    font-size: 12rem;
+    opacity: .05;
+    transform: rotate(2deg);
+    top: -3rem;
+	pointer-events: none;
+}
+
+#extension-matter-adapter-show-manual-pairing-code-input-button:hover{
+	background-color:rgba(255, 255, 255, .3);
+}
+
+#extension-matter-adapter-pairing-code-input{
+	font-size:2rem;
+	padding:1rem .5rem;
+}
 
 #extension-matter-adapter-pairing-scanner-container:empty{
 	display:none;
@@ -956,7 +1065,7 @@ div.extension-matter-adapter-busy-pairing #extension-matter-adapter-start-networ
 #extension-matter-adapter-second-page input[type='password']{
     width:100%;
     box-sizing:border-box;
-    padding:2rem;
+    padding:2rem 1rem;
 }
 
 #extension-matter-adapter-second-page ul li{
@@ -971,6 +1080,12 @@ div.extension-matter-adapter-busy-pairing #extension-matter-adapter-start-networ
     border-radius: 1rem;
     text-align: center;
 }
+
+#extension-matter-adapter-pairing-start-area-vendor-name:empty{
+	display:none;
+}
+
+
 #extension-matter-adapter-pairing-start-area-vendor-name:not(:empty){
 	margin:2rem 0;
 }

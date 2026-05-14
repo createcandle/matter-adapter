@@ -197,6 +197,150 @@
                 });
 				
 				
+                // TABS
+
+                var all_tabs = this.view.querySelectorAll('.extension-matter-adapter-tab');
+                var all_tab_buttons = this.view.querySelectorAll('.extension-matter-adapter-main-tab-button');
+
+                for(var i=0; i< all_tab_buttons.length;i++){
+                    all_tab_buttons[i].addEventListener('click', (event) => {
+                        //console.log("tab button clicked", event);
+                        var desired_tab = event.target.innerText.toLowerCase();
+
+                        if(desired_tab == '?'){desired_tab = 'tutorial';}
+
+                        if(this.debug){
+                            console.log("matter adapter debug: desired tab: ", desired_tab);
+                        }
+
+                        for(var j=0; j<all_tabs.length;j++){
+                            all_tabs[j].classList.add('extension-matter-adapter-hidden');
+                            all_tab_buttons[j].classList.remove('extension-matter-adapter-tab-selected');
+                        }
+                        this.view.querySelector('#extension-matter-adapter-tab-button-' + desired_tab).classList.add('extension-matter-adapter-tab-selected'); // show tab
+                        this.view.querySelector('#extension-matter-adapter-tab-' + desired_tab).classList.remove('extension-matter-adapter-hidden'); // show tab
+                    });
+                };
+
+
+
+
+                // Thread tab
+
+                
+                this.view.querySelector('#extension-matter-adapter-get-thread-network-code-button').addEventListener('click', (event) => {
+                    window.API.postJson(
+						`/extensions/${this.id}/api/ajax`,
+						{'action':'get_thread_network_code'}
+					).then((body) => { 
+						if(this.debug){
+                            console.log("matter adapter debug: get_thread_network_code response: ", body);
+                        }
+                        if(typeof body.state == 'boolean'){
+                            if(body.state == true && typeof body.thread_network_code == 'string'){
+                                if(this.debug){
+                                    console.log('matter adapter debug: get_thread_network_code response: state was good');
+                                }
+                                this.view.querySelector('#extension-matter-adapter-thread-network-code').textContent = body.thread_network_code;
+                            }
+                            else{
+                                if(this.debug){
+                                    console.error('matter adapter debug: error, get_thread_network_code failed');
+                                }
+                                this.flash_message("Error, could not get the Thread network code");
+                            }
+                        }
+                        
+					}).catch((err) => {
+						if(this.debug){
+							console.error("matter-adapter debug: caught error calling get_thread_network_code: ", err);
+						}
+                        this.flash_message("Connection error while trying to get the Thread network code");
+					});
+                });
+
+
+
+
+                const copy_thread_network_code_button_el = this.view.querySelector('#extension-matter-adapter-copy-thread-network-code-to-clipboard-button');
+                if(copy_thread_network_code_button_el){
+                    copy_thread_network_code_button_el.addEventListener('click', (event) => {
+                        const current_code = this.view.querySelector('#extension-matter-adapter-thread-network-code').textContent;
+                        if(typeof current_code == 'string' && current_code.length > 30){
+                            try{
+                                const clipboardItem = new ClipboardItem({'text/plain': new Blob([current_code], { type: 'text/plain' }) });
+                                navigator.clipboard.write([clipboardItem]);
+                                this.flash_message("Copied to clipboard");
+                            }
+                            catch(err){
+                                console.error("caught error copying to clipboard: ", err);
+                                this.flash_message("Error, failed to copy to clipboard");
+                            }
+                        }
+                    });
+                }
+
+
+                const show_enter_thread_network_code_button_el = this.view.querySelector('#extension-matter-adapter-enter-thread-network-code-button');
+                if(show_enter_thread_network_code_button_el){
+                    show_enter_thread_network_code_button_el.addEventListener('click', (event) => {
+                        show_enter_thread_network_code_button_el.classList.add('extension-matter-adapter-hidden');
+                        this.view.querySelector('#extension-matter-adapter-enter-thread-network-code-container').classList.remove('extension-matter-adapter-hidden');
+                    });
+                }
+                
+                const save_thread_network_code_button_el = this.view.querySelector('#extension-matter-adapter-save-thread-network-code-button');
+                if(save_thread_network_code_button_el){
+                    save_thread_network_code_button_el.addEventListener('click', (event) => {
+
+                        let new_thread_network_code = this.view.querySelector('#extension-matter-adapter-thread-network-code-input').value;
+                        if(new_thread_network_code.length > 30){
+                            save_thread_network_code_button_el.classList.add('extension-matter-adapter-hidden');
+
+                            window.API.postJson(
+                                `/extensions/${this.id}/api/ajax`,
+                                {'action':'save_thread_network_code','code':new_thread_network_code}
+                            ).then((body) => { 
+                                if(this.debug){
+                                    console.log("matter adapter debug: save_thread_network_code response: ", body);
+                                }
+                                if(typeof body.state == 'boolean'){
+                                    if(body.state == true){
+                                        if(this.debug){
+                                            console.log('matter adapter debug: get_thread_network_code response: state was good');
+                                        }
+                                        this.flash_message("Thread code was saved");
+                                    }
+                                    else{
+                                        if(this.debug){
+                                            console.error('matter adapter debug: error, save_thread_network_code failed');
+                                        }
+                                        this.flash_message("Error, could not save the Thread network code");
+                                    }
+                                }
+                                setTimeout(() => {
+                                    save_thread_network_code_button_el.classList.remove('extension-matter-adapter-hidden');
+                                },4000);
+                                
+                            }).catch((err) => {
+                                if(this.debug){
+                                    console.error("matter-adapter debug: caught error calling save_thread_network_code: ", err);
+                                }
+                                this.flash_message("Connection error while trying to save the Thread network code");
+                                save_thread_network_code_button_el.classList.remove('extension-matter-adapter-hidden');
+                            });
+
+                        }
+                        else{
+                            this.flash_message("Invalid Thread network code (not long enough)");
+                        }
+                        
+                    });
+                }
+
+                
+                
+                
 				
                 // Commission_with_code
                 // Start pairing button press
@@ -205,7 +349,6 @@
                         console.log("matter adapter debug: start commission_with_code button clicked. this.busy_pairing: ", this.busy_pairing);
                     }
                     this.start_pairing();
-                    
                 });
                 
                 
@@ -507,25 +650,41 @@
                 
                 // Manually entered pairing code button
     			this.view.querySelector('#extension-matter-adapter-save-manual-input-pairing-code-button').addEventListener('click', () => {
-                    this.view.querySelector('#extension-matter-adapter-save-manual-input-pairing-code-button').classList.add('extension-matter-adapter-hidden');
                     
-                    const input_code = this.view.querySelector('#extension-matter-adapter-pairing-code-input').value;
-                    if(input_code.startsWith('MT:') && input_code.length > 6){
-                        this.pairing_code = input_code;
+                    let input_code = this.view.querySelector('#extension-matter-adapter-pairing-code-input').value;
+                    input_code = input_code.replaceAll(' ','');
+                    if(input_code.length > 5){
+                        this.view.querySelector('#extension-matter-adapter-save-manual-input-pairing-code-button').classList.add('extension-matter-adapter-hidden');
+                        
+                        if(input_code.startsWith('MT:') && input_code.length > 6){
+                            this.pairing_code = input_code;
+                            this.show_pairing_start_area();
+                            
+                            if(this.scan_window){
+                                if(this.debug){
+                                    console.log("matter adapter: closing previously opened scan window");
+                                }
+                                this.scan_window.close();
+                                this.scan_window = null;
+                            }
+                            
+                        }
+                        else if(!isNaN(input_code)){
+                            this.pairing_code = input_code;
+                            this.show_pairing_start_area();
+                        }
+                        else{
+                            this.flash_message("Pairing code does not seem valid");
+                        }
+
                         setTimeout(function(){
                             document.getElementById('extension-matter-adapter-save-manual-input-pairing-code-button').classList.remove('extension-matter-adapter-hidden');
                         }, 4000);
-                        this.show_pairing_start_area();
-						
-						if(this.scan_window){
-							if(this.debug){
-								console.log("matter adapter: closing previously opened scan window");
-							}
-							this.scan_window.close();
-							this.scan_window = null;
-						}
-						
                     }
+                    else{
+                        this.flash_message("Pairing code is not long enough");
+                    }
+                    
                     
     				//document.getElementById('extension-matter-adapter-other-pairing-options-container').classList.remove('extension-matter-adapter-hidden');
     			});
@@ -714,7 +873,7 @@
 					
     			});
 				
-				
+				/*
                 const reveal_advanced_settings_button_el = this.view.querySelector('#extension-matter-adapter-advanced-settings-button');
 				if(reveal_advanced_settings_button_el){
 					reveal_advanced_settings_button_el.addEventListener('click', (event) => {
@@ -724,7 +883,7 @@
 						reveal_advanced_settings_button_el.classList.add('extension-matter-adapter-hidden');
 	    			});
 				}
-                
+                */
                 
 				
                 // Back button, shows main page
@@ -1672,8 +1831,13 @@
 	              this.current_stream.getTracks().forEach(track => track.stop());
 	              this.current_stream = null;
 	            }
+				if(this.pairing_code.startsWith('MT:')){
+                    this.view.querySelector('#extension-matter-adapter-pairing-start-area-vendor-name').textContent = this.get_vendor_from_mt_code(this.pairing_code);
+                }
+                else{
+                    this.view.querySelector('#extension-matter-adapter-pairing-start-area-vendor-name').textContent = '';
+                }
 				
-				this.view.querySelector('#extension-matter-adapter-pairing-start-area-vendor-name').textContent = this.get_vendor_from_mt_code(this.pairing_code);
 				
                 this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.remove('extension-matter-adapter-hidden');
                 this.view.querySelector('#extension-matter-adapter-pairing-step-qr').classList.add('extension-matter-adapter-hidden');
@@ -2737,6 +2901,7 @@
                 this.flash_message("That pairing code is too short");
                 return;
             }
+            /*
             if(!code.startsWith('MT:')){
                 if(this.debug){
 					console.log("matter adapter debug: pairing code did not start with MT:");
@@ -2745,7 +2910,7 @@
                 return;
             }
             //this.device_to_pair = {"not":"needed"}
-            /*
+            
             if(this.device_to_pair == null){
                 console.log("device_to_pair was null");
                 return // shouldn't be possible, but just to be safe
@@ -2755,6 +2920,9 @@
 			// Check if the Bluetooth addon is enabled, and if so, ask it to stop bluetooth scanning for a little while
 			const bluetooth_view_el = document.getElementById('#extension-bluetoothpairing-view');
 			if(bluetooth_view_el){
+                if(this.debug){
+                    console.log("matter adapter debug: asking bluetooth addon to stop scanning for a little while...");
+                }
                 window.API.postJson(
 					`/extensions/bluetoothpairing/api/ajax`,
 					{'action':'shh'}
@@ -3449,17 +3617,18 @@
 					console.log("matter adapter debug: get_old_pairing_codes response: ", body);
 				}
                 if(typeof body.state == 'boolean' && body.state == true){
-                    console.log("matter adapter debug: get_old_pairing_codes response was OK");
-					
+                    if(this.debug){
+                        console.log("matter adapter debug: get_old_pairing_codes response was OK");
+                    }
 					if(typeof body.old_pairing_codes != 'undefined'){
 						this.old_pairing_codes = body.old_pairing_codes;
-						
 						this.render_old_pairing_codes_list();
 					}
-					
                 }
                 else{
-                    console.warn("matter adapter debug: get_old_pairing_codes response body indicates failure: ", body);
+                    if(this.debug){
+                        console.warn("matter adapter debug: get_old_pairing_codes response body indicates failure: ", body);
+                    }
                 }
             
 			}).catch((err) => {
@@ -3520,8 +3689,8 @@
 								this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
 								this.show_pairing_start_area();
 							}
-							else{f
-								this.flash_message('Sory, that old pairing code seems to be invalid');
+							else{
+								this.flash_message('Sorry, that old pairing code seems to be invalid');
 							}
 						});
 						
@@ -3559,7 +3728,6 @@
 							const print_css = `
 								@media print {
 								  body *:not(.printable, .printable *) {
-								    // hide everything but printable elements and their children
 								    display: none!important;
 								  }
 								}
@@ -3576,10 +3744,14 @@
 								}
 								
 								window.onafterprint = () => {
-								   console.log("window.onafterprint: Printing completed...?");
+								   if(this.debug){
+                                    console.log("matter adapter debug: window.onafterprint: Printing completed...?");
+                                   }
 								}
 								window.addEventListener('focus', () => {
-									console.log("window gained focus.. after printing?");
+									if(this.debug){
+                                        console.log("matter adapter debug: window gained focus.. after printing?");
+                                    }
 									cleanup();
 								});
 							}
@@ -3593,7 +3765,6 @@
 								window.print();
 							},10);
 							
-							console.log("I am after window.print()");
 							
 						});
 						

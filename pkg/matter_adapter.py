@@ -789,16 +789,16 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     self.s_print("Brightness transition preference was in settings: " + str(self.brightness_transition_time))
 
-            if 'Thread dataset' in config:
-                raw_dataset = str(config["Thread dataset"]).strip().rstrip()
-                if len(raw_dataset) > 10:
-                    self.thread_dataset = raw_dataset
-                    self.persistent_data['thread_dataset'] = raw_dataset
-                    if self.DEBUG:
-                        self.s_print("Thread dataset preference was in settings, and long enough.  self.thread_dataset is now: " + str(self.thread_dataset))
-                else:
-                    if self.DEBUG:
-                        self.s_print("Thread dataset preference was in settings, but not long enough: -->" + str(raw_dataset) + "<--")
+            #if 'Thread dataset' in config:
+            #    raw_dataset = str(config["Thread dataset"]).strip().rstrip()
+            #    if len(raw_dataset) > 20:
+            #        self.thread_dataset = raw_dataset
+            #        self.persistent_data['thread_dataset'] = raw_dataset
+            #        if self.DEBUG:
+            #            self.s_print("Thread dataset preference was in settings, and long enough.  self.thread_dataset is now: " + str(self.thread_dataset))
+            #    else:
+            #        if self.DEBUG:
+            #            self.s_print("Thread dataset preference was in settings, but not long enough: -->" + str(raw_dataset) + "<--")
 
             if 'Thread channel' in config:
                 self.thread_channel = int(config["Thread channel"])
@@ -868,6 +868,8 @@ class MatterAdapter(Adapter):
         found_new_thread_radio = False
         if os.path.isdir('/dev/serial/by-id'):
             serial_by_id_output = run_command('ls /dev/serial/by-id')
+            if self.DEBUG:
+                print("find_thread_radio:  serial_by_id_output: ", serial_by_id_output)
             if isinstance(serial_by_id_output,str) and len(str(serial_by_id_output)) > 5:
 
                 if 'No such file or directory' in str(serial_by_id_output):
@@ -875,13 +877,15 @@ class MatterAdapter(Adapter):
                         print("ERROR, find_thread_radio: no /dev/serial/by-id!")
                     return False
             
-                if self.serial_before:
+                if isinstance(self.serial_before,str) and len(self.serial_before) > 5:
+                    if self.DEBUG:
+                        self.s_print("find_thread_radio:  self.serial_before is a string and seems useful to compare against: \n\n" + str(self.serial_before) + "\n\n")
                     for line in str(serial_by_id_output).splitlines():
                         line = str(line).strip().rstrip()
                         if not line in self.serial_before:
                             self.persistent_data['thread_radio_serial_port'] = line
                             if self.DEBUG:
-                                self.s_print("Found a new thread radio: ", line)
+                                self.s_print("find_thread_radio: found a new thread radio line: " + str(line))
                             found_new_thread_radio = True
                             self.serial_before = ''
                             self.should_save = True
@@ -928,7 +932,7 @@ class MatterAdapter(Adapter):
             if self.found_a_thread_radio_once:
                 self.thread_radio_went_missing = True
 
-
+        return (self.found_thread_radio_again or self.found_new_thread_radio)
 
 
 
@@ -1436,7 +1440,7 @@ class MatterAdapter(Adapter):
 
 
 
-    # TODO: implement a feature to find all nearby Threat networks using otbr cli/agent
+    # TODO: implement a feature to find all nearby Thread networks using otbr cli/agent
 
 
 
@@ -1666,7 +1670,7 @@ class MatterAdapter(Adapter):
         if self.otbr_stopping_timestamp > time.time() - 2:
             if self.DEBUG:
                 self.s_print("Warning, really_stop_otbr was called while it was already busy stopping OTBR")
-            return
+            return False
 
         self.otbr_stopping_timestamp = time.time()
         if self.otbr_agent_process != None and self.otbr_agent_process.poll() == None:
@@ -1696,7 +1700,7 @@ class MatterAdapter(Adapter):
         self.otbr_starting_timestamp = None
         self.otbr_stopping_timestamp == 0
 
-
+        return True
 
     # Check the Hotspot addon's settings for the SSID and Password
     def load_hotspot_config(self):
@@ -2741,7 +2745,7 @@ class MatterAdapter(Adapter):
                     self.noise_delta = self.noise_counter - self.previous_noise_counter
                     self.previous_noise_counter = self.noise_counter
 
-                self.s_print("tick tock")
+                #self.s_print("tick tock")
                 passed_time = time.time() - last_tick_tock_time
 
                 #if self.DEBUG:

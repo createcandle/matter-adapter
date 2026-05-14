@@ -11,169 +11,222 @@
         </div>
         -->
 
-        <div id="extension-matter-adapter-tabs-container">
+        <div id="extension-matter-adapter-pages-container">
 
 
             <div id="extension-matter-adapter-main-page">
 
-                <div class="extension-matter-adapter-centered-page">
+				<div class="extension-matter-adapter-tab-buttons extension-matter-adapter-flex-wrap-when-narrow">
+					<button id="extension-matter-adapter-tab-button-overview" class="extension-matter-adapter-main-tab-button extension-matter-adapter-tab-selected">Overview</button>
+					<button id="extension-matter-adapter-tab-button-thread" class="extension-matter-adapter-main-tab-button">Thread</button>
+					<button id="extension-matter-adapter-tab-button-advanced" class="extension-matter-adapter-main-tab-button">Advanced</button>
+				</div>
+		
+				<div id="extension-matter-adapter-tabs-container" class="extension-matter-adapter-centered-page">
+			
+					<div id="extension-matter-adapter-tab-overview" class="extension-matter-adapter-tab">
 
-                    <!--
-                    <div class="extension-matter-adapter-area">
-                        <h2>This addon is in very early development</h2>
-		                <p>It is currently possible to pair switch devices and get their state.</p>
-                    </div>
-                    -->
+						
 
-
-                    <div id="extension-matter-adapter-thread-radio-container" class="extension-matter-adapter-flex-center extension-matter-adapter-flex-wrap-when-narrow extension-matter-adapter-hiddenX">
-                        <div class="extension-matter-adapter-flex-center">
-							<div id="extension-matter-adapter-thread-logo-wrapper"><img src="/extensions/matter-adapter/images/candle_thread_logo.svg" alt="Candle Thread logo"></div>
-							<div id="extension-matter-adapter-thread-radio-details"><span>One moment...</span></div>
+						<div id="extension-matter-adapter-thread-radio-container" class="extension-matter-adapter-flex-center extension-matter-adapter-flex-wrap-when-narrow extension-matter-adapter-hiddenX">
+							<div class="extension-matter-adapter-flex-center">
+								<div id="extension-matter-adapter-thread-logo-wrapper"><img src="/extensions/matter-adapter/images/candle_thread_logo.svg" alt="Candle Thread logo"></div>
+								<div id="extension-matter-adapter-thread-radio-details"><span>One moment...</span></div>
+							</div>
+							
+							
+							<div id="extension-matter-adapter-find-thread-radio-button-container" class="extension-matter-adapter-hidden">
+								<button id="extension-matter-adapter-find-thread-radio-button" class="text-button">Add a Tread radio</button>
+							</div>
 						</div>
-						<div id="extension-matter-adapter-thread-radio-serial-port-container" class="extension-matter-adapter-flex-center extension-matter-adapter-show-if-developer">
-							<!--<span>Serial port:&nbsp;</span>--><span id="extension-matter-adapter-thread-radio-serial-port"></span>
+
+
+
+
+						<div id="extension-matter-adapter-find-thread-radio-container" class="extension-matter-adapter-hidden">
+							<div id="extension-matter-adapter-find-thread-radio-step1" class="extension-matter-adapter-area">
+								<h3>1. Make sure it's unplugged first</h3>
+								<p>Before we begin, make sure your Thread radio is <span class="extension-matter-adapter-bold">unplugged</span>.</p>
+								<div class="extension-matter-adapter-align-right">
+									<button id="extension-matter-adapter-find-thread-radio-unplugged-button" class="text-button">It's unplugged</button>
+								</div>
+							</div>
+							<div id="extension-matter-adapter-find-thread-radio-step2" class="extension-matter-adapter-hidden extension-matter-adapter-area">
+								<h3>2. Plug in your Thread radio</h3>
+								<p>Plug your Thread radio into your Candle controller.</p>
+								<div class="extension-matter-adapter-align-right">
+									<button id="extension-matter-adapter-find-thread-radio-plugged-in-button" class="text-button">It's plugged in</button>
+								</div>
+							</div>
+							<div id="extension-matter-adapter-find-thread-radio-success" class="extension-matter-adapter-hidden extension-matter-adapter-area">
+								<h3>Found it!</h3>
+								<p>Attempting to start Thread...</p>
+							</div>
+							<div id="extension-matter-adapter-find-thread-radio-failed" class="extension-matter-adapter-hidden extension-matter-adapter-area">
+								<h3>No new Thread radio found?</h3>
+								<p>You can try the steps again. Unplug it and click on the "It's unplugged" button. Wait a few seconds, then plug it in, wait a few more seconds, and click on the "It's plugged in" button.</p>
+								<p>How it works: the controller checks the list of devices that were plugged in before and after, and assumes that any new device that shows up in the second list must be the radio.</p>
+								<p>You can verify this yourself on the System Information page under Settings, where you can see a list of plugged in USB devices. Do you see some kind of 'serial' or 'UART' device there when it's plugged in?</p>
+							</div>
+						</div>
+
+
+						<div id="extension-matter-adapter-still-starting-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
+							<div class="extension-matter-adapter-spinner">
+								<div></div><div></div><div></div><div></div>
+							</div>
+							<p>The Matter addon is still starting...</p>
+						</div>
+
+						<div id="extension-matter-adapter-extension-cable-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
+							<img loading="lazy" src="/extensions/matter-adapter/images/interference.svg" alt="Interference">
+							<p>Interference seems to be causing pairing issues. It's recommended to use your Thread radio with a USB extension cord so that it's further away from the Candle Controller.</p>
+						</div>
+
+						<div id="extension-matter-adapter-install-hotspot-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+							<p>To protect your privacy it's recommended to enable the hotspot feature. Think of it as a WiFi guest network for your devices, giving you control over which servers devices on that network may connect to. When enabled, this addon will automatically tell new WiFi-based Matter devices to connect to the Candle Hotspot.</p>
+						</div>
+
+						<div id="extension-matter-adapter-delete-thing-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+							<p>You have deleted a Matter device. Now you will also have to manually remove the corresponding thing.<br><br><a href="/things" class="text-button">Do to thing</a></p>
+						</div>
+
+						
+
+
+
+
+						<div id="extension-matter-adapter-loading">
+							<div class="extension-matter-adapter-spinner">
+								<div></div><div></div><div></div><div></div>
+							</div>
+						</div>
+
+						
+
+						<div id="extension-matter-adapter-paired-devices-list"></div>
+						<div id="extension-matter-adapter-no-devices-yet-hint" class="extension-matter-adapter-hidden">
+							<div class="extension-matter-adapter-flex-wrap-when-narrow">
+								<div>
+									<img loading="lazy" id="extension-matter-adapter-no-devices-yet-hint-illustration" src="/extensions/matter-adapter/images/matter_trojan_horse_orange.svg" alt="Matter is a Trojan horse">
+								</div>
+								<div>
+									<h2>No Matter devices paired yet</h2>
+									<p>Matter is a dubious new smart home standard backed by companies like Google.</p>
+									<p>The way the protocol is designed makes it very hard to control how data flows. While it allows for local network control on the one hand, it also makes is <strong>very hard to prevent data from flowing to the internet</strong>.</p>
+									<p>Candle tries to contain and wall-off your Matter network, but Matter's design makes this needlessly hard and fragile. Containment is only possible if you follow these rules:</p>
+									<ul>
+										<li><strong>Only connect Matter devices to the Candle controller directly</strong>, by clicking on the <img src="/images/add.svg" alt="(+)" class="extension-matter-adapter-tiny-plus-button"> button below. Do not pair it via another app such as, for example, Apple's Homekit on your iPhone.</li>
+										<li>You should use Candle's built-on WiFi hotspot functionality, and only connect Matter devices to that hotspot.</li>
+										<li><strong>Do not pair a Matter device to both the Candle Matter network and another "border router" device that's directly connected to your router</strong>, such as Appple's Homepod. As soon as you do, that's like punching a hole in the wall, and your data will flow out through that border router.</li>
+										<li>Beware Trojans bearing gifts.</li>
+									</ul>
+									<p>If you want to literally keep things simple and avoid corporate surveillance, then use Zigbee whenever possible.</p>
+								</div>
+							</div>
+							<p style="text-align:center">Click on the <img src="/images/add.svg" alt="(+)" class="extension-matter-adapter-tiny-plus-button"> button in the bottom right corner if you want to connect a Matter device.</p>
 						</div>
 						
-						<div id="extension-matter-adapter-thread-radio-noise-container" class="extension-matter-adapter-flex-center extension-matter-adapter-show-if-developer">
-							<span>Noise:&nbsp;</span><span id="extension-matter-adapter-thread-radio-noise"></span>
-						</div>
-						<div id="extension-matter-adapter-find-thread-radio-button-container" class="extension-matter-adapter-hidden">
-							<button id="extension-matter-adapter-find-thread-radio-button" class="text-button">Add a Tread radio</button>
-						</div>
-                    </div>
-
-
-
-
-                    <div id="extension-matter-adapter-find-thread-radio-container" class="extension-matter-adapter-hidden">
-						<div id="extension-matter-adapter-find-thread-radio-step1" class="extension-matter-adapter-area">
-							<h3>1. Make sure it's unplugged first</h3>
-							<p>Before we begin, make sure your Thread radio is <span class="extension-matter-adapter-bold">unplugged</span>.</p>
-							<div class="extension-matter-adapter-align-right">
-								<button id="extension-matter-adapter-find-thread-radio-unplugged-button" class="text-button">It's unplugged</button>
-							</div>
-						</div>
-						<div id="extension-matter-adapter-find-thread-radio-step2" class="extension-matter-adapter-hidden extension-matter-adapter-area">
-							<h3>2. Plug in your Thread radio</h3>
-							<p>Plug your Thread radio into your Candle controller.</p>
-							<div class="extension-matter-adapter-align-right">
-								<button id="extension-matter-adapter-find-thread-radio-plugged-in-button" class="text-button">It's plugged in</button>
-							</div>
-						</div>
-						<div id="extension-matter-adapter-find-thread-radio-success" class="extension-matter-adapter-hidden extension-matter-adapter-area">
-							<h3>Found it!</h3>
-							<p>Attempting to start Thread...</p>
-						</div>
-						<div id="extension-matter-adapter-find-thread-radio-failed" class="extension-matter-adapter-hidden extension-matter-adapter-area">
-							<h3>No new Thread radio found?</h3>
-							<p>You can try the steps again. Unplug it and click on the "It's unplugged" button. Wait a few seconds, then plug it in, wait a few more seconds, and click on the "It's plugged in" button.</p>
-							<p>How it works: the controller checks the list of devices that were plugged in before and after, and assumes that any new device that shows up in the second list must be the radio.</p>
-							<p>You can verify this yourself on the System Information page under Settings, where you can see a list of plugged in USB devices. Do you see some kind of 'serial' or 'UART' device there when it's plugged in?</p>
-						</div>
-                    </div>
-
-
-                    <div id="extension-matter-adapter-still-starting-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
-    				    <div class="extension-matter-adapter-spinner">
-    				        <div></div><div></div><div></div><div></div>
-    				    </div>
-						<p>The Matter addon is still starting...</p>
-                    </div>
-
-                    <div id="extension-matter-adapter-extension-cable-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
-						<img loading="lazy" src="/extensions/matter-adapter/images/interference.svg" alt="Interference">
-                        <p>Interference seems to be causing pairing issues. It's recommended to use your Thread radio with a USB extension cord so that it's further away from the Candle Controller.</p>
-                    </div>
-
-                    <div id="extension-matter-adapter-install-hotspot-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
-                        <p>To protect your privacy it's recommended to enable the hotspot feature. Think of it as a WiFi guest network for your devices, giving you control over which servers devices on that network may connect to. When enabled, this addon will automatically tell new WiFi-based Matter devices to connect to the Candle Hotspot.</p>
-                    </div>
-
-                    <div id="extension-matter-adapter-delete-thing-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
-                        <p>You have deleted a Matter device. Now you will also have to manually remove the corresponding thing.<br><br><a href="/things" class="text-button">Do to thing</a></p>
-                    </div>
-
-					
-
-
-
-
-    			    <div id="extension-matter-adapter-loading">
-    				    <div class="extension-matter-adapter-spinner">
-    				        <div></div><div></div><div></div><div></div>
-    				    </div>
-    			    </div>
-
-					
-
-                    <div id="extension-matter-adapter-paired-devices-list"></div>
-					<div id="extension-matter-adapter-no-devices-yet-hint" class="extension-matter-adapter-hidden">
-						<div class="extension-matter-adapter-flex-wrap-when-narrow">
-							<div>
-								<img loading="lazy" id="extension-matter-adapter-no-devices-yet-hint-illustration" src="/extensions/matter-adapter/images/matter_trojan_horse_orange.svg" alt="Matter is a Trojan horse">
-							</div>
-							<div>
-								<h2>No Matter devices paired yet</h2>
-								<p>Matter is a dubious new smart home standard backed by companies like Google.</p>
-								<p>The way the protocol is designed makes it very hard to control how data flows. While it allows for local network control on the one hand, it also makes is <strong>very hard to prevent data from flowing to the internet</strong>.</p>
-								<p>Candle tries to contain and wall-off your Matter network, but Matter's design makes this needlessly hard and fragile. Containment is only possible if you follow these rules:</p>
-								<ul>
-									<li><strong>Only connect Matter devices to the Candle controller directly</strong>, by clicking on the <img src="/images/add.svg" alt="(+)" class="extension-matter-adapter-tiny-plus-button"> button below. Do not pair it via another app such as, for example, Apple's Homekit on your iPhone.</li>
-									<li>You should use Candle's built-on WiFi hotspot functionality, and only connect Matter devices to that hotspot.</li>
-									<li><strong>Do not pair a Matter device to both the Candle Matter network and another "border router" device that's directly connected to your router</strong>, such as Appple's Homepod. As soon as you do, that's like punching a hole in the wall, and your data will flow out through that border router.</li>
-									<li>Beware Trojans bearing gifts.</li>
-								</ul>
-								<p>If you want to literally keep things simple and avoid corporate surveillance, then use Zigbee whenever possible.</p>
-							</div>
-						</div>
-						<p style="text-align:center">Click on the <img src="/images/add.svg" alt="(+)" class="extension-matter-adapter-tiny-plus-button"> button in the bottom right corner if you want to connect a Matter device.</p>
-					</div>
-					
-					<button id="extension-matter-adapter-advanced-settings-button" class="text-button">Advanced settings</button>
-					<div class="extension-matter-adapter-area" style="margin:10rem 0">
-                    	<!--<button id="extension-matter-adapter-refresh-paired-list-button" class="text-button extension-matter-adapter-hidden">Refresh</button>
-						<button id="extension-matter-adapter-stop-refreshing-list-button" class="text-button extension-matter-adapter-show-if-developer">Stop refreshing</button>-->
-						<div class="extension-matter-adapter-flex-between extension-matter-adapter-flex-wrap-when-narrow">
-							<button id="extension-matter-adapter-reset-matter-button" class="text-button">Reset Matter</button>
-							<button id="extension-matter-adapter-reset-customizations-button" class="text-button">Reset device customizations</button>
-						</div>
-						<div id="extension-matter-adapter-dashboard-link-container" class="extension-matter-adapter-hidden extension-matter-adapter-hidden-on-kiosk">
-							<button id="extension-matter-adapter-dashboard-button" class="text-button">View Matter dashboard</button>
-						</div>
+						<!--
+						<button id="extension-matter-adapter-advanced-settings-button" class="text-button">Advanced settings</button>
+						-->
+						
+						<button id="extension-matter-adapter-show-second-page-button" class="icon-button extension-matter-adapter-hidden"></button>
 
 					</div>
 
-					<pre id="extension-matter-adapter-thread-map" class="extension-matter-adapter-show-if-developer"></pre>
 
 
-                    <pre id="extension-matter-adapter-paired-devices-list-pre" class="extension-matter-adapter-show-if-developer"></pre>
+					<div id="extension-matter-adapter-tab-thread" class="extension-matter-adapter-tab extension-matter-adapter-hidden">
+
+						<div id="extension-matter-adapter-thread-radio-serial-port-container" class="extension-matter-adapter-flex-center extension-matter-adapter-show-if-developer extension-matter-adapter-area">
+							<!--<span>Serial port:&nbsp;</span>--><span id="extension-matter-adapter-thread-radio-serial-port"></span>
+							<div id="extension-matter-adapter-thread-radio-noise-container" class="extension-matter-adapter-flex-center extension-matter-adapter-show-if-developer extension-matter-adapter-area">
+								<span>Noise level:&nbsp;</span><span id="extension-matter-adapter-thread-radio-noise"></span>
+							</div>
+						</div>
 
 
-                    <button id="extension-matter-adapter-show-second-page-button" class="icon-button extension-matter-adapter-hidden"></button>
+						<div class="extension-matter-adapter-area" style="margin:4rem 0">
+							<h2>Extending the Thread network</h2>
+							<p style="font-size:110%;line-height:170%;margin-bottom:2rem;">Thread is a mesh-network, which means that some nodes (that do not rely on battery power) can relay messages for other nodes. This makes it easy to expand the distance that the network can cover.</p>
+							<img loading="lazy" id="extension-matter-adapter-thread-mesh-illustration" src="/extensions/matter-adapter/images/thread_mesh.svg" alt="Thread mesh network illustration">
+							<p>If you have multiple Candle Controllers in your home (for example to enable voice control in different rooms), then each Candle Controller can also help expand the each of the Thread network.</p>
+							<p>To do this, all controllers on the Mesh network need to use the same 'network code'. This code contains details about the network, including the password.</p>
 
-                </div>
+							<div class="extension-matter-adapter-flex-wrap-when-narrow extension-matter-adapter-flex-between" style="margin:4rem 0 1rem 0">
+								<button id="extension-matter-adapter-get-thread-network-code-button" class="text-button">Show code</button>
+								<button id="extension-matter-adapter-enter-thread-network-code-button" class="text-button">Enter code</button>
+							</div>
+							<div class="extension-matter-adapter-flex-align-center">
+								<div id="extension-matter-adapter-thread-network-code" class="extension-matter-adapter-area"></div>
+								<span id="extension-matter-adapter-copy-thread-network-code-to-clipboard-button">⎘</span>
+							</div>
+							
 
-            </div>
+
+							<div id="extension-matter-adapter-enter-thread-network-code-container" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+								<p>Copy the Thread network code (also known as the 'Thread dataset') from your main Candle Controller and paste it in here.</p>
+								<textarea id="extension-matter-adapter-thread-network-code-input" type="text" placeholder="Thread network code"></textarea>
+								<div class="extension-matter-adapter-align-right">
+									<button id="extension-matter-adapter-save-thread-network-code-button" class="text-button">Save</button>
+								</div>
+							</div>
+						</div>
+						
+					</div>
+
+					
+					<div id="extension-matter-adapter-tab-advanced" class="extension-matter-adapter-tab extension-matter-adapter-hidden">
 
 
 
-            <div id="extension-matter-adapter-second-page" class="extension-matter-adapter-pairing-questioning">
+						<div class="extension-matter-adapter-area" style="margin:4rem 0">
+							<!--<button id="extension-matter-adapter-refresh-paired-list-button" class="text-button extension-matter-adapter-hidden">Refresh</button>
+							<button id="extension-matter-adapter-stop-refreshing-list-button" class="text-button extension-matter-adapter-show-if-developer">Stop refreshing</button>-->
+							<div class="extension-matter-adapter-flex-between extension-matter-adapter-flex-wrap-when-narrow">
+								<button id="extension-matter-adapter-reset-matter-button" class="text-button">Reset Matter</button>
+								<button id="extension-matter-adapter-reset-customizations-button" class="text-button">Reset device customizations</button>
+							</div>
+							<div id="extension-matter-adapter-dashboard-link-container" class="extension-matter-adapter-hidden extension-matter-adapter-hidden-on-kiosk">
+								<button id="extension-matter-adapter-dashboard-button" class="text-button">View Matter dashboard</button>
+							</div>
 
-                <div class="extension-matter-adapter-centered-page">
-	        		<h2 style="text-align:center">Pairing</h2>
+						</div>
 
-	                <div id="extension-matter-adapter-pairing-network-question-container" class="extension-matter-adapter-area">
-	                    <p style="text-align:center">Is the Matter device already connected to your network?</p>
-	                    <div style="display:flex;justify-content:space-around; padding:2rem 0">
-	                        <button id="extension-matter-adapter-pairing-network-question-normal-button" class="text-button">No</button>
-	                        <button id="extension-matter-adapter-pairing-network-question-network-button" class="text-button">Yes</button>
-	                    </div>
-	                </div>
+						<pre id="extension-matter-adapter-thread-map" class="extension-matter-adapter-show-if-developer"></pre>
+
+
+						<pre id="extension-matter-adapter-paired-devices-list-pre" class="extension-matter-adapter-show-if-developer"></pre>
+
+					</div>
+
+
+
+
+
+
+				</div>
+
+			</div>
+
+
+			<div id="extension-matter-adapter-second-page" class="extension-matter-adapter-pairing-questioning">
+
+				<div class="extension-matter-adapter-centered-page">
+					<h2 style="text-align:center">Pairing</h2>
+
+					<div id="extension-matter-adapter-pairing-network-question-container" class="extension-matter-adapter-area">
+						<p style="text-align:center">Is the Matter device already connected to your network?</p>
+						<div style="display:flex;justify-content:space-around; padding:2rem 0">
+							<button id="extension-matter-adapter-pairing-network-question-normal-button" class="text-button">No</button>
+							<button id="extension-matter-adapter-pairing-network-question-network-button" class="text-button">Yes</button>
+						</div>
+					</div>
 
 					<div id="extension-matter-adapter-pairing-steps">
 
-	                    <!--
+						<!--
 						<div id="extension-matter-adapter-pairing-step1" class="extension-matter-adapter-area">
 							<h4>Preparation</h4>
 							<p>To pair a new Matter device:</p>
@@ -184,7 +237,7 @@
 							</ul>
 							<p></p>
 						</div>
-	                    -->
+						-->
 
 						<div id="extension-matter-adapter-pairing-step-wifi" class="extension-matter-adapter-area">
 
@@ -194,19 +247,19 @@
 							<div id="extension-matter-adapter-current-wifi-ssid-container" class="extension-matter-adapter-hidden">
 								<p>WiFi Matter devices will be told to connect to: <span id="extension-matter-adapter-current-wifi-ssid">...</span><p>
 								<div class="extension-matter-adapter-align-right">
-	                                <button id="extension-matter-adapter-reveal-wifi-setup-button" class="text-button">Change</button>
-	                            </div>
+									<button id="extension-matter-adapter-reveal-wifi-setup-button" class="text-button">Change</button>
+								</div>
 							</div>
 
 							<div id="extension-matter-adapter-provide-wifi-container">
 								<input type="text" id="extension-matter-adapter-wifi-ssid" placeholder="WiFi name">
 								<input type="password" id="extension-matter-adapter-wifi-password" placeholder="WiFi password">
-	                            <div class="extension-matter-adapter-checkbox-container">
-	                                <input type="checkbox" id="extension-matter-adapter-wifi-show-password-checkbox" name="extension-matter-adapter-wifi-show-password-checkbox" data-val="true" value="true"><label for="extension-matter-adapter-wifi-show-password-checkbox">Show password</label>
-	                            </div>
-	                            <div class="extension-matter-adapter-checkbox-container">
-	                                <input type="checkbox" id="extension-matter-adapter-wifi-remember-checkbox" name="extension-matter-adapter-wifi-remember-checkbox" data-val="true" value="true"><label for="extension-matter-adapter-wifi-remember-checkbox">Remember</label>
-	                            </div>
+								<div class="extension-matter-adapter-checkbox-container">
+									<input type="checkbox" id="extension-matter-adapter-wifi-show-password-checkbox" name="extension-matter-adapter-wifi-show-password-checkbox" data-val="true" value="true"><label for="extension-matter-adapter-wifi-show-password-checkbox">Show password</label>
+								</div>
+								<div class="extension-matter-adapter-checkbox-container">
+									<input type="checkbox" id="extension-matter-adapter-wifi-remember-checkbox" name="extension-matter-adapter-wifi-remember-checkbox" data-val="true" value="true"><label for="extension-matter-adapter-wifi-remember-checkbox">Remember</label>
+								</div>
 							</div>
 
 							<!--
@@ -252,31 +305,40 @@
 								<h4>Look up an old code</h4>
 							</div>
 							<div id="extension-matter-adapter-pairing-old-pairing-codes-list" class="extension-matter-adapter-area"></div>
-
+							<div id="extension-matter-adapter-show-manual-pairing-code-input-button">
+								<h4 id="extension-matter-adapter-show-more-pairing-options-button">Enter pairing code</h4>
+							</div>
+							<div id="extension-matter-adapter-other-pairing-options-container" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+								<p>A pairing code can either start with <span style="font-weight:bold">MT:</span> or consist of <span style="font-weight:bold">all numbers</span>.</p>
+								<input id="extension-matter-adapter-pairing-code-input" type="text" placeholder="Pairing code">
+								<div class="extension-matter-adapter-align-right">
+									<button id="extension-matter-adapter-save-manual-input-pairing-code-button" class="text-button">Next</button>
+								</div>
+							</div>
 
 
 							<!--
 							<div id="extension-matter-adapter-pairing-qr-camera-area" class="extension-matter-adapter-hidden">
-							    <div id="extension-matter-adapter-scanner-container">
-							        <div id="extension-matter-adapter-video-container">
-							            <video id="extension-matter-adapter-qr-video"></video>
-							        </div>
+								<div id="extension-matter-adapter-scanner-container">
+									<div id="extension-matter-adapter-video-container">
+										<video id="extension-matter-adapter-qr-video"></video>
+									</div>
 
-							        <div id="extension-matter-adapter-camera-options-container">
-							            <div class="extension-matter-adapter-flex-center">
-							                <img id="extension-matter-adapter-camera-icon" class="extension-matter-adapter-qr-video-icon" src="/extensions/matter-adapter/images/camera.svg" alt="camera icon" style="width:3rem;height:3rem">
-							                <select id="extension-matter-adapter-cam-list">
-							                    <option value="environment" selected>Main camera</option>
-							                    <option value="user">Secondary camera</option>
-							                </select>
-							            </div>
-							            <div>&nbsp;</div>
+									<div id="extension-matter-adapter-camera-options-container">
+										<div class="extension-matter-adapter-flex-center">
+											<img id="extension-matter-adapter-camera-icon" class="extension-matter-adapter-qr-video-icon" src="/extensions/matter-adapter/images/camera.svg" alt="camera icon" style="width:3rem;height:3rem">
+											<select id="extension-matter-adapter-cam-list">
+												<option value="environment" selected>Main camera</option>
+												<option value="user">Secondary camera</option>
+											</select>
+										</div>
+										<div>&nbsp;</div>
 
-							            <div id="extension-matter-adapter-flash-toggle" class="extension-matter-adapter-flex-center">
-							                <img id="extension-matter-adapter-flash-icon" class="extension-matter-adapter-qr-video-icon" src="/extensions/matter-adapter/images/lightbulb.svg" alt="Flash button" style="height:2rem">
-							            </div>
-							        </div>
-							    </div>
+										<div id="extension-matter-adapter-flash-toggle" class="extension-matter-adapter-flex-center">
+											<img id="extension-matter-adapter-flash-icon" class="extension-matter-adapter-qr-video-icon" src="/extensions/matter-adapter/images/lightbulb.svg" alt="Flash button" style="height:2rem">
+										</div>
+									</div>
+								</div>
 							</div>
 							// -->
 
@@ -285,34 +347,21 @@
 								<div id="extension-matter-adapter-pairing-scanner-container"></div>
 
 								<div id="extension-matter-adapter-desktop-qr">
-	                                <p>Scan this QR code with your phone to get started:</p>
-								    <div id="extension-matter-adapter-qr-code"></div>
-								    <div id="extension-matter-adapter-qr-code-url-wrapper">
-									    <a id="extension-matter-adapter-qr-scan-link" href="https://www.candlesmarthome.com/qr"><span id="extension-matter-adapter-short-qr-scan-url">candlesmarthome.com/qr</span></a>
-								    </div>
-	                            </div>
-
-								<div id="extension-matter-adapter-mobile-qr">
-	                                <p>Open the Candle QR code scanner to find the pairing code. You will have to grant permission to use your camera.</p>
-								    <div id="extension-matter-adapter-mobile-qr-button">
-									    <a id="extension-matter-adapter-mobile-qr-scan-link" href="https://www.candlesmarthome.com/qr" target="_blank"><span id="extension-matter-adapter-mobile-short-qr-scan-url">candlesmarthome.com/qr</span></a>
-								    </div>
-	                            </div>
-
-								<div class="extension-matter-adapter-align-right">
-									<button id="extension-matter-adapter-show-more-pairing-options-button" class="text-button">More options</button>
-								</div>
-
-								<div id="extension-matter-adapter-other-pairing-options-container" class="extension-matter-adapter-hidden">
-
-									<!--<p>Open this link on a phone or a computer with a webcam: </p>-->
-
-									<p>If you already know the pairing code, then you can enter it here. It should start with <span style="font-weight:bold">MT:</span></p>
-									<input id="extension-matter-adapter-pairing-code-input" type="text" placeholder="MT:ETCETERA.ETCETERA">
-									<div class="extension-matter-adapter-align-right">
-										<button id="extension-matter-adapter-save-manual-input-pairing-code-button" class="text-button">Save</button>
+									<p>Scan this QR code with your phone to get started:</p>
+									<div id="extension-matter-adapter-qr-code"></div>
+									<div id="extension-matter-adapter-qr-code-url-wrapper">
+										<a id="extension-matter-adapter-qr-scan-link" href="https://www.candlesmarthome.com/qr"><span id="extension-matter-adapter-short-qr-scan-url">candlesmarthome.com/qr</span></a>
 									</div>
 								</div>
+
+								<div id="extension-matter-adapter-mobile-qr">
+									<p>Open the Candle QR code scanner to find the pairing code. You will have to grant permission to use your camera.</p>
+									<div id="extension-matter-adapter-mobile-qr-button">
+										<a id="extension-matter-adapter-mobile-qr-scan-link" href="https://www.candlesmarthome.com/qr" target="_blank"><span id="extension-matter-adapter-mobile-short-qr-scan-url">candlesmarthome.com/qr</span></a>
+									</div>
+								</div>
+
+								
 							</div>
 
 
@@ -333,15 +382,15 @@
 						</div>
 
 
-	                    <div id="extension-matter-adapter-pairing-step-network-code" class="extension-matter-adapter-area">
-	                        <h4>Please enter the pairing pin code</h4>
-	                        <p>The app or controller that you used to share the new device with will also have provided a pairing pin code - likely a number. Please enter that here.</p>
-	                        <input id="extension-matter-adapter-network-pairing-code-input" type="text" placeholder="1234">
+						<div id="extension-matter-adapter-pairing-step-network-code" class="extension-matter-adapter-area">
+							<h4>Please enter the pairing pin code</h4>
+							<p>The app or controller that you used to share the new device with will also have provided a pairing pin code - likely a number. Please enter that here.</p>
+							<input id="extension-matter-adapter-network-pairing-code-input" type="text" placeholder="1234">
 							<div class="extension-matter-adapter-align-right">
-	                            <button id="extension-matter-adapter-start-network-pairing-button" class="text-button extension-matter-adapter-start-pairing-button">Start pairing</button>
+								<button id="extension-matter-adapter-start-network-pairing-button" class="text-button extension-matter-adapter-start-pairing-button">Start pairing</button>
 								<!--<button id="extension-matter-adapter-save-network-pairing-code-button" class="text-button">Save</button>-->
 							</div>
-	                    </div>
+						</div>
 
 
 						<div id="extension-matter-adapter-pairing-start-area" class="extension-matter-adapter-area extension-matter-adapter-hidden">
@@ -356,12 +405,12 @@
 								</div>
 								<p style="text-align:center">Updating certificates... please wait</p>
 							</div>
-	                        <div id="extension-matter-adapter-certificates-need-update" class="extension-matter-adapter-area extension-matter-adapter-hidden">
-	    						<p>The previously downloaded Matter certificates are a bit old. To enable support for brand new devices it's recommended to download the latest ones.</p>
+							<div id="extension-matter-adapter-certificates-need-update" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+								<p>The previously downloaded Matter certificates are a bit old. To enable support for brand new devices it's recommended to download the latest ones.</p>
 								<div class="extension-matter-adapter-align-right">
-	                                <button id="extension-matter-adapter-update-certificates-button" class="text-button">Download latest certificates</button>
-	                            </div>
-	                        </div>
+									<button id="extension-matter-adapter-update-certificates-button" class="text-button">Download latest certificates</button>
+								</div>
+							</div>
 
 							<p style="margin-top:4rem">How does this device communicate?</p>
 							<form class="extension-matter-adapter-radio-buttons-container">
@@ -382,12 +431,12 @@
 
 
 
-	                        <div id="extension-matter-adapter-pairing-bluetooth-hint">
-	    						<ul>
-	    							<li>The device must be within Bluetooth range of the Candle Controller</li>
-	    							<li>Put your new device in pairing mode. If possible it's recommended to factory reset it.</li>
-	    						</ul>
-	                        </div>
+							<div id="extension-matter-adapter-pairing-bluetooth-hint">
+								<ul>
+									<li>The device must be within Bluetooth range of the Candle Controller</li>
+									<li>Put your new device in pairing mode. If possible it's recommended to factory reset it.</li>
+								</ul>
+							</div>
 
 							<div class="extension-matter-adapter-align-right">
 								<button id="extension-matter-adapter-start-normal-pairing-button" class="text-button extension-matter-adapter-start-pairing-button">Start pairing</button>
@@ -395,7 +444,7 @@
 
 						</div>
 
-	                    <div id="extension-matter-adapter-pairing-busy-step">
+						<div id="extension-matter-adapter-pairing-busy-step">
 							<div id="extension-matter-adapter-busy-pairing-indicator" class="extension-matter-adapter-area">
 								<div class="extension-matter-adapter-spinner">
 									<div></div><div></div><div></div><div></div>
@@ -408,25 +457,23 @@
 							</div>
 							<div id="extension-matter-adapter-pairing-failed-hint" class="extension-matter-adapter-area extension-matter-adapter-error extension-matter-adapter-hidden">
 								<h4>Pairing failed</h4>
-	                            <p>Try pressing the "Start pairing" button again to give it another go.</p>
+								<p>Try pressing the "Start pairing" button again to give it another go.</p>
 								<p>If that doesn't work, then you can try starting from the beginning.</p>
-								<p>If something is using the Bluetooth connection, such as a wireles speaker or keyboard, try disabling that.</p>
+								<p>If something is using the Bluetooth connection, such as a wireless speaker or keyboard, try disabling that.</p>
 								<div class="extension-matter-adapter-flex-between" style="margin-top:2rem">
-	                                <button id="extension-matter-adapter-pairing-failed-back-to-the-start-button" class="text-button">Back to the start</button>
+									<button id="extension-matter-adapter-pairing-failed-back-to-the-start-button" class="text-button">Back to the start</button>
 									<button id="extension-matter-adapter-pairing-failed-try-again-button" class="text-button">Try again</button>
-	                            </div>
+								</div>
 							</div>
 							<div id="extension-matter-adapter-pairing-success-hint" class="extension-matter-adapter-area extension-matter-adapter-success extension-matter-adapter-hidden">
 								<h4>Pairing complete</h4>
-	                            <p>The next step is to accept the thing onto the Candle controller.</p>
+								<p>The next step is to accept the thing onto the Candle controller.</p>
 								<div class="extension-matter-adapter-align-right">
-	                                <button id="extension-matter-adapter-pairing-accept-thing-button" class="text-button">Next</button>
-	                            </div>
+									<button id="extension-matter-adapter-pairing-accept-thing-button" class="text-button">Next</button>
+								</div>
 							</div>
 
-
-
-	                    </div>
+						</div>
 						<!--
 						<div id="extension-matter-adapter-pairing-step2" class="extension-matter-adapter-area">
 							<h4>STEP 2 - Pairing "<span id="extension-matter-adapter-pairing-step2-device-title">...</span>"</h4>
@@ -486,22 +533,15 @@
 						<button id="extension-matter-adapter-stop-poll-button" class="extension-matter-adapter-show-if-developer text-button">Stop polling</button>
 
 					</div>
-        		</div>
 
 
+				</div>
 
+				<div id="extension-matter-adapter-back-button-container">
+					<button id="extension-matter-adapter-back-button" class="back-button icon-button" data-l10n-id="back-button" aria-label="Back"></button>
+				</div>
 
-                <!--<img src="/extensions/matter-adapter/images/lotus.jpg" />-->
-
-                <!--
-                By having this button inside of this tab, it will be automatically hidden when it's pressed.
-                Also, note there is a small container div around the button. This is done to make the area that can be hit sligtly bigger, so that it works better on touch screens.
-                -->
-                <div id="extension-matter-adapter-back-button-container">
-                    <button id="extension-matter-adapter-back-button" class="back-button icon-button" data-l10n-id="back-button" aria-label="Back"></button>
-                </div>
-
-            </div>
+			</div>
 
         </div>
 

@@ -1322,12 +1322,12 @@
                 if(typeof body.busy_pairing == 'boolean'){
 					if(body.busy_pairing != this.busy_pairing){
 						if(this.debug){
-							console.warn("matter adapter debug: PAIRING STATE CHANGED from,to:", this.busy_pairing, body.busy_pairing);
+							console.warn("matter adapter debug:  parse body: PAIRING STATE CHANGED from,to:", this.busy_pairing, body.busy_pairing);
 						}
 					}
                     this.busy_pairing = body.busy_pairing;
 					if(this.debug){
-                        console.log("matter adapter debug: pairing_poll: this.busy_pairing is now: ", this.busy_pairing);
+                        console.log("matter adapter debug: parse body: this.busy_pairing is now: ", this.busy_pairing);
 					}
                     if(this.busy_pairing){
                         this.view.classList.add('extension-matter-adapter-busy-pairing');
@@ -1436,16 +1436,20 @@
 	                    //this.regenenerate_items();
 	                }
 				
-					
-				
 				}
 				
 				if(typeof body.extension_cable_recommended == 'boolean' && body.extension_cable_recommended == true){
-					this.view.querySelector('#extension-matter-adapter-extension-cable-hint').classList.remove('extension-matter-adapter-hidden');
+					const cable_hint_el = this.view.querySelector('#extension-matter-adapter-extension-cable-hint');
+                    if(cable_hint_el){
+                        cable_hint_el.classList.remove('extension-matter-adapter-hidden');
+                    }
 				}
 				
 				if(typeof body.last_received_server_info == 'object' && body.last_received_server_info != null){
-					this.view.querySelector('#extension-matter-adapter-extension-server-info').textContent = JSON.stringify(body.last_received_server_info,null,4);
+					const server_info_el = this.view.querySelector('#extension-matter-adapter-extension-server-info');
+                    if(server_info_el){
+                        server_info_el.textContent = JSON.stringify(body.last_received_server_info,null,4);
+                    }
 				}
 				
 				
@@ -1601,7 +1605,7 @@
             }
 			
 			//if(this.busy_pairing == false){
-			if(this.busy_polling_counter == 0){
+			if(this.busy_polling_counter == 0 && location.pathname == "/extensions/matter-adapter"){
                 
 				window.API.postJson(
 					`/extensions/${this.id}/api/ajax`,

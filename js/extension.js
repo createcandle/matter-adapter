@@ -988,9 +988,11 @@
 			}
 			
 			try{
-                if(this.busy_pairing == false && document.getElementById('extension-matter-adapter-menu-item').classList.contains('selected') == false){
-                    this.view.innerHTML = "";
-                }
+				setTimeout(() => {
+	                if(this.busy_pairing == false && document.getElementById('extension-matter-adapter-menu-item').classList.contains('selected') == false){
+	                    this.view.innerHTML = "";
+	                }
+				},5000);
 			}
             catch(err){
                 console.log("matter adapter addon: caught error in hide: ", err);

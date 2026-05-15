@@ -318,7 +318,10 @@ class MatterAPIHandler(APIHandler):
                         return APIResponse(
                           status=200,
                           content_type='application/json',
-                          content=json.dumps({'state':state,'thread_network_code'thread_dataset}),
+                          content=json.dumps({
+                                'state':state,
+                                'thread_network_code':thread_dataset
+                                })
                         )
                     
 

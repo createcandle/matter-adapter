@@ -332,13 +332,13 @@ class MatterAPIHandler(APIHandler):
                                     if self.DEBUG:
                                         print("save_thread_network_code: provided Thread network code is long enough")
 
-                                    if provided_thread_network_code == self.adapter.persistent_data['thread_dataset']:
+                                    if str(provided_thread_network_code) == str(self.adapter.persistent_data['thread_dataset']):
                                         if self.DEBUG:
                                             print("save_thread_network_code: provided Thread network code is the same as the existing one")
                                         state = True
                                     
                                     else:
-                                        elif self.adapter.thread_running == True or self.adapter.should_start_otbr == True or self.adapter.otbr_started == True:
+                                        if self.adapter.thread_running == True or self.adapter.should_start_otbr == True or self.adapter.otbr_started == True:
                                             if self.DEBUG:
                                                 print("save_thread_network_code: stopping OTBR first")
                                             if self.adapter.really_stop_otbr():

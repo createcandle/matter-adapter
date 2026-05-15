@@ -343,7 +343,7 @@ class MatterAPIHandler(APIHandler):
                                         state = True
                                     
                                     else:
-                                        if self.adapter.thread_running == True or self.adapter.should_start_otbr == True or self.adapter.otbr_started == True:
+                                        if self.adapter.thread_running == True or self.adapter.otbr_started == True:
                                             if self.DEBUG:
                                                 print("save_thread_network_code: stopping OTBR first")
                                             if self.adapter.really_stop_otbr():

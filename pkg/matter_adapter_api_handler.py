@@ -310,13 +310,15 @@ class MatterAPIHandler(APIHandler):
 
                     elif action == 'get_thread_network_code':
                         state = False
+                        thread_dataset = ''
                         if 'thread_dataset' in self.adapter.persistent_data and isinstance(self.adapter.persistent_data['thread_dataset'],str) and len(self.adapter.persistent_data['thread_dataset']) > 40:
+                            thread_dataset = self.adapter.persistent_data['thread_dataset']
                             state = True
                         
                         return APIResponse(
                           status=200,
                           content_type='application/json',
-                          content=json.dumps({'state':state,'thread_network_code':self.adapter.persistent_data['thread_dataset']}),
+                          content=json.dumps({'state':state,'thread_network_code'thread_dataset}),
                         )
                     
 

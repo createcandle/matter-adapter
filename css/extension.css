@@ -738,6 +738,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 
 #extension-matter-adapter-extension-server-info{
 	line-height:200%;
+	white-space: pre-wrap;
 }
 #extension-matter-adapter-extension-server-info:empty{
 	display:none;

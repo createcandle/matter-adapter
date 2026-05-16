@@ -857,8 +857,6 @@ class MatterAdapter(Adapter):
 
 
 
-
-
     # Get real tty port from:
     # ls -la /dev/serial/by-id/usb-*
 
@@ -874,11 +872,13 @@ class MatterAdapter(Adapter):
                 if 'No such file or directory' in str(serial_by_id_output):
                     if self.DEBUG:
                         print("ERROR, find_thread_radio: no /dev/serial/by-id!")
+                    self.found_new_thread_radio = False
+                    self.found_thread_radio_again = False
                     return False
             
-                if isinstance(self.serial_before,str) and len(self.serial_before) > 5:
+                if isinstance(self.serial_before,str):
                     if self.DEBUG:
-                        self.s_print("find_thread_radio:  self.serial_before is a string and seems useful to compare against: \n\n" + str(self.serial_before) + "\n\n")
+                        self.s_print("find_thread_radio:  self.serial_before is a string: \n\n" + str(self.serial_before) + "\n\n")
                     for line in str(serial_by_id_output).splitlines():
                         line = str(line).strip().rstrip()
                         if not line in self.serial_before:

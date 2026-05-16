@@ -139,10 +139,10 @@
 
 					<div id="extension-matter-adapter-tab-thread" class="extension-matter-adapter-tab extension-matter-adapter-hidden">
 
-						<div id="extension-matter-adapter-thread-radio-serial-port-container" class="extension-matter-adapter-flex-center extension-matter-adapter-show-if-developer extension-matter-adapter-area">
+						<div id="extension-matter-adapter-thread-radio-serial-port-container" class="extension-matter-adapter-flex-center extension-matter-adapter-flex-wrap-when-narrow extension-matter-adapter-area">
 							<!--<span>Serial port:&nbsp;</span>--><span id="extension-matter-adapter-thread-radio-serial-port"></span>
-							<div id="extension-matter-adapter-thread-radio-noise-container" class="extension-matter-adapter-flex-center extension-matter-adapter-show-if-developer extension-matter-adapter-area">
-								<span>Noise level:&nbsp;</span><span id="extension-matter-adapter-thread-radio-noise"></span>
+							<div id="extension-matter-adapter-thread-radio-noise-container" class="extension-matter-adapter-flex-center extension-matter-adapter-area">
+								<span>Noise level:&nbsp;</span><span id="extension-matter-adapter-thread-radio-noise">...</span>
 							</div>
 						</div>
 
@@ -179,7 +179,7 @@
 					
 					<div id="extension-matter-adapter-tab-advanced" class="extension-matter-adapter-tab extension-matter-adapter-hidden">
 
-
+						<pre class="extension-matter-adapter-area" style="margin:4rem 0" id="extension-matter-adapter-extension-server-info"></pre>
 
 						<div class="extension-matter-adapter-area" style="margin:4rem 0">
 							<!--<button id="extension-matter-adapter-refresh-paired-list-button" class="text-button extension-matter-adapter-hidden">Refresh</button>
@@ -526,9 +526,6 @@
 
 						</div>
 						-->
-
-						<pre id="extension-matter-adapter-extension-server-info" class="extension-matter-adapter-show-if-developer">
-
 
 						<button id="extension-matter-adapter-stop-poll-button" class="extension-matter-adapter-show-if-developer text-button">Stop polling</button>
 

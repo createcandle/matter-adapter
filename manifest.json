@@ -31,7 +31,6 @@
 	  "Days between updating certificates":14,
       "Do not use Hotspot as WiFi network for devices": false,
       "Vendor ID":"",
-	  "Thread dataset":"",
 	  "Thread channel":15,
 	  "Matter server type":"Python",
 	  "Enable Matter server dashboard": false,
@@ -53,21 +52,17 @@
         },
         "Do not use Hotspot as WiFi network for devices":{
             "type": "boolean",
-            "description": "Advanced. Under development. The Hotspot offers a separate guest WiFi network for your smart devices. Using it will give you more insight into the communication habits of your Matter devices, and you can also block connections you don't want or trust."
+            "description": "Advanced. The Hotspot offers a separate guest WiFi network for your smart devices. Using it will give you more insight into the communication habits of your Matter devices, and you can also block connections you don't want or trust. The default is to use the Hotspot feature to offer more protection against corporate surveillance."
         },
         "Vendor ID":{
             "type": "string",
             "description": "Advanced. You can manually set the Vendor ID of the Matter fabric. If you change this you will have to pair all your devices again. For example, the Home Assistant vendor ID is 134B"
         },
-        "Thread dataset":{
-            "type": "string",
-            "description": "Advanced. If you have an existing Thread code, then you can set it here. If you change this you my have to pair all your Matter Thread devices again."
-        },
         "Thread channel":{
-            "description": "Advanced. Which wireless channel the Thread network should use. Should be between (and including) 11 and 25, with 11, 15, 20 and 25 being common recommendations. Fun fact: Apple always uses 25. The default is 15.",
+            "description": "Advanced. Which wireless channel the Thread network should use. Common recommendations are 11, 15, 20 and 25 or 26. Fun fact: Apple always uses 26. The default is 26.",
             "type": "integer",
             "minimum": 11,
-            "maximum": 25
+            "maximum": 26
         },
         "Matter server type":{
             "type": "string",
@@ -91,7 +86,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.5.20",
+  "version": "0.5.21",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

@@ -333,11 +333,11 @@ class MatterAPIHandler(APIHandler):
                         try:
                             if 'code' in request.body:
                                 provided_thread_network_code = str(request.body['code'])
-                                if len(provided_thread_network_code) > 30:
+                                if len(provided_thread_network_code) > 40:
                                     if self.DEBUG:
                                         print("save_thread_network_code: provided Thread network code is long enough")
-
-                                    if str(provided_thread_network_code) == str(self.adapter.persistent_data['thread_dataset']):
+                                    
+                                    if 'thread_dataset' in self.adapter.persistent_data and str(provided_thread_network_code) == str(self.adapter.persistent_data['thread_dataset']):
                                         if self.DEBUG:
                                             print("save_thread_network_code: provided Thread network code is the same as the existing one")
                                         state = True
@@ -358,8 +358,8 @@ class MatterAPIHandler(APIHandler):
                                                 if self.DEBUG:
                                                     print("\nERROR, save_thread_network_code:  calling save_thread_network_code returned false")
                                         else:
-                                            self.adapter.thread_dataset = provided_thread_network_code
-                                            self.adapter.persistent_data['thread_dataset'] = provided_thread_network_code
+                                            self.adapter.thread_dataset = str(provided_thread_network_code)
+                                            self.adapter.persistent_data['thread_dataset'] = str(provided_thread_network_code)
                                             self.adapter.save_persistent_data()
                                             state = True
 

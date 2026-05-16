@@ -20,6 +20,8 @@
             this.discovered = null;
             this.nodez = null;
             
+            this.current_tab = 'overview';
+
             this.all_things = {};
             this.title_lookup_table = {};
             this.nodez = {};
@@ -209,6 +211,8 @@
 
                         if(desired_tab == '?'){desired_tab = 'tutorial';}
 
+                        this.current_tab = desired_tab;
+
                         if(this.debug){
                             console.log("matter adapter debug: desired tab: ", desired_tab);
                         }
@@ -222,7 +226,7 @@
                     });
                 };
 
-
+                this.current_tab = 'overview';
 
 
                 // Thread tab
@@ -247,7 +251,7 @@
                                 if(this.debug){
                                     console.error('matter adapter debug: error, get_thread_network_code failed');
                                 }
-                                this.flash_message("Error, could not get the Thread network code");
+                                this.flash_message("Could not get the Thread network code");
                             }
                         }
                         
@@ -266,7 +270,7 @@
                 if(copy_thread_network_code_button_el){
                     copy_thread_network_code_button_el.addEventListener('click', (event) => {
                         const current_code = this.view.querySelector('#extension-matter-adapter-thread-network-code').textContent;
-                        if(typeof current_code == 'string' && current_code.length > 30){
+                        if(typeof current_code == 'string' && current_code.length > 40){
                             try{
                                 const clipboardItem = new ClipboardItem({'text/plain': new Blob([current_code], { type: 'text/plain' }) });
                                 navigator.clipboard.write([clipboardItem]);
@@ -294,7 +298,7 @@
                     save_thread_network_code_button_el.addEventListener('click', (event) => {
 
                         let new_thread_network_code = this.view.querySelector('#extension-matter-adapter-thread-network-code-input').value;
-                        if(new_thread_network_code.length > 30){
+                        if(new_thread_network_code.length > 40){
                             save_thread_network_code_button_el.classList.add('extension-matter-adapter-hidden');
 
                             window.API.postJson(
@@ -921,32 +925,35 @@
 			
 			this.view.main_poll_interval = setInterval(() => {
 				
-				if(this.waiting_for_main_poll > 65){
-					this.waiting_for_main_poll = 0;
-				}
+                if(location.pathname == '/extensions/matter-adapter'){
+                    if(this.waiting_for_main_poll > 65){
+                        this.waiting_for_main_poll = 0;
+                    }
+                    
+                    if(this.waiting_for_main_poll == 0){
+                        window.API.postJson(
+                            `/extensions/${this.id}/api/ajax`,
+                            {'action':'get_main_poll'}
+                        ).then((body) => { 
+                            if(this.debug){
+                                //console.log("matter adapter: debug: get_main_poll: response body: ", body);
+                            }
+                            
+                            this.parse_body(body);
+                            
+                            this.waiting_for_main_poll = 0
+                        }).catch((err) => {
+                            console.error("matter-adapter: caught error calling get_main_poll: ", err);
+                            this.waiting_for_main_poll = 0
+                        });
+                    }
+                    this.waiting_for_main_poll++;
+                    
+                    if(this.wifi_restore_timestamp > 0){
+                        this.update_seconds_until_wifi_restore();
+                    }
+                }
 				
-				if(this.waiting_for_main_poll == 0){
-		            window.API.postJson(
-						`/extensions/${this.id}/api/ajax`,
-						{'action':'get_main_poll'}
-					).then((body) => { 
-						if(this.debug){
-		                    //console.log("matter adapter: debug: get_main_poll: response body: ", body);
-		                }
-						
-						this.parse_body(body);
-						
-						this.waiting_for_main_poll = 0
-					}).catch((err) => {
-						console.error("matter-adapter: caught error calling get_main_poll: ", err);
-						this.waiting_for_main_poll = 0
-					});
-				}
-				this.waiting_for_main_poll++;
-				
-				if(this.wifi_restore_timestamp > 0){
-					this.update_seconds_until_wifi_restore();
-				}
 				
 			},3000);
             
@@ -1307,6 +1314,14 @@
 						}
 					}
 					
+
+                    if(this.current_tab == 'advanced' && typeof body.last_received_server_info == 'object' && body.last_received_server_info != null){
+                        const server_info_el = this.view.querySelector('#extension-matter-adapter-extension-server-info');
+                        if(server_info_el){
+                            server_info_el.textContent = JSON.stringify(body.last_received_server_info,null,4).replaceAll('{','').replaceAll('}','').replaceAll('"','').replaceAll(',','');
+                        }
+                    }
+
 				}
 				
 				if(typeof body.wifi_restore_countdown == 'number'){
@@ -1445,13 +1460,7 @@
                     }
 				}
 				
-				if(typeof body.last_received_server_info == 'object' && body.last_received_server_info != null){
-					const server_info_el = this.view.querySelector('#extension-matter-adapter-extension-server-info');
-                    if(server_info_el){
-                        server_info_el.textContent = JSON.stringify(body.last_received_server_info,null,4);
-                    }
-				}
-				
+               
 				
 				
 				

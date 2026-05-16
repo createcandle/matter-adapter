@@ -360,6 +360,7 @@ class MatterAdapter(Adapter):
         self.lib_path = os.path.join(self.addon_path, 'lib')
         self.data_path = os.path.join(self.user_profile['dataDir'], self.addon_id)
 
+        #self.hasdata_dir_path = os.path.join(self.user_profile['baseDir'],'hasdata')
         self.hasdata_dir_path = os.path.join(self.data_path,'hasdata')
         self.hasdata_backup_dir_path = os.path.join(self.data_path,'hasdata_backup')
 
@@ -373,8 +374,7 @@ class MatterAdapter(Adapter):
             os.system('mkdir -p ' + str(self.hasdata_dir_path))
 
         self.persistence_file_path = os.path.join(self.data_path, 'persistence.json') # dataDir points to the directory where the addons are allowed to store their data (/home/pi/.webthings/data)
-        #self.hasdata_dir_path = os.path.join(self.user_profile['baseDir'],'hasdata')
-        
+
         self.chip_factory_ini_file_path = os.path.join(self.hasdata_dir_path,'chip_factory.ini')
         self.data_chip_factory_ini_file_path = os.path.join(self.data_path, 'chip_factory.ini')
         #self.credentials_dir_path = os.path.join(self.data_path, 'paa-root-certs')
@@ -453,7 +453,9 @@ class MatterAdapter(Adapter):
                 self.s_print("Could not load persistent data (if you just installed the add-on then this is normal)")
 
 
-
+        if not 'thread_dataset' in self.persistent_data:
+            self.persistent_data['thread_dataset'] = ''
+            self.should_save = True
 
         if 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'], str) and len(self.persistent_data['thread_dataset']) > 10:
             self.thread_dataset = self.persistent_data['thread_dataset']

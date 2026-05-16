@@ -321,6 +321,9 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	margin:2rem 0;
 }
 
+#extension-matter-adapter-thread-radio-serial-port:empty + #extension-matter-adapter-thread-radio-noise-container{
+	display:none;
+}
 
 
 .extension-matter-adapter-qr-video-icon{
@@ -704,10 +707,12 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 
 
 #extension-matter-adapter-copy-thread-network-code-to-clipboard-button{
-	padding:1rem;
+	padding: 0 1rem 1rem 1rem;
 	font-size:5rem;
 	opacity:.7;
 	cursor:pointer;
+	border-radius:.7rem;
+	margin-left:.5rem;
 	background-color: rgba(0, 0, 0, .5);
 }
 #extension-matter-adapter-copy-thread-network-code-to-clipboard-button:hover{
@@ -724,6 +729,18 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 #extension-matter-adapter-thread-network-code{
 	word-wrap: break-word;
 	max-width: calc(100% - 5rem);
+}
+
+
+
+
+/*  ADVANCED TAB  */
+
+#extension-matter-adapter-extension-server-info{
+	line-height:200%;
+}
+#extension-matter-adapter-extension-server-info:empty{
+	display:none;
 }
 
 

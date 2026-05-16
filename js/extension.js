@@ -842,7 +842,9 @@
 						`/extensions/${this.id}/api/ajax`,
 						{'action':'find_thread_radio_before'}
 					).then((body) => { 
-						
+						if(this.debug){
+                            console.log("matter adapter debug: find_thread_radio_before response: ", body);
+                        }
 						this.view.querySelector('#extension-matter-adapter-find-thread-radio-step2').classList.remove('extension-matter-adapter-hidden');
 						
 					}).catch((err) => {
@@ -859,8 +861,10 @@
 						`/extensions/${this.id}/api/ajax`,
 						{'action':'find_thread_radio'}
 					).then((body) => { 
-						
-						if(body.state === true){
+						if(this.debug){
+                            console.log("matter adapter debug: find_thread_radio response: ", body);
+                        }
+						if((typeof body.state == 'boolean' && body.state == true) || (typeof body.thread_radio_serial_port == 'string' && body.thread_radio_serial_port.length > 5)){
 							this.view.querySelector('#extension-matter-adapter-find-thread-radio-step1').classList.add('extension-matter-adapter-hidden');
 							this.view.querySelector('#extension-matter-adapter-find-thread-radio-step2').classList.add('extension-matter-adapter-hidden');
 							this.view.querySelector('#extension-matter-adapter-find-thread-radio-success').classList.remove('extension-matter-adapter-hidden');

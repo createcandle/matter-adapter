@@ -286,12 +286,18 @@ class MatterAPIHandler(APIHandler):
                     
                     
                     elif action == 'find_thread_radio_before':
-                        state = False
+                        state = True
                         if os.path.isdir('/dev/serial/by-id'):
                             self.adapter.serial_before = str(run_command('ls /dev/serial/by-id'))
-                            state = True
+                            #state = True
                         else:
                             self.adapter.serial_before = ''
+                        if self.DEBUG:
+                            print("find_thread_radio_before: self.adapter.serial_before: ", self.adapter.serial_before)
+                            if self.adapter.persistent_data['thread_radio_serial_port'] != None:
+                                print("find_thread_radio_before: WARNING, setting persistent_data['thread_radio_serial_port'] to None from: ", self.adapter.persistent_data['thread_radio_serial_port'])
+                        self.adapter.persistent_data['thread_radio_serial_port'] = None
+
                         return APIResponse(
                           status=200,
                           content_type='application/json',
@@ -304,7 +310,7 @@ class MatterAPIHandler(APIHandler):
                         return APIResponse(
                           status=200,
                           content_type='application/json',
-                          content=json.dumps({'state':self.adapter.found_new_thread_radio}),
+                          content=json.dumps({'state':self.adapter.found_new_thread_radio,'thread_radio_serial_port':self.adapter.persistent_data['thread_radio_serial_port']}),
                         )
 
 

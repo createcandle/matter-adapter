@@ -816,10 +816,7 @@ class MatterAdapter(Adapter):
                 self.matter_server_type = str(config["Matter server type"])
                 if self.DEBUG:
                     self.s_print("Matter server type preference was in settings: " + str(self.matter_server_type))
-
-            
-
-
+        
         except Exception as ex:
             self.s_print("caught error in add_from_config: " + str(ex))
 
@@ -871,7 +868,7 @@ class MatterAdapter(Adapter):
         if os.path.isdir('/dev/serial/by-id'):
             serial_by_id_output = run_command('ls /dev/serial/by-id')
             if self.DEBUG:
-                print("find_thread_radio:  serial_by_id_output: ", serial_by_id_output)
+                print("debug: find_thread_radio:  serial_by_id_output: ", serial_by_id_output)
             if isinstance(serial_by_id_output,str) and len(str(serial_by_id_output)) > 5:
 
                 if 'No such file or directory' in str(serial_by_id_output):
@@ -889,6 +886,7 @@ class MatterAdapter(Adapter):
                             if self.DEBUG:
                                 self.s_print("find_thread_radio: found a new thread radio line: " + str(line))
                             found_new_thread_radio = True
+                            self.found_new_thread_radio = True
                             self.serial_before = ''
                             self.should_save = True
                             break
@@ -901,6 +899,7 @@ class MatterAdapter(Adapter):
                                     if self.DEBUG:
                                         self.s_print("Found the thread radio again")
                                 found_thread_radio_again = True
+                                self.found_thread_radio_again = True
                                 break
 
                     # TODO: this should be removed, since the SkyConnect could also have zigbee firmware. Maybe leave it, but only run it if there is no zigbee2mqtt addon installed
@@ -922,6 +921,8 @@ class MatterAdapter(Adapter):
         self.found_new_thread_radio = found_new_thread_radio
 
         if self.found_thread_radio_again or self.found_new_thread_radio:
+            if self.DEBUG:
+                print("find_thread_radio: OK, a radio has been found.  self.found_new_thread_radio,self.found_thread_radio_again: ", self.found_new_thread_radio, self.found_thread_radio_again)
             self.found_a_thread_radio_once = True
             if self.otbr_started == False and self.otbr_starting_timestamp == None:
                 if self.DEBUG:
@@ -932,7 +933,12 @@ class MatterAdapter(Adapter):
             #if self.DEBUG:
             #    self.s_print("\nNO THREAD RADIO FOUND\n")
             if self.found_a_thread_radio_once:
+                if self.DEBUG:
+                    if self.thread_radio_went_missing == False:
+                        print("find_thread_radio: setting self.thread_radio_went_missing to True")
                 self.thread_radio_went_missing = True
+                
+                    
 
         return (self.found_thread_radio_again or self.found_new_thread_radio)
 

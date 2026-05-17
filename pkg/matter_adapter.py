@@ -1978,6 +1978,8 @@ class MatterAdapter(Adapter):
                         self.pairing_phase_message = 'Pairing completed succesfully'
                         self.get_nodes(True) # True = force
 
+                       # matter_device.py adds it to self.persistent_data['pairing_codes']
+
                     elif message['message_id'] == 'start_listening':
                         if self.DEBUG:
                             self.s_print("OK LISTENING")

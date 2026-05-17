@@ -615,7 +615,6 @@ class MatterDevice(Device):
 
 
                 if isinstance(self.my_pairing_code,str) and \
-                  self.my_pairing_code.startswith('MT:') and \
                   self.my_pairing_code not in self.adapter.persistent_data['pairing_codes'] and \
                   'vendor_name' in self.adapter.persistent_data['nodez'][device_id] and \
                   'product_name' in self.adapter.persistent_data['nodez'][device_id] and \

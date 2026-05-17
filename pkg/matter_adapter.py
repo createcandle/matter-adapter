@@ -265,7 +265,7 @@ class MatterAdapter(Adapter):
         self.turn_wifi_back_on_at = 0
         self.extension_cable_recommended = False
         self.last_time_otbr_restarted = 0
-        self.serial_before = '' # used to detect newly plugged in USB sticks by comparing before and after of lsusb
+        self.serial_before = None # used to detect newly plugged in USB sticks by comparing before and after of lsusb
         self.last_received_server_info = None
         self.noise_counter = 0
         self.previous_noise_counter = 0 # used to count noise per time unit
@@ -652,7 +652,7 @@ class MatterAdapter(Adapter):
 
 
 
-    def  start_servers(self):
+    def start_servers(self):
         if self.running:
             # Download the latest Matter certificates
             #self.download_certs()
@@ -887,7 +887,7 @@ class MatterAdapter(Adapter):
                                 self.s_print("find_thread_radio: found a new thread radio line: " + str(line))
                             found_new_thread_radio = True
                             self.found_new_thread_radio = True
-                            self.serial_before = ''
+                            self.serial_before = None
                             self.should_save = True
                             break
 
@@ -916,6 +916,9 @@ class MatterAdapter(Adapter):
                                 found_new_thread_radio = True
                                 break
                     """
+        else:
+            if self.DEBUG:
+                self.s_print("find_thread_radio:  /dev/serial/by-id is not a directory - no serial devices")
 
         self.found_thread_radio_again = found_thread_radio_again
         self.found_new_thread_radio = found_new_thread_radio
@@ -1968,7 +1971,7 @@ class MatterAdapter(Adapter):
                     if message['message_id'] == "commission_with_code":
                         if self.DEBUG:
                             self.s_print("OK! Device was paired! result: ", message['result'])
-                        self.discovered = message['result']
+                        #self.discovered = message['result']
                         self.busy_discovering = False
                         self.busy_pairing = False
                         self.pairing_phase = 100
@@ -2250,7 +2253,8 @@ class MatterAdapter(Adapter):
 
                 message = {
                         "message_id": "discover",
-                        "command": "discover"
+                        "command": "discover",
+                        "args":{}
                       }
 
                 json_message = json.dumps(message)
@@ -2259,7 +2263,7 @@ class MatterAdapter(Adapter):
                 return True
 
         except Exception as ex:
-            self.s_print("Error in discover: " + str(ex))
+            self.s_print("caught error in discover: " + str(ex))
 
         return False
 
@@ -2389,7 +2393,7 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     self.s_print("Cannot set thread dataset, client is not connected to Matter server")
 
-            elif isinstance(self.thread_dataset,str) and len(self.thread_dataset) > 10:
+            elif isinstance(self.thread_dataset,str) and len(self.thread_dataset) > 40:
                 if self.DEBUG:
                     self.s_print("Sharing thread dataset with Matter server")
 

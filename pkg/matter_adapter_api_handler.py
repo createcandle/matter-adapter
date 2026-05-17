@@ -273,6 +273,8 @@ class MatterAPIHandler(APIHandler):
                         
                         try:
                             state = self.adapter.discover()
+                            if state == True:
+                                time.sleep(5)
                         except Exception as ex:
                             if self.DEBUG:
                                 print("Error in discover request: " + str(ex))
@@ -281,7 +283,11 @@ class MatterAPIHandler(APIHandler):
                         return APIResponse(
                           status=200,
                           content_type='application/json',
-                          content=json.dumps({'state':state}),
+                          content=json.dumps({
+                            'state':state,
+                            'discovering':self.adapter.busy_discovering,
+                            'discovered':self.adapter.discovered
+                          })
                         )
                     
                     
@@ -373,6 +379,7 @@ class MatterAPIHandler(APIHandler):
                                             self.adapter.last_time_otbr_restarted = 0
                                             self.adapter.should_start_otbr = True
                                             self.adapter.otbr_starting_timestamp = None
+                                            self.adapter.set_thread_dataset()
 
 
                         except Exception as ex:

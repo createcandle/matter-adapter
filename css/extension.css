@@ -679,16 +679,10 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 
 
 
-/*  DISCOVERING  */
+
 
 
 /*
-.extension-matter-adapter-busy-discovering #extension-matter-adapter-discover-button{
-    display:none;
-}
-
-
-
 .extension-matter-adapter-busy-pairing .extension-matter-adapter-pairing-button{
     display:none;
 }
@@ -750,6 +744,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 
 
 /*  PAIRING  */
+
 
 #extension-matter-adapter-pairing-network-question-container{
 	display:none
@@ -1422,11 +1417,18 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 
 
 
+/*  DISCOVERING  */
 
+#extension-matter-adapter-discovered-devices-list{
+	min-height:10rem;
+}
 
+#extension-matter-adapter-content-container.extension-matter-adapter-busy-discovering #extension-matter-adapter-discover-button,
+#extension-matter-adapter-content-container:not(.extension-matter-adapter-busy-discovering) #extension-matter-adapter-discovered-devices-list:empty{
+	display:none;
+}
 
-
-
+#extension-matter-adapter-content-container.extension-matter-adapter-busy-discovering #extension-matter-adapter-discovered-devices-list,
 .extension-matter-adapter-busy-pairing #extension-matter-adapter-show-second-page-button{
     background:transparent;
     background-size: 300% 300%!important;

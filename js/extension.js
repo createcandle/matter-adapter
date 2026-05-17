@@ -17,6 +17,7 @@
                 this.kiosk = true;
             }
         
+            this.busy_discovering = false;
             this.discovered = null;
             this.nodez = null;
             
@@ -28,7 +29,7 @@
             this.initial_nodez_count = 0;
             this.updating_firmware = false;
             
-            this.busy_discovering = false;
+            
             this.busy_pairing = false;
 			//this.busy_polling = false;
             this.busy_polling_counter = 0;
@@ -154,11 +155,11 @@
                 }
                 
                 // Discover button
-                /*
+                
                 document.getElementById('extension-matter-adapter-discover-button').addEventListener('click', (event) => {
                 	console.log("discover button clicked");
-                    document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-busy-discovering');
-                    document.getElementById('extension-matter-adapter-discovered-devices-list').innerHTML = '<div class="extension-matter-adapter-spinner"><div></div><div></div><div></div><div></div></div>';
+                    document.getElementById('extension-matter-adapter-content-container').classList.add('extension-matter-adapter-busy-discovering');
+                    //document.getElementById('extension-matter-adapter-discovered-devices-list').innerHTML = '<div class="extension-matter-adapter-spinner"><div></div><div></div><div></div><div></div></div>';
                     
     				window.API.postJson(
     					`/extensions/${this.id}/api/ajax`,
@@ -178,7 +179,7 @@
     				});
             
                 });
-                */
+                
                 
                 // Title easter egg
 				const title_el = this.view.querySelector('#extension-matter-adapter-title');
@@ -1326,6 +1327,17 @@
                         }
                     }
 
+
+                    if(typeof body.busy_discovering == 'boolean'){
+	                    this.busy_discovering = body.busy_discovering;
+                        if(this.busy_discovering){
+                            this.view.querySelector('#extension-matter-adapter-content-container').classList.add('extension-matter-adapter-busy-discovering');
+                        }
+                        else{
+                            this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-busy-discovering');
+                        }
+	                }
+
 				}
 				
 				if(typeof body.wifi_restore_countdown == 'number'){
@@ -1630,20 +1642,32 @@
 	                }
 					
                 
-	                /*
-	                if(typeof body.busy_discovering != 'undefined'){
-	                    this.busy_discovering = body.busy_discovering;
-	                    if(this.busy_discovering){
-	                        document.getElementById('extension-matter-adapter-second-page').classList.add('extension-matter-adapter-busy-discovering');
-	                    }
-	                    else{
-	                        document.getElementById('extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-discovering');
-	                    }
+                    if(typeof body.discovered != 'undefined'){
+                        try{
+                            if(this.debug){
+                                console.log("matter adapter debug: poll: body.discovered: ", body.discovered);
+                            }
+                        }
+                        catch(err){
+                            console.error("matter adapter: poll: caught error handling body.discovered: ", err);
+                        }
 	                }
-	                */
+
 					if(!this.second_page_el){
 						this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
 					}
+
+                    if(typeof body.busy_discovering == 'boolean'){
+	                    this.busy_discovering = body.busy_discovering;
+                        if(this.second_page_el){
+                            if(this.busy_discovering){
+                                this.view.querySelector('#extension-matter-adapter-content-container').classList.add('extension-matter-adapter-busy-discovering');
+                            }
+                            else{
+                                this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-busy-discovering');
+                            }
+                        }
+	                }
 					
 	                if(typeof body.busy_pairing == 'boolean'){
 						if(body.busy_pairing != this.busy_pairing){

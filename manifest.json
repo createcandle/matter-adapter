@@ -31,7 +31,7 @@
 	  "Days between updating certificates":14,
       "Do not use Hotspot as WiFi network for devices": false,
       "Vendor ID":"",
-	  "Thread channel":15,
+	  "Thread channel":26,
 	  "Matter server type":"Python",
 	  "Enable Matter server dashboard": false,
       "Debugging": false

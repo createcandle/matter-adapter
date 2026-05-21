@@ -3034,6 +3034,8 @@ class MatterAdapter(Adapter):
                                 self.pairing_phase = -1
                                 self.pairing_phase_message = 'Interviewing the Matter device failed'
                         if 'Commission with code failed for node' in line:
+                            if self.DEBUG:
+                                print("\nPairing attempt: ", self.pairing_attempt, " failed:\n", line,"\n")
                             if self.pairing_attempt < 5:
                                 if self.DEBUG:
                                     self.s_print("Pairing failed, but will try again")
@@ -3044,7 +3046,7 @@ class MatterAdapter(Adapter):
                                 self.pairing_failed = True
                                 self.busy_pairing = False
                                 self.send_pairing_prompt("Interviewing Matter device officially failed")
-                                self.pairing_phase_message = 'Pairing failed'
+                                self.pairing_phase_message = 'Pairing attempts failed'
                                 self.pairing_phase = -1
                         if 'Established secure session with Device' in line:
                             self.send_pairing_prompt("Connected to new device...")

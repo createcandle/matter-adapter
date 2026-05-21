@@ -119,7 +119,9 @@ class MatterAPIHandler(APIHandler):
                                       'client_connected': self.adapter.client_connected,
                                       #'nodes': self.adapter.nodes,
                                       'nodez': self.adapter.persistent_data['nodez'],
-                                      'disable_matter_dashboard':self.adapter.disable_matter_dashboard
+                                      'disable_matter_dashboard':self.adapter.disable_matter_dashboard,
+                                      'thread_channel':self.adapter.thread_channel,
+                                      'matter_collision_detected':self.adapter.matter_collision_detected
                                       }),
                         )
                         
@@ -147,6 +149,9 @@ class MatterAPIHandler(APIHandler):
                             if self.DEBUG:
                                 print("API: debug: get_main_poll:  wifi_restore_countdown: ", wifi_restore_countdown)
                         
+                        last_update_check_seconds_ago = int(time.time()) - self.adapter.last_matter_update_check_timestamp
+                        last_update_check_response_seconds_ago = int(time.time()) - self.adapter.last_matter_update_check_response_timestamp
+
                         return APIResponse(
                           status=200,
                           content_type='application/json',
@@ -167,6 +172,7 @@ class MatterAPIHandler(APIHandler):
                                       'otbr_started': self.adapter.otbr_started,
                                       'thread_running': self.adapter.thread_running,
                                       'thread_error': self.adapter.thread_error,
+                                      'thread_channel':self.adapter.thread_channel,
                                       'last_found_pairing_code': self.adapter.last_found_pairing_code,
                                       'client_connected': self.adapter.client_connected,
                                       'wifi_congestion_data': self.adapter.wifi_congestion_data,
@@ -180,8 +186,11 @@ class MatterAPIHandler(APIHandler):
                                       'noise_delta':self.adapter.noise_delta,
                                       'thread_diagnostics':self.adapter.thread_diagnostics,
                                       'thread_radio_serial_port': self.adapter.persistent_data['thread_radio_serial_port'],
-                                      'old_pairing_codes_count':len(self.adapter.persistent_data['pairing_codes'].keys())
-                                      }),
+                                      'old_pairing_codes_count':len(self.adapter.persistent_data['pairing_codes'].keys()),
+                                      'last_update_check_seconds_ago':last_update_check_seconds_ago,
+                                      'last_update_check_response_seconds_ago':last_update_check_response_seconds_ago,
+                                      'matter_collision_detected':self.adapter.matter_collision_detected
+                                      })
                         )
                     
                         
@@ -262,6 +271,28 @@ class MatterAPIHandler(APIHandler):
                         )
                         
                         
+                    elif action == 'check_for_updates':
+                        state = False
+                        try:
+                            if self.adapter.client_connected and (self.adapter.last_matter_update_check_timestamp < time.time() - 300 or (self.DEBUG and self.adapter.last_matter_update_check_timestamp < time.time() - 10)):
+                                self.adapter.last_matter_update_check_timestamp = int(time.time())
+                                self.adapter.check_for_node_updates()
+                                state = True
+                        except Exception as ex:
+                            print("caught error handling check_for_updates request: ", ex)
+                        
+
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({
+                            'state':state
+                          }),
+                        )
+
+
+
+
                     # DISCOVER
                     # does a scan for pairable devices. Currently not used.
                     elif action == 'discover':

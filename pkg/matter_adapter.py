@@ -44,6 +44,7 @@ import time
 #import threading
 import subprocess
 
+
 # This loads the parts of the addon.
 from gateway_addon import Database, Adapter, Device, Property
 # Database - needed to read from the settings database. If your addon doesn't have any settings, then you don't need this.
@@ -52,12 +53,16 @@ from .matter_device import MatterDevice
 #from .matter_util import process_node, uncamel, humanize, humanize_cluster_id, get_enums_lookup, get_commands_for_cluster_id, clusters_to_ignore
 from .matter_util import *
 
+
+
 try:
     from .matter_adapter_api_handler import *
 except Exception as ex:
     print("Error, unable to load MatterAdapterApiHandler (which is used for UI extention): " + str(ex))
 
 import traceback
+
+
 
 
 # Not sure what this is used for, but leave it in.
@@ -128,6 +133,7 @@ import traceback
 logging.basicConfig(level=logging.DEBUG)
 _LOGGER = logging.getLogger(__name__)
 
+
 DEFAULT_VENDOR_ID = 0xFFF1
 DEFAULT_FABRIC_ID = 1
 DEFAULT_PORT = 5580
@@ -165,8 +171,12 @@ class MatterAdapter(Adapter):
         Adapter.__init__(self, self.addon_id, self.addon_id, verbose=verbose)
 
 
+        self.boot_path = '/boot'
+        if os.path.isdir('/boot/firmware'):
+            self.boot_path = '/boot/firmware'
 
-        print(run_command('printenv'))
+        
+        #print(run_command('printenv'))
 
         self.s_print_lock = Lock()
 
@@ -194,6 +204,7 @@ class MatterAdapter(Adapter):
         self.server = None
         self.server_process = None
         self.matter_server_type = 'Python'
+        self.matter_collision_detected = False
         #self.client = None
         #self.unsubscribe = None
 
@@ -285,6 +296,8 @@ class MatterAdapter(Adapter):
         self.last_time_sync_time = time.time() #int(str(run_command('date +%s')).strip().rstrip())
         self.timezone_name = str(run_command('date +%Z')).strip().rstrip()
 
+        self.last_matter_update_check_timestamp = 0
+        self.last_matter_update_check_response_timestamp = 0
 
         #print("self.user_profile: ", self.user_profile)
         #print("")
@@ -304,6 +317,7 @@ class MatterAdapter(Adapter):
         self.wifi_ssid = ""
         self.wifi_password = ""
         self.wifi_set = False
+        self.wifi_restored_early = False # Test to see if WiFi really remains down for the intended duration
 
         self.wifi_congestion_data = {}
 
@@ -315,6 +329,8 @@ class MatterAdapter(Adapter):
         # prefered for thread support:
         #os.system('sudo sysctl -w net.ipv6.conf.wlan0.accept_ra=1')
         #os.system('sudo sysctl -w net.ipv6.conf.wlan0.accept_ra_rt_info_max_plen=64')
+
+
 
         """
         #self.candle_wifi_ssid = ""
@@ -384,6 +400,7 @@ class MatterAdapter(Adapter):
         #self.matter_serverjs_start_path = os.path.join(self.matter_server_base_path,'node_modules','matter-server','dist','esm','MatterServer.js')
         self.matter_serverjs_start_path = os.path.join(self.addon_path,'node_modules','matter-server','dist','esm','MatterServer.js')
 
+        self.candle_hotspot_block_ip6_internet_path = os.path.join(self.boot_path, 'candle_hotspot_block_ip6_internet.txt')
 
 
         self.otbr_agent_path = os.path.join(self.addon_path,'thread','otbr-agent')
@@ -656,6 +673,12 @@ class MatterAdapter(Adapter):
         if self.running:
             # Download the latest Matter certificates
             #self.download_certs()
+
+            os.system('sudo sysctl "net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1"')
+            os.system('sudo sysctl "net.ipv6.conf.all.accept_ra=2 net.ipv6.conf.all.accept_ra_rt_info_max_plen=64"')
+            os.system('sudo sysctl -w net.ipv6.conf.wlan0.accept_ra=2 net.ipv6.conf.wlan0.accept_ra_rt_info_max_plen=64')
+            os.system('sudo sysctl -w net.ipv6.conf.wlan1.accept_ra=2 net.ipv6.conf.wlan1.accept_ra_rt_info_max_plen=64')
+            os.system('sudo sysctl -w net.ipv6.conf.uap0.accept_ra=2 net.ipv6.conf.uap0.accept_ra_rt_info_max_plen=64')
 
 
             # If a radio is found, then it also starts OTBR
@@ -1042,11 +1065,20 @@ class MatterAdapter(Adapter):
                 net.ipv6.conf.eno1.accept_ra=2
                 net.ipv6.conf.wpan0.accept_ra=2
                 """
-                os.system('sudo sysctl "net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1 net.ipv6.conf.all.accept_ra=2 net.ipv6.conf.all.accept_ra_rt_info_max_plen=64 net.ipv6.conf.uap0.accept_ra=2 net.ipv6.conf.wpan0.accept_ra=2"')
 
-                os.system('sudo sysctl -w net.ipv6.conf.wlan0.accept_ra=2')
-                os.system('sudo sysctl -w net.ipv6.conf.uap0.accept_ra=2')
-                os.system('sudo sysctl -w net.ipv6.conf.eth0.accept_ra=2')
+                self.hotspot_ip6_blocked = False
+                # TODO: this clashes with the 'block ip6 internet' option for the hotspot..
+                if os.path.isfile(self.candle_hotspot_block_ip6_internet_path):
+                    self.hotspot_ip6_blocked = True
+                #else:
+                #    os.system('sudo sysctl "net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1"')
+                
+
+                
+                # net.ipv6.conf.uap0.accept_ra=2 net.ipv6.conf.wpan0.accept_ra=2 net.ipv6.conf.wlan1.accept_ra=2
+
+                os.system('sudo sysctl -w net.ipv6.conf.wpan0.accept_ra=2 net.ipv6.conf.wpan0.accept_ra_rt_info_max_plen=64')
+                #os.system('sudo sysctl -w net.ipv6.conf.eth0.accept_ra=2')
 
                 # ,"--vendor-name","CandleSmartHome","--model-name","CandleController", # unrecognized option '--vendor-name'
                 agent_command_array = ["sudo",str(self.otbr_agent_path),"--data-path",str(self.data_thread_dir_path),"--syslog-disable","--debug-level","7","--thread-ifname","wpan0","-B", str(self.thread_backbone_interface), str(self.thread_radio_url)]
@@ -1164,7 +1196,11 @@ class MatterAdapter(Adapter):
             self.s_print("\nclock: total otbr_stdout_messages length: ", len(self.otbr_stdout_messages))
 
         wpan_check = str(run_command('ip link show | grep wpan0'))
-        if 'state ' in wpan_check:
+        if 'state' in wpan_check:
+            if self.otbr_started == False:
+                if self.DEBUG:
+                    print("wpan0 state - OTBR has started succesfully")
+                os.system('sudo sysctl -w net.ipv6.conf.wpan0.accept_ra=2')
             self.otbr_started = True
 
         if 'state DOWN' in wpan_check:
@@ -1210,7 +1246,7 @@ class MatterAdapter(Adapter):
 
             elif 'Wait for response timeout' in otbr_message:
                 if self.DEBUG:
-                    self.s_print("\nWARNING, otbr got timeout - usb stick not responding?")
+                    self.s_print("\nWARNING, otbr got timeout - usb stick or device not responding?")
 
 
 
@@ -1540,15 +1576,29 @@ class MatterAdapter(Adapter):
                             if str(self.run_ot_ctl_command('dataset panid ' + str(panid))).rstrip() == 'Done': #0xdead
                                 if str(self.run_ot_ctl_command('dataset extpanid ' + str(extpanid))).rstrip() == 'Done': # dead1111dead2222
                                     if str(self.run_ot_ctl_command('dataset networkname CandleThread')).rstrip() == 'Done':
-                                        if str(self.run_ot_ctl_command('dataset networkkey ' + str(networkkey))).rstrip() == 'Done': #11112233445566778899DEAD1111DEAD
-                                            #if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
-                                            #    if self.DEBUG:
-                                            #        self.s_print("channel set")
-                                            if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
+                                        
+                                        if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
+                                            
+                                            if str(self.run_ot_ctl_command('dataset networkkey ' + str(networkkey))).rstrip() == 'Done': #11112233445566778899DEAD1111DEAD
+                                                #if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
+                                                #    if self.DEBUG:
+                                                #        self.s_print("channel set")
+                                                if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
+                                                    if self.DEBUG:
+                                                        self.s_print("start_thread_mesh: OK, called dataset commit active on brand new thread dataset")
+                                                    dataset_loaded = True
+                                                else:
+                                                    if self.DEBUG:
+                                                        self.s_print("start_thread_mesh: failed to set dataset to active")
+                                            else:
                                                 if self.DEBUG:
-                                                    self.s_print("start_thread_mesh: OK, called dataset commit active on brand new thread dataset")
-                                                dataset_loaded = True
-
+                                                    self.s_print("start_thread_mesh: failed to set networkkey")
+                                        else:
+                                            if self.DEBUG:
+                                                self.s_print("start_thread_mesh: failed to set channel")
+                                    else:
+                                        if self.DEBUG:
+                                            self.s_print("start_thread_mesh: failed to set networkname to CandleThread")
 
 
             if dataset_loaded:
@@ -1975,7 +2025,7 @@ class MatterAdapter(Adapter):
                         self.busy_discovering = False
                         self.busy_pairing = False
                         self.pairing_phase = 100
-                        self.pairing_phase_message = 'Pairing completed succesfully'
+                        self.pairing_phase_message = 'Pairing completed successfuly'
                         self.get_nodes(True) # True = force
 
                        # matter_device.py adds it to self.persistent_data['pairing_codes']
@@ -1996,43 +2046,50 @@ class MatterAdapter(Adapter):
 
                     elif message['message_id'] == 'commission_with_code':
                         if self.DEBUG:
-                            self.s_print("\n\nNew device paired succesfully\n\n")
-                        self.send_pairing_prompt("New device paired succesfully")
+                            self.s_print("\n\nNew device paired successfuly\n\n")
+                        self.send_pairing_prompt("New device paired successfuly")
                         self.get_nodes()
 
                     elif message['message_id'] == 'node_added':
                         if self.DEBUG:
-                            self.s_print("\n\nNew device paired succesfully\n\n")
+                            self.s_print("\n\nNew device paired successfuly\n\n")
 
                     elif message['message_id'] == 'get_nodes':
                         if 'result' in message:
                             if self.DEBUG:
-                                self.s_print("\n\nGET NODES succesfull\n\n")
+                                self.s_print("\n\nGET NODES successful\n\n")
                             self.nodes = message['result']
                             self.parse_nodes()
                             self.ready = True # the addon should now have recreated the things
 
                     elif message['message_id'].startswith('get_node_'):
                         if self.DEBUG:
-                            self.s_print("\n\nGET NODE succesfull\n\n")
+                            self.s_print("\n\nGET NODE successful\n\n")
                         device_info = message['result']
                         if self.DEBUG:
                             self.s_print("DEVICE INFO: " + str(json.dumps(device_info)))
 
                     elif message['message_id'] == 'remove_node':
                         if self.DEBUG:
-                            self.s_print("\n\nremove_node was succesfull\n\n")
+                            self.s_print("\n\nremove_node was successful\n\n")
                         self.device_was_deleted = True
                         #self.nodes = message['result']
                         #self.parse_nodes()
                         self.get_nodes()
+
+                    elif message['message_id'] == 'check_node_update':
+                        if self.DEBUG:
+                            self.s_print("\n\nreceived successful check_node_update information\n\n")
+                            self.s_print("successful check_node_update message: ", message)
+                        self.last_matter_update_check_response_timestamp = int(time.time())
+
 
                     elif message['message_id'] == 'open_commissioning_window' or message['message_id'] == 'commission_on_network':
 
                         if 'result' in message and isinstance(message['result'],str):
                             self.share_node_code = message['result']
                             if self.DEBUG:
-                                self.s_print("\n\nopen_commissioning_window or commission_on_network was succesfull?  self.share_node_code: ", self.share_node_code, "\n\n")
+                                self.s_print("\n\nopen_commissioning_window or commission_on_network was successful?  self.share_node_code: ", self.share_node_code, "\n\n")
 
 
                     # Handle event messages
@@ -2073,6 +2130,12 @@ class MatterAdapter(Adapter):
                     elif message['message_id'] == 'timesync_command':
                         if self.DEBUG:
                             self.s_print("timesync_command failed: ", message)
+
+                    elif message['message_id'] == 'check_node_update':
+                        if self.DEBUG:
+                            self.s_print("\n\nchecking node firmware update apparently failed\n\n")
+                            self.s_print("failed check_node_update message: ", message)
+                        self.last_matter_update_check_response_timestamp = int(time.time())
 
                     else:
                         if self.DEBUG:
@@ -2520,7 +2583,7 @@ class MatterAdapter(Adapter):
 
             is_thread_device = False
 
-            if self.wireless_type == 'thread' and self.pairing_attempt < 5:
+            if self.wireless_type == 'thread' and self.pairing_attempt < 4:
                 is_thread_device = True
             elif self.wireless_type == 'unknown' and self.pairing_attempt == 4:
                 is_thread_device = True
@@ -2551,7 +2614,7 @@ class MatterAdapter(Adapter):
                             self.s_print('start_matter_pairing:  discriminator: -->' + str(discriminator) + '<--', len(discriminator))
                             self.s_print('start_matter_pairing:  passcode: -->' + str(passcode) + '<--', len(passcode))
 
-                        if len(discriminator) == 4 and len(passcode) == 8:
+                        if len(discriminator) > 0 and len(passcode) >= 8:
 
                             self.pairing_phase = 6
                             self.turn_wifi_back_on_at = time.time() + 55
@@ -2709,7 +2772,7 @@ class MatterAdapter(Adapter):
                         json_message = json.dumps(message)
                         self.ws.send(json_message)
                         self.pairing_phase = 20
-                        self.pairing_phase_message = 'Pairing in progress'
+                        self.pairing_phase_message = 'Attempting to pair'
                         return True
 
                 else:
@@ -2923,40 +2986,46 @@ class MatterAdapter(Adapter):
                         line = line.decode()
                         if self.DEBUG:
                             self.s_print("CAPTURED STDERR: " + str(line.rstrip()))
-
+                        if 'Device discriminator does not match' in line:
+                            if self.DEBUG:
+                                self.s_print("\n\nERROR: pairing: Device discriminator does not match\n\n")
+                            self.pairing_failed = True
+                            self.busy_pairing = False
+                            self.pairing_phase_message = 'Device discriminator does not match. Are you pairing two devices simultaneously?'
+                            self.pairing_phase = -1
                         if 'collides with an existing FabricAdmin instance' in line:
                             if self.DEBUG:
                                 self.s_print("\n\nERROR: matter server fabric config issue\n\n")
-                            #TODO: Is this a good idea?
-                            self.reset_matter()
-
+                            self.matter_collision_detected = True
                         if 'address already in use' in line:
                             if self.DEBUG:
                                 self.s_print("\n\nERROR: matter server running twice?\n\n")
                             self.pairing_failed = True
                             self.busy_pairing = False
-                            self.pairing_phase_message = 'Matter server is running twice?'
+                            self.pairing_phase_message = 'Matter server is running twice??'
                             self.pairing_phase = -1
-
                         #if 'Traceback' in line:
                         #    self.pairing_failed = True
                         #    self.busy_pairing = False
                         #    self.send_pairing_prompt("Error, Matter server crashed")
                         #    self.pairing_phase_message = 'Matter crashed!'
                         #    self.pairing_phase = -1
-                        if 'over BLE failed' in line:
+                        if 'Commissionable node discovery over BLE failed' in line: # Commissionable node discovery over BLE failed
                             self.pairing_failed = True
                             self.busy_pairing = False
                             self.send_pairing_prompt("Bluetooth commissioning failed")
-                            self.pairing_phase_message = 'Bluetooth connection to Matter device could not be established'
+                            self.pairing_phase_message = 'Bluetooth scan did not find the device'
                             self.pairing_phase = -1
-
+                        elif 'over BLE failed' in line: # Commissionable node discovery over BLE failed
+                            self.pairing_failed = True
+                            self.busy_pairing = False
+                            self.send_pairing_prompt("Bluetooth commissioning failed")
+                            self.pairing_phase_message = 'Bluetooth connection could not be established'
+                            self.pairing_phase = -1
                         if 'Found unconnected device, removing' in line:
                             self.pairing_phase_message = 'Removing unconnected device, likely from a previous failed pairing attempt'
-
                         if "Error on commissioning step 'WiFiNetworkEnable'" in line:
                             self.pairing_phase_message = 'Pairing failed because the WiFi network could not be enabled'
-
                         if 'error.NodeInterviewFailed' in line:
                             if self.busy_pairing:
                                 self.pairing_failed = True
@@ -2977,8 +3046,6 @@ class MatterAdapter(Adapter):
                                 self.send_pairing_prompt("Interviewing Matter device officially failed")
                                 self.pairing_phase_message = 'Pairing failed'
                                 self.pairing_phase = -1
-
-
                         if 'Established secure session with Device' in line:
                             self.send_pairing_prompt("Connected to new device...")
                             self.pairing_phase_message = 'Secure connection to Matter device established'
@@ -3746,6 +3813,43 @@ class MatterAdapter(Adapter):
                 },
 
         """
+
+    #last_update_check
+    def check_for_node_updates(self):
+        if self.DEBUG:
+            self.s_print("in check_for_node_updates")
+
+        
+        try:
+            
+            if self.client_connected and 'nodez' in self.persistent_data:
+                for matter_id in self.persistent_data['nodez']:
+                    if 'node_id' in self.persistent_data['nodez'][str(matter_id)] and isinstance(self.persistent_data['nodez'][str(matter_id)]['node_id'],int):
+
+                        message = {
+                                    "message_id": "check_node_update",
+                                    "command": "check_node_update",
+                                    "args": {
+                                        "node_id": self.persistent_data['nodez'][str(matter_id)]['node_id']
+                                    }
+                                }
+
+                        if self.DEBUG:
+                            self.s_print("\ncheck_for_node_updates: sending message to Matter.server: \n", json.dumps(message,indent=4))
+
+                        json_message = json.dumps(message)
+                        self.ws.send(json_message)
+                        time.sleep(2)
+                    else:
+                        if self.DEBUG:
+                            self.s_print("\nERROR: check_for_node_updates: invalid node_id for matter_id: ", matter_id)
+                
+        except Exception as ex:
+            print("caught error in check_for_node_updates: ", ex)
+        
+        
+
+
 
 
     # Reset Matter

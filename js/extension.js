@@ -155,9 +155,9 @@
                 }
                 
                 // Discover button
-                
-                document.getElementById('extension-matter-adapter-discover-button').addEventListener('click', (event) => {
-                	console.log("discover button clicked");
+                // Only visible for developers.
+                this.view.querySelector('#extension-matter-adapter-discover-button').addEventListener('click', () => {
+                	//console.log("matter-adapter: discover button clicked");
                     document.getElementById('extension-matter-adapter-content-container').classList.add('extension-matter-adapter-busy-discovering');
                     //document.getElementById('extension-matter-adapter-discovered-devices-list').innerHTML = '<div class="extension-matter-adapter-spinner"><div></div><div></div><div></div><div></div></div>';
                     
@@ -166,20 +166,61 @@
     					{'action':'discover'}
                     
     				).then((body) => {
-                        console.log("discover response: ", body);
+                        //console.log("discover response: ", body);
                         if(body.state == true){
-                            console.log("discover response was OK");
+                            console.log("matter-adapter: discover response was OK");
                         }
                         else{
-                            console.log("discover failed?");
+                            console.log("matter-adapter: discover failed?");
                         }
                     
-    				}).catch((e) => {
-    					console.log("matter-adapter: connnection error after discover button press: ", e);
+    				}).catch((err) => {
+    					console.error("matter-adapter: caught error calling discover: ", err);
     				});
             
                 });
                 
+                const check_for_updates_button_el = this.view.querySelector('#extension-matter-adapter-check-for-updates-button');
+                if(check_for_updates_button_el){
+                    check_for_updates_button_el.addEventListener('click', () => {
+                        if(this.debug){
+                            console.log("matter adapter debug: check_for_updates button clicked");
+                        }
+                        this.view.querySelector('#extension-matter-adapter-content-container').classList.add('extension-matter-adapter-busy-checking-for-updates');
+                        /*
+                        check_for_updates_button_el.classList.add('extension-matter-adapter-hidden');
+                        setTimeout(() => {
+                            check_for_updates_button_el.classList.remove('extension-matter-adapter-hidden');
+                        },1000);
+                        */
+
+                        
+                        
+                        window.API.postJson(
+                            `/extensions/${this.id}/api/ajax`,
+                            {'action':'check_for_updates'}
+                        
+                        ).then((body) => {
+                            if(this.debug){
+                                console.log("matter adapter debug: check_for_updates response: ", body);
+                            }
+                            if(body.state == true){
+                                this.flash_message("Update check started");
+                            }
+                            else{
+                                this.flash_message("Update check was already performed recently");
+                            }
+                        
+                        }).catch((err) => {
+                            console.error("matter-adapter: caught error calling check_for_updates: ", err);
+                            this.flash_message("Requesting update check failed - connection error?");
+                        });
+                
+                    });
+                }
+                
+
+
                 
                 // Title easter egg
 				const title_el = this.view.querySelector('#extension-matter-adapter-title');
@@ -618,6 +659,7 @@
 
 			
                 // DEV
+                /*
     			this.view.querySelector('#extension-matter-adapter-stop-poll-button').addEventListener('click', () => {
                     if(this.debug){
 						console.log("matter adapter: stopping poll?");
@@ -644,6 +686,7 @@
 						}
         			} 
     			});
+                */
                 
                 
                 // Show more pairing options button
@@ -1091,6 +1134,12 @@
 				if(pairing_plus_button_el){
 					pairing_plus_button_el.classList.remove('extension-matter-adapter-hidden');
 				}
+
+                const check_for_updates_button_el = this.view.querySelector('#extension-matter-adapter-check-for-updates-button');
+				if(check_for_updates_button_el){
+					check_for_updates_button_el.classList.remove('extension-matter-adapter-hidden');
+				}
+
 			
 	        }).catch((err) => {
 	  			if(this.debug){
@@ -1208,6 +1257,16 @@
                     }
                 }
                 
+
+                if(typeof body.last_update_check_seconds_ago == 'number' && typeof body.last_update_check_response_seconds_ago == 'number' ){
+                    if(body.last_update_check_seconds_ago < 10 || body.last_update_check_response_seconds_ago < 10){
+                        this.view.querySelector('#extension-matter-adapter-content-container').classList.add('extension-matter-adapter-busy-checking-for-updates');
+                    }
+                    else{
+                        this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-busy-checking-for-updates');
+                    }
+				}
+                
                 
                 /*
                 // Generate the list of items
@@ -1221,9 +1280,18 @@
                 if(typeof body.disable_matter_dashboard == 'boolean' && body.disable_matter_dashboard == false){
                     const matter_dashboard_link_container_el = this.view.querySelector('#extension-matter-adapter-dashboard-link-container');
                     if(matter_dashboard_link_container_el){
-                        matter_dashboard_link_container_el.classList.remove('extension-matter-adapter-hidden')
+                        matter_dashboard_link_container_el.classList.remove('extension-matter-adapter-hidden');
                     }
                 }
+
+                if(typeof body.matter_collision_detected == 'boolean' && body.matter_collision_detected == true){
+                    const matter_fabric_collision_hint_el = this.view.querySelector('#extension-matter-adapter-fabric-collision-hint');
+                    if(matter_fabric_collision_hint_el){
+                        matter_fabric_collision_hint_el.classList.remove('extension-matter-adapter-hidden');
+                    }
+                }
+
+                
 				
 				// MAIN POLL
 				if(typeof body.client_connected == 'boolean'){
@@ -1268,7 +1336,6 @@
                             if(add_radio_button_container_el && this.started_thread_radio_wizard == false){
                                 add_radio_button_container_el.classList.remove('extension-matter-adapter-hidden');
                             }
-							
 						}
 					}
 					
@@ -1496,6 +1563,18 @@
 						noise_el.textContent = body.noise_delta;
 					}
 				}
+
+                if(typeof body.thread_channel == 'number'){
+					if(this.debug){
+						console.log("body.thread_channel: ", body.thread_channel);
+					}
+					const thread_channel_el = this.view.querySelector('#extension-matter-adapter-thread-radio-channel');
+					if(thread_channel_el){
+						thread_channel_el.textContent = body.thread_channel;
+					}
+				}
+
+                
 
 				if(typeof body.thread_diagnostics != 'undefined'){
                     if(this.debug){

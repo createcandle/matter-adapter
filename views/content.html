@@ -91,6 +91,10 @@
 							<p>You have deleted a Matter device. Now you will also have to manually remove the corresponding thing.<br><br><a href="/things" class="text-button">Do to thing</a></p>
 						</div>
 
+						<div id="extension-matter-adapter-fabric-collision-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+							<p>A Matter fabric collision was detected. A device may be misconfigured.</p>
+						</div>
+						
 						
 
 
@@ -105,6 +109,11 @@
 						
 
 						<div id="extension-matter-adapter-paired-devices-list"></div>
+
+						<div id="extension-matter-adapter-check-for-updates-button-container" class="extension-matter-adapter-align-right">
+							<button id="extension-matter-adapter-check-for-updates-button" class="text-button extension-matter-adapter-hidden">Check for updates</button>
+						</div>
+
 						<div id="extension-matter-adapter-no-devices-yet-hint" class="extension-matter-adapter-hidden">
 							<div class="extension-matter-adapter-flex-wrap-when-narrow">
 								<div>
@@ -127,6 +136,9 @@
 							<p style="text-align:center">Click on the <img src="/images/add.svg" alt="(+)" class="extension-matter-adapter-tiny-plus-button"> button in the bottom right corner if you want to connect a Matter device.</p>
 						</div>
 						
+						
+
+
 						<!--
 						<button id="extension-matter-adapter-advanced-settings-button" class="text-button">Advanced settings</button>
 						-->
@@ -142,7 +154,8 @@
 						<div id="extension-matter-adapter-thread-radio-serial-port-container" class="extension-matter-adapter-flex-center extension-matter-adapter-flex-wrap-when-narrow extension-matter-adapter-area">
 							<!--<span>Serial port:&nbsp;</span>--><span id="extension-matter-adapter-thread-radio-serial-port"></span>
 							<div id="extension-matter-adapter-thread-radio-noise-container" class="extension-matter-adapter-flex-center extension-matter-adapter-area">
-								<span>Noise level:&nbsp;</span><span id="extension-matter-adapter-thread-radio-noise">...</span>
+								<div><span>Channel:&nbsp;</span><span id="extension-matter-adapter-thread-radio-channel">...</span></div>
+								<div><span>Noise level:&nbsp;</span><span id="extension-matter-adapter-thread-radio-noise">...</span></div>
 							</div>
 						</div>
 
@@ -308,7 +321,7 @@
 							</div>
 							<div id="extension-matter-adapter-other-pairing-options-container" class="extension-matter-adapter-area extension-matter-adapter-hidden">
 								<p>A pairing code can either start with <span style="font-weight:bold">MT:</span> or consist of <span style="font-weight:bold">all numbers</span>.</p>
-								<input id="extension-matter-adapter-pairing-code-input" type="text" placeholder="Pairing code">
+								<input id="extension-matter-adapter-pairing-code-input" type="text" placeholder="Pairing code" data-1p-ignore data-lpignore="true" data-bwignore="true">
 								<div class="extension-matter-adapter-align-right">
 									<button id="extension-matter-adapter-save-manual-input-pairing-code-button" class="text-button">Next</button>
 								</div>
@@ -460,6 +473,7 @@
 							<div id="extension-matter-adapter-pairing-failed-hint" class="extension-matter-adapter-area extension-matter-adapter-error extension-matter-adapter-hidden">
 								<h4>Pairing failed</h4>
 								<p>Try pressing the "Start pairing" button again to give it another go.</p>
+								<p>Try setting the device type to "I don't know".</p>
 								<p>If that doesn't work, then you can try starting from the beginning.</p>
 								<p>If something is using the Bluetooth connection, such as a wireless speaker or keyboard, try disabling that.</p>
 								<div class="extension-matter-adapter-flex-between" style="margin-top:2rem">
@@ -527,9 +541,10 @@
 							</div>
 
 						</div>
-						-->
+						
 
 						<button id="extension-matter-adapter-stop-poll-button" class="extension-matter-adapter-show-if-developer text-button">Stop polling</button>
+						-->
 
 					</div>
 

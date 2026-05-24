@@ -1124,6 +1124,8 @@ class MatterAdapter(Adapter):
                 if self.found_thread_radio_again or self.found_new_thread_radio:
                     if str(self.run_ot_ctl_command('ifconfig up')).rstrip() == 'Done':
                         if str(self.run_ot_ctl_command('thread start')).rstrip() == 'Done':
+                            if self.DEBUG:
+                                print("Imported dataset and re-enabled thread")
             else:
                 if self.DEBUG:
                     print("ERROR importing dataset with 'dataset init tlvs' command: ", load_dataset_check)

@@ -3873,7 +3873,6 @@ class MatterAdapter(Adapter):
                                     decimals = None
                                     if '.' in str(value):
                                         parts = str(value).split('.')
-                                        limited_string = original_string[:max_length]
                                         if len(parts) == 2:
                                             parts[1] = str(parts[1])[:3]
                                             if str(parts[0]).isdigit() and str(parts[1]).isdigit():

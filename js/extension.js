@@ -2196,6 +2196,13 @@
 	              this.current_stream.getTracks().forEach(track => track.stop());
 	              this.current_stream = null;
 	            }
+                
+                if(!this.pairing_code.startsWith('MT:')){
+                    if(this.pairing_code.indexOf('MT%3A') != -1){
+                        this.pairing_code = 'MT:' + this.pairing_code.split('MT%3A')[1];
+                    }
+                }
+
 				if(this.pairing_code.startsWith('MT:')){
                     this.view.querySelector('#extension-matter-adapter-pairing-start-area-vendor-name').textContent = this.get_vendor_from_mt_code(this.pairing_code);
                 }

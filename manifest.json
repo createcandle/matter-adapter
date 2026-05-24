@@ -28,11 +28,14 @@
   "options": {
     "default": {
       "Vendor ID":"",
+	  "Region":"EU",
+	  
+	  "Help Thread devices to connect to the internet": false,
       "Brightness transition duration":0,
-	  "Allow Thread devices to connect to the internet": false,
 	  "Days between updating certificates":14,
       "Do not use Hotspot as WiFi network for devices": false,
 	  "Thread channel":15,
+	  "Thread network name": "CandleThread",
 	  "Matter server type":"Python",
 	  "Enable Matter server dashboard": false,
       "Debugging": false
@@ -43,7 +46,15 @@
             "type": "string",
             "description": "You should set the Vendor ID of the Matter fabric. For example, the Home Assistant vendor ID is 134B"
         },
-        "Allow Thread devices to connect to the internet": {
+        "Region":{
+            "type": "string",
+            "enum": [
+                "EU",
+                "US"
+            ],
+            "description": "How and how strongly your Thread radio is allowed to broadcast depends on which region you're in. The default setting is Europe (EU)."
+        },
+        "Help Thread devices to connect to the internet": {
             "type": "boolean",
             "description": "Enabling this is not recommended, unless you have a Thread device that absolutely needs it. Note that firmware updating does not require this to be enabled. The default is to not allow this."
         },
@@ -68,6 +79,10 @@
             "type": "integer",
             "minimum": 11,
             "maximum": 26
+        },
+        "Thread network name":{
+            "description": "Advanced. Set a custom name for the Thread network. Leave empty to use the default, which is 'CandleThread'.",
+            "type": "string"
         },
         "Matter server type":{
             "type": "string",

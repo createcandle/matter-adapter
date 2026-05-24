@@ -71,8 +71,8 @@
 						</div>
 
 						<div id="extension-matter-adapter-missing-vendor-id-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
-							<p>Matter cannot start until you set a 'Vendor ID' at the settings page.</p>
-							<a href="/extensions/candleappstore#matter-adapter" class="text-button" style="text-decoration:none">Next</a>
+							<p>Matter cannot start until you set a 'Vendor ID' on the settings page.</p>
+							<a href="/extensions/candleappstore#matter-adapter" id="extension-matter-adapter-missing-vendor-id-button" class="text-button" style="text-decoration:none">Next</a>
 						</div>
 
 						<div id="extension-matter-adapter-still-starting-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
@@ -155,6 +155,7 @@
 
 					<div id="extension-matter-adapter-tab-thread" class="extension-matter-adapter-tab extension-matter-adapter-hidden">
 
+						<h3 id="extension-matter-adapter-thread-network-name">CandleThread</h3>
 						<div id="extension-matter-adapter-thread-radio-serial-port-container" class="extension-matter-adapter-flex-center extension-matter-adapter-flex-wrap-when-narrow extension-matter-adapter-area">
 							<!--<span>Serial port:&nbsp;</span>--><span id="extension-matter-adapter-thread-radio-serial-port"></span>
 							<div id="extension-matter-adapter-thread-radio-noise-container" class="extension-matter-adapter-flex-center extension-matter-adapter-area">
@@ -167,7 +168,16 @@
 						
 						<div id="extension-matter-adapter-thread-state-info" class="extension-matter-adapter-area"></div>
 
-						<div id="extension-matter-adapter-thread-netdata-info" class="extension-matter-adapter-area"></div>
+						<pre id="extension-matter-adapter-thread-netdata-info" class="extension-matter-adapter-area"></pre>
+
+						<div id="extension-matter-adapter-thread-command-input-container" class="extension-matter-adapter-area extension-matter-adapter-show-if-developer">
+							<div class="extension-matter-adapter-flex-center extension-matter-adapter-flex-wrap-when-narrow" style="width:100%">
+								<select id="extension-matter-adapter-thread-command-select"></select>
+								<input id="extension-matter-adapter-thread-command-input" value="state">
+								<button id="extension-matter-adapter-thread-command-send-button" class="text-button">Send</button>
+							</div>
+							<pre id="extension-matter-adapter-thread-command-output"></pre>
+						</div>
 
 						
 

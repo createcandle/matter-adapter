@@ -255,7 +255,6 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	margin:2rem;
 	text-align:left;
 	font-style:italic;
-	opacity:.7;
 	word-break: break-word;
 }
 
@@ -328,6 +327,12 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	display:none;
 }
 
+#extension-matter-adapter-missing-vendor-id-button{
+	display:block;
+	width: 6rem;
+    text-align: center;
+	margin:2rem 0 0 auto;
+}
 
 .extension-matter-adapter-qr-video-icon{
 	max-width:4rem;
@@ -655,6 +660,9 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	background-color:#600;
 }
 
+#extension-matter-adapter-dashboard-button{
+	margin-top:4rem;
+}
 
 
 /*  SECOND PAGE  */
@@ -710,6 +718,12 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 
 /*  THREAD TAB  */
 
+#extension-matter-adapter-thread-network-name{
+	text-align: center;
+	font-style:italic;
+	margin-top:4rem;
+}
+
 #extension-matter-adapter-thread-network-code:empty,
 #extension-matter-adapter-thread-network-code:empty + span{
 	display:none;
@@ -740,6 +754,25 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	word-wrap: break-word;
 	max-width: calc(100% - 5rem);
 }
+
+#extension-matter-adapter-thread-command-select{
+	max-width:10rem;
+	padding:1rem;
+	font-size:1.8rem;
+}
+#extension-matter-adapter-thread-command-input{
+	flex-grow: 1;
+	padding:2rem 1rem;
+	width:100%;
+	font-size:1.8rem;
+}
+
+#extension-matter-adapter-thread-command-output{
+	line-height:3rem;
+	overflow:auto;
+}
+
+
 
 
 

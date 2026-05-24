@@ -107,9 +107,12 @@ class MatterAPIHandler(APIHandler):
                         if self.adapter.wifi_ssid != "" and self.adapter.wifi_password != "":
                             wifi_credentials_available = True
 
-                        missing_vendor_id = True
-                        if isinstance(self.adapter.vendor_id,str) and self.adapter.vendor_id == '':
-                            missing_vendor_id = False
+                        missing_vendor_id = False
+                        if isinstance(self.adapter.vendor_id,str):
+                            if self.adapter.vendor_id == '':
+                                missing_vendor_id = True
+                        else:
+                            missing_vendor_id = True
                         self.adapter.missing_vendor_id = missing_vendor_id
 
                         return APIResponse(
@@ -126,7 +129,8 @@ class MatterAPIHandler(APIHandler):
                                       'disable_matter_dashboard':self.adapter.disable_matter_dashboard,
                                       'thread_channel':self.adapter.thread_channel,
                                       'matter_collision_detected':self.adapter.matter_collision_detected,
-                                      'missing_vendor_id':missing_vendor_id
+                                      'missing_vendor_id':missing_vendor_id,
+                                      'thread_network_name':self.adapter.thread_network_name
                                       }),
                         )
                         
@@ -397,6 +401,9 @@ class MatterAPIHandler(APIHandler):
                                     
                                     else:
                                         if self.adapter.thread_running == True or self.adapter.otbr_started == True:
+                                            print(str(self.adapter.run_ot_ctl_command('thread stop')))
+                                            print(str(self.adapter.run_ot_ctl_command('ifconfig down')))
+                                            """
                                             if self.DEBUG:
                                                 print("save_thread_network_code: stopping OTBR first")
                                             if self.adapter.really_stop_otbr():
@@ -410,11 +417,16 @@ class MatterAPIHandler(APIHandler):
                                             else:
                                                 if self.DEBUG:
                                                     print("\nERROR, save_thread_network_code:  calling save_thread_network_code returned false")
-                                        else:
-                                            self.adapter.thread_dataset = str(provided_thread_network_code)
-                                            self.adapter.persistent_data['thread_dataset'] = str(provided_thread_network_code)
-                                            self.adapter.save_persistent_data()
-                                            state = True
+                                            """
+                                        #else:
+
+                                        
+                                        self.adapter.import_thread_dataset(provided_thread_network_code)
+
+                                        self.adapter.thread_dataset = str(provided_thread_network_code)
+                                        self.adapter.persistent_data['thread_dataset'] = str(provided_thread_network_code)
+                                        self.adapter.save_persistent_data()
+                                        state = True
 
                                         if state == True:
                                             self.adapter.last_time_otbr_restarted = 0
@@ -432,6 +444,31 @@ class MatterAPIHandler(APIHandler):
                           content_type='application/json',
                           content=json.dumps({'state':state}),
                         )
+                    
+
+                    elif action == 'run_otbr_command':
+                        output = ''
+                        try:
+                            if 'command' in request.body:
+                                if self.DEBUG:
+                                    print("debug: running OTBR command: ", str(request.body['command']))
+                                output = str(self.adapter.run_ot_ctl_command(str(request.body['command'])))
+                                if self.DEBUG:
+                                    print("debug: OTBR command output: ", output)
+                                if 'connect session failed: No such file or directory' in output:
+                                    output = 'OTBR agent is not running'
+
+                        except Exception as ex:
+                            if self.DEBUG:
+                                print("caught error running OTBR command: ", ex)
+                            output = ''
+
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'output':output}),
+                        )
+
                     
                     
                     
@@ -577,10 +614,11 @@ class MatterAPIHandler(APIHandler):
                         if self.DEBUG:
                             print("\n\nAPI: in reset_matter")
                         
-                        self.adapter.persistent_data['nodez'] = {}
-                        self.adapter.get_nodes()
+                        #self.adapter.persistent_data['nodez'] = {}
+                        #self.adapter.get_nodes()
                         self.adapter.reset_matter()
-                        self.adapter.should_save = True
+                        time.sleep(1)
+                        #self.adapter.should_save = True
                         
                         return APIResponse(
                           status=200,

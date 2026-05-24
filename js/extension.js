@@ -291,7 +291,7 @@
                             }
                             else{
                                 if(this.debug){
-                                    console.error('matter adapter debug: error, get_thread_network_code failed');
+                                    console.error('matter adapter debug: error, get_thread_network_code failed. body.state: ', body.state);
                                 }
                                 this.flash_message("Could not get the Thread network code");
                             }
@@ -385,8 +385,170 @@
                 }
 
                 
+                const command_input_el = this.view.querySelector('#extension-matter-adapter-thread-command-input');
+                if(command_input_el){
+
+                    // https://openthread.io/reference/cli/concepts/netdata.md
+
+                    // https://openthread.google.cn/reference/cli/commands
+                    const otbr_commands = [
+                            'state',
+                            'state leader',
+                            'dataset',
+                            'dataset help',
+                            'netdata show',
+                            'netdata show local',
+                            'netdata help',
+                            'netstat',
+                            'networkdiagnostic',
+                            'networkidtimeout',
+                            'networkkey',
+                            'channel',
+                            'channel manager',
+                            'channel monitor',
+                            'channel supported',
+                            'child list',
+                            'child table',
+                            'child 1',
+                            'childip',
+                            'childip max',
+                            'coaps',
+                            'commissioner id',
+                            'commissioner provisioningurl',
+                            'panid',
+                            'parent',
+                            'ipaddr',
+                            'dataset',
+                            'dataset active',
+                            'dataset active -x',
+                            'router table',
+                            'neighbor table',
+                            'commissioner start',
+                            'commissioner state',
+                            'onlinkprefix',
+                            'networkname',
+                            'admitter state',
+                            'admitter enrollers',
+                            'counters',
+                            'counters ip',
+                            'csl',
+                            'bufferinfo',
+                            'debug',
+                            'leaderweight',
+                            'linkmetrics',
+                            'macfilter addr',
+                            'meshdiag topology',
+                            'multiradio',
+                            'multiradio neighbor list',
+                            'nat64',
+                            'nat64 state',
+                            'nat64 cidr',
+                            'nat64 mappings',
+                            'neighbor conntime list',
+                            'partitionid',
+                            'platform',
+                            'preferrouterid',
+                            'prefix',
+                            'prefix meshlocal',
+                            'promiscuous',
+                            'pskc',
+                            'radio',
+                            'radio stats',
+                            'rcp version',
+                            'region',
+                            'rloc16',
+                            'route',
+                            'router list',
+                            'routereligible', // Enables or disables the router role.
+                            'routerselectionjitter',
+                            'routerupgradethreshold',
+                            'scan energy 10',
+                            'scan',
+                            'scan 26',
+                            'singleton', // if node is only router on the network
+                            'sntp query', // time server
+                            'br state',
+                            'br ifaddrs',
+                            'br multiail',
+                            'br multiail state',
+                            'br nat64prefix',
+                            'br nat64prefix local',
+                            'br nat64prefixtable',
+                            'br omrconfig',
+                            'br omrprefix',
+                            'br omrprefix favored',
+                            'br onlinkprefix',
+                            'br pd', // DHCPv6 Prefix Delegation.
+                            'br pd state',
+                            'br peers',
+                            'br prefixtable',
+                            'br rdnsstable',
+                            'br routers',
+                            'ba state',
+                            'ba sessions',
+                            'batracker agents',
+                            'bbr config',
+                            'bbr mgmt mlr listener',
+                            'srp client autostart',
+                            'srp client host address',
+                            'srp client host state',
+                            'srp client server address',
+                            'srp client service',
+                            'srp client state',
+                            'srp server',
+                            'srp server addrmode',
+                            'srp server service',
+                            'tcat devid',
+                            'thread version',
+                            'timeinqueue',
+                            'trel',
+                            'trel peers',
+                            'trel port',
+                            'txpower',
+                            'vendor model',
+                            'vendor name',
+                            'vendor swversion',
+                            'uptime',
+                            'version',
+                            'version api'
+                            ];
+                    // dataset get-active
+                    // sudo journalctl -u otbr-agent
+
+                    const thread_command_select_el = this.view.querySelector('#extension-matter-adapter-thread-command-select');
+                    for(let ot = 0; ot < otbr_commands.length; ot++){
+                        let option_el = document.createElement("option");
+                        option_el.textContent = otbr_commands[ot];
+                        option_el.value = otbr_commands[ot];
+                        thread_command_select_el.appendChild(option_el);
+                    }
+                    thread_command_select_el.addEventListener('change', () => {
+                        command_input_el.value = thread_command_select_el.value;
+                    });
+
+                    this.view.querySelector('#extension-matter-adapter-thread-command-send-button').addEventListener('click', (event) => {
+                        const command = command_input_el.value;
+                        if(this.debug){
+                            console.log("matter adapter debug: clinked on send OTBR command button.   command: ",  command);
+                        }
+                        window.API.postJson(
+                            `/extensions/${this.id}/api/ajax`,
+                            {'action':'run_otbr_command',
+                            'command': command}
+                        ).then((body) => { 
+                            console.warn("\nrun_otbr_command response:\n", body,"\n");
+                            if(typeof body['output'] == 'string'){
+                                this.view.querySelector('#extension-matter-adapter-thread-command-output').innerHTML = body['output']; //JSON.stringify(body['output']).replaceAll('\n','<br>');
+                            }
+                        })
+                        .catch((err) => {
+                            console.error("caught error sending run_otbr_command: ", err);
+                        });
+                        
+                    });
+                }
                 
-                
+
 				
                 // Commission_with_code
                 // Start pairing button press
@@ -644,7 +806,7 @@
         				if(this.debug){
 							console.error("matter adapter debug: caught error aborting pairing ", err);
 						}
-        			} 
+        			}
     			});
                 
                 if(!this.kiosk){
@@ -785,7 +947,7 @@
 				//});
 
                 this.view.querySelector('#extension-matter-adapter-reset-matter-button').addEventListener('click', () => {
-					if(confirm("Are you sure you want to completely reset Matter? You will have to pair all Matter devices again!")){
+					if(confirm("Are you sure you want to completely reset Matter? This will reboot the controller, and you will have to pair all Matter devices again!")){
 			            window.API.postJson(
 							`/extensions/${this.id}/api/ajax`,
 							{'action':'reset_matter'}
@@ -795,6 +957,12 @@
 			                }
 							this.nodez = {};
 							this.regenerate_items();
+                            /*
+                            this.flash_message("Rebooting...");
+                            window.API.postJson('/settings/system/actions', {
+                                action: 'restartSystem'
+                            }).catch(console.error);
+                            */
 						}).catch((err) => {
                             this.flash_message("Communication error");
 							console.error("matter-adapter: caught error calling reset_matter: ", err);
@@ -1236,6 +1404,12 @@
                 }
 
 
+                if(typeof body.thread_network_name == 'string'){
+                    const thread_network_name_el = this.view.querySelector('#extension-matter-adapter-thread-network-name');
+                    if(thread_network_name_el){
+                        thread_network_name_el.textContent = body.thread_network_name;
+                    }
+                }
 
                 if(typeof body.thread_state_info == 'string'){
                     const thread_state_info_hint_el = this.view.querySelector('#extension-matter-adapter-thread-state-info');
@@ -1252,6 +1426,9 @@
                 
 
                 if(typeof body.missing_vendor_id == 'boolean'){
+                    if(this.debug){
+                        console.log("matter debug: body.missing_vendor_id: ", body.missing_vendor_id);
+                    }
                     const vendor_id_hint_el = this.view.querySelector('#extension-matter-adapter-missing-vendor-id-hint');
                     if(vendor_id_hint_el){
                         if(body.missing_vendor_id == true){
@@ -1397,7 +1574,7 @@
 							if(this.debug){
 								console.warn("matter adapter: debug: otbr not started (yet)");
 							}
-                            thread_details_el.innerHTML += '<span>Thread network not starting yet</span>';
+                            //thread_details_el.innerHTML += '<span>Thread network not starting yet</span>';
 						}
 					}
 					

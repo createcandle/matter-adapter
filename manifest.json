@@ -29,7 +29,6 @@
     "default": {
       "Vendor ID":"",
 	  "Region":"EU",
-	  
 	  "Help Thread devices to connect to the internet": false,
       "Brightness transition duration":0,
 	  "Days between updating certificates":14,
@@ -52,7 +51,7 @@
                 "EU",
                 "US"
             ],
-            "description": "How and how strongly your Thread radio is allowed to broadcast depends on which region you're in. The default setting is Europe (EU)."
+            "description": "How and how strongly your Thread radio is allowed to broadcast varies per region. The default setting is Europe (EU)."
         },
         "Help Thread devices to connect to the internet": {
             "type": "boolean",
@@ -106,7 +105,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.5.21",
+  "version": "0.5.28",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

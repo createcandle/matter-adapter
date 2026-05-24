@@ -214,6 +214,7 @@ class MatterAdapter(Adapter):
         self.disable_matter_dashboard = True
 
         self.vendor_id = ""
+        self.missing_vendor_id = True
 
         self.discovered = []
         self.nodes = []
@@ -258,6 +259,8 @@ class MatterAdapter(Adapter):
         self.thread_radio_went_missing = False
         self.thread_radio_is_alive_count = 0 # how many spinel messages have been received
         self.last_thread_radio_is_alive_timestamp = 0
+        self.allow_thread_devices_to_connect_to_the_internet = False
+        self.thread_netdata_registered = False
 
         self.otbr_starting_timestamp = None
         self.otbr_stopping_timestamp = 0
@@ -273,14 +276,20 @@ class MatterAdapter(Adapter):
         self.otbr_stdout_messages = []
         self.thread_channel = 26
         self.thread_dataset = ''
+        self.thread_dataset_loaded = False
+        self.thread_state_info = ''
+        self.thread_netdata_info = ''
         self.turn_wifi_back_on_at = 0
         self.extension_cable_recommended = False
         self.last_time_otbr_restarted = 0
         self.serial_before = None # used to detect newly plugged in USB sticks by comparing before and after of lsusb
         self.last_received_server_info = None
         self.noise_counter = 0
+        self.timeout_counter = 0
         self.previous_noise_counter = 0 # used to count noise per time unit
         self.noise_delta = 0 # hot many instances of noise were counted during 5 seconds
+        self.previous_timeout_counter = 0
+        self.timeout_delta = 0
 
         self.thread_diagnostics = {}
 
@@ -311,6 +320,13 @@ class MatterAdapter(Adapter):
         self.use_hotspot = True
         self.hotspot_ssid = ""
         self.hotspot_password = ""
+        self.hotspot_net_number = None
+        if os.path.exists('/boot/firmware/candle_hotspot_net_number.txt'):
+            net_number_check = run_command('cat /boot/firmware/candle_hotspot_net_number.txt')
+            if isinstance(net_number_check,str):
+                net_number_check = net_number_check.rstrip()
+                if net_number_check.isdigit():
+                    self.hotspot_net_number = int(net_number_check)
 
 
         # WiFi
@@ -569,6 +585,13 @@ class MatterAdapter(Adapter):
                 self.wifi_password = self.hotspot_password
 
 
+        if not isinstance(self.vendor_id,str):
+            self.missing_vendor_id = True
+        elif isinstance(self.vendor_id,str) and self.vendor_id == '':
+            self.missing_vendor_id = True
+        else:
+            self.missing_vendor_id = False
+
 
         # Start the API handler. This will allow the user interface to connect
         try:
@@ -638,10 +661,16 @@ class MatterAdapter(Adapter):
             if self.DEBUG:
                 self.s_print("Error starting the clock thread: " + str(ex))
 
+        
         try:
-            self.matter_servers_thread = threading.Thread(target=self.start_servers)
-            self.matter_servers_thread.daemon = True
-            self.matter_servers_thread.start()
+            if self.missing_vendor_id:
+                self.matter_servers_thread = threading.Thread(target=self.start_servers)
+                self.matter_servers_thread.daemon = True
+                self.matter_servers_thread.start()
+            else:
+                if self.DEBUG:
+                    self.s_print("Vendor_ID was empty string - not starting Matter servers")
+
         except Exception as ex:
             if self.DEBUG:
                 self.s_print("Error starting the matter servers thread: " + str(ex))
@@ -674,6 +703,7 @@ class MatterAdapter(Adapter):
             # Download the latest Matter certificates
             #self.download_certs()
 
+            # TOOO: this overrides the Hotspot's internet blocking settings. The user should be informed of this (or it should not do it)
             os.system('sudo sysctl "net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1"')
             os.system('sudo sysctl "net.ipv6.conf.all.accept_ra=2 net.ipv6.conf.all.accept_ra_rt_info_max_plen=64"')
             os.system('sudo sysctl -w net.ipv6.conf.wlan0.accept_ra=2 net.ipv6.conf.wlan0.accept_ra_rt_info_max_plen=64')
@@ -809,6 +839,11 @@ class MatterAdapter(Adapter):
                     if self.DEBUG:
                         self.s_print("Vendor ID override was in settings: " + str(self.vendor_id))
 
+            if "Allow Thread devices to connect to the internet" in config:
+                self.allow_thread_devices_to_connect_to_the_internet = bool(config["Allow Thread devices to connect to the internet"])
+                if self.DEBUG:
+                    self.s_print("Allow Thread devices to connect to the internet preference was in settings: " + str(self.allow_thread_devices_to_connect_to_the_internet))
+
             if 'Brightness transition duration' in config:
                 self.brightness_transition_time = int(config["Brightness transition duration"])
                 if self.DEBUG:
@@ -852,11 +887,12 @@ class MatterAdapter(Adapter):
     def otbr_loop(self):
 
         while self.running:
-            #if self.DEBUG:
-                #self.s_print("otbr_loop: loop start.  self.should_start_otbr, self.otbr_started, self.found_thread_radio_again: ", self.should_start_otbr,self.otbr_started, self.found_thread_radio_again)
-            #    self.s_print("otbr_loop: loop start.")
+            if self.DEBUG:
+                self.s_print("otbr_loop: loop start.  self.should_start_otbr, self.otbr_started, self.found_thread_radio_again: ", self.should_start_otbr, self.otbr_started, self.found_thread_radio_again)
+                #self.s_print("otbr_loop: loop start.")
 
-            self.find_thread_radio()
+            if self.thread_radio_went_missing or self.should_start_otbr or (self.found_thread_radio_again == False and self.found_new_thread_radio == False):
+                self.find_thread_radio()
 
             #if self.DEBUG:
             #    self.s_print("otbr_loop:")
@@ -973,8 +1009,10 @@ class MatterAdapter(Adapter):
 
     def add_otbr_iptables(self):
 
+        current_nmcli = str(run_command('nmcli | cat'))
         current_iptables = run_command('sudo iptables -S')
         if isinstance(current_iptables,str):
+            #if 'wpan0' in current_nmcli:
             if not 'wpan0' in current_iptables:
                 if self.DEBUG:
                     self.s_print("add_otbr_iptables: adding wpan0 masquerade iptables")
@@ -984,6 +1022,12 @@ class MatterAdapter(Adapter):
                 os.system('sudo iptables -t nat -A POSTROUTING -m mark --mark 0x1001 -j MASQUERADE')
                 os.system('sudo iptables -t filter -A FORWARD -o uap0 -j ACCEPT')
                 os.system('sudo iptables -t filter -A FORWARD -i uap0 -j ACCEPT')
+
+            # If the user has plugged in a wifi dongle
+            if 'wlan1' in current_nmcli and 'wlan1' not in current_iptables:
+                os.system('sudo iptables -t filter -A FORWARD -o wlan1 -j ACCEPT')
+                os.system('sudo iptables -t filter -A FORWARD -i wlan1 -j ACCEPT')
+                
 
 
 
@@ -1009,8 +1053,8 @@ class MatterAdapter(Adapter):
 #       self.really_start_otbr()
 #
 #   def really_start_otbr(self):
-        if self.DEBUG:
-            self.s_print("in really_start_otbr")
+#        if self.DEBUG:
+#            self.s_print("in really_start_otbr")
         try:
             #if self.shell == None:
             #    self.shell = subprocess.Popen(['/bin/bash'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -1103,6 +1147,7 @@ class MatterAdapter(Adapter):
                 try:
                     if self.otbr_agent_process and self.otbr_agent_process.poll() == None:
                         self.last_time_otbr_started = time.time()
+                        self.should_start_otbr = False
                 except Exception as ex:
                     if self.DEBUG:
                         self.s_print("caught error checking if otbr process is running: ", ex)
@@ -1245,6 +1290,7 @@ class MatterAdapter(Adapter):
                 #self.extension_cable_recommended = True
 
             elif 'Wait for response timeout' in otbr_message:
+                self.timeout_counter += 1
                 if self.DEBUG:
                     self.s_print("\nWARNING, otbr got timeout - usb stick or device not responding?")
 
@@ -1537,15 +1583,64 @@ class MatterAdapter(Adapter):
                 #if str(self.run_ot_ctl_command('dataset set active ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
                 load_dataset_check = str(self.run_ot_ctl_command('dataset init tlvs ' + str(self.persistent_data['thread_dataset']), 60)).rstrip()
 
-                if load_dataset_check == 'Done':
                 #if str(self.run_ot_ctl_command('dataset init active ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
+                if load_dataset_check == 'Done':
+                
                     initial_dataset = str(self.run_ot_ctl_command('dataset')).rstrip()
                     self.s_print("loaded initial_dataset? ", initial_dataset)
-
-                    if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
+                    
+                    if str(self.run_ot_ctl_command('dataset set active ' + str(self.vendor_id))).rstrip() == 'Done':
                         if self.DEBUG:
-                            self.s_print("start_thread_mesh: OK, loaded and comitted existing thread dataset")
-                        dataset_loaded = True
+                            print("OK, existing dataset was succesfully set to active with vendor_id: ", self.vendor_id)
+                        if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
+                            if self.DEBUG:
+                                self.s_print("start_thread_mesh: OK, loaded and comitted existing thread dataset")
+                            dataset_loaded = True
+                            self.thread_dataset_loaded = True
+
+                            if self.allow_thread_devices_to_connect_to_the_internet:
+
+                                if self.use_hotspot and self.hotspot_net_number != None:
+
+                                    # netdata publish prefix fd00:1234:5678::/64 paos med
+                                    netdata_prefix_command = 'netdata publish prefix fd00:' + str(self.hotspot_net_number) + '::/64 paos high'
+                                    if str(self.run_ot_ctl_command(netdata_prefix_command)).rstrip() == 'Done':
+                                        if self.DEBUG:
+                                            print("\nsuccesfully published Hotspot Ipv6 prefix to Thread network netdata:\n", netdata_prefix_command)
+
+                                    # netdata publish route fd00:1234:5678::/64 s high
+                                    netdata_route_command = 'netdata publish route fd00:' + str(self.hotspot_net_number) + '::1/64 paros high'
+                                    if str(self.run_ot_ctl_command(netdata_route_command)).rstrip() == 'Done':
+                                        if self.DEBUG:
+                                            print("succesfully published Hotpot route to Candle controller to Thread network netdata:\n", netdata_route_command,"\n")
+
+                                if str(self.run_ot_ctl_command('netdata register')).rstrip() == 'Done':
+                                    if self.DEBUG:
+                                        self.s_print("\nOK, netdata register seems to have succeeded")
+                                    self.thread_netdata_registered = True
+                                else:
+                                    if self.DEBUG:
+                                        self.s_print("\nERROR, failed to provide the thread network with internet access details")
+                                    self.thread_netdata_registered = False
+                            
+                            self.thread_state_info = self.run_ot_ctl_command('state')
+                            if self.DEBUG:
+                                print("Debugging enabled -> getting thread netdata")
+                                self.thread_netdata_info = str(self.run_ot_ctl_command('netdata show'))
+                                time.sleep(3)
+                                self.thread_netdata_info += '\n'
+                                self.thread_netdata_info += str(self.run_ot_ctl_command('ipaddr'))
+                                print("self.thread_netdata_info: ", self.thread_netdata_info)
+
+                        else:
+                            if self.DEBUG:
+                                self.s_print("\nERROR, dataset commit active FAILED")
+
+                        
+
+                    else:
+                        if self.DEBUG:
+                            self.s_print("\nERROR, dataset set active FAILED.  vendor_id: ", self.vendor_id)
 
                     #if str(self.run_ot_ctl_command('dataset networkname CandleThread')).rstrip() == 'Done':
                         #if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
@@ -1577,28 +1672,71 @@ class MatterAdapter(Adapter):
                                 if str(self.run_ot_ctl_command('dataset extpanid ' + str(extpanid))).rstrip() == 'Done': # dead1111dead2222
                                     if str(self.run_ot_ctl_command('dataset networkname CandleThread')).rstrip() == 'Done':
                                         
-                                        if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
+                                        if str(self.run_ot_ctl_command('dataset channel ' + str(self.thread_channel))).rstrip() == 'Done':
+                                            if self.DEBUG:
+                                                print("\nstart_thread_mesh: OK, dataset channel was set to: ", str(self.thread_channel))
                                             
                                             if str(self.run_ot_ctl_command('dataset networkkey ' + str(networkkey))).rstrip() == 'Done': #11112233445566778899DEAD1111DEAD
                                                 #if str(self.run_ot_ctl_command('set channel ' + str(self.thread_channel))).rstrip() == 'Done':
                                                 #    if self.DEBUG:
                                                 #        self.s_print("channel set")
-                                                if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
+                                                if str(self.run_ot_ctl_command('dataset set active ' + str(self.vendor_id))).rstrip() == 'Done':
                                                     if self.DEBUG:
-                                                        self.s_print("start_thread_mesh: OK, called dataset commit active on brand new thread dataset")
-                                                    dataset_loaded = True
+                                                        print("OK, brand new dataset was succesfully set to active with vendor_id: ", self.vendor_id)
+                                                    if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
+                                                        if self.DEBUG:
+                                                            self.s_print("start_thread_mesh: OK, called dataset commit active on brand new thread dataset")
+                                                        dataset_loaded = True
+                                                        self.thread_dataset_loaded = True
+
+                                                        if self.allow_thread_devices_to_connect_to_the_internet:
+
+                                                            if self.use_hotspot and self.hotspot_net_number != None:
+
+                                                                # netdata publish prefix fd00:1234:5678::/64 paos med
+                                                                netdata_prefix_command = 'netdata publish prefix fd00:' + str(self.hotspot_net_number) + '::/64 paos high'
+                                                                if str(self.run_ot_ctl_command(netdata_prefix_command)).rstrip() == 'Done':
+                                                                    if self.DEBUG:
+                                                                        print("\nsuccesfully published Hotspot Ipv6 prefix to Thread network netdata:\n", netdata_prefix_command)
+
+                                                                # netdata publish route fd00:1234:5678::/64 s high
+                                                                netdata_route_command = 'netdata publish route fd00:' + str(self.hotspot_net_number) + '::1/64 paros high'
+                                                                if str(self.run_ot_ctl_command(netdata_route_command)).rstrip() == 'Done':
+                                                                    if self.DEBUG:
+                                                                        print("succesfully published Hotpot route to Candle controller to Thread network netdata:\n", netdata_route_command,"\n")
+
+                                                            if str(self.run_ot_ctl_command('netdata register')).rstrip() == 'Done':
+                                                                if self.DEBUG:
+                                                                    self.s_print("\nOK, netdata register seems to have succeeded")
+                                                                self.thread_netdata_registered = True
+                                                            else:
+                                                                if self.DEBUG:
+                                                                    self.s_print("\nERROR, failed to provide the thread network with internet access details")
+                                                                self.thread_netdata_registered = False
+
+                                                        self.thread_state_info = self.run_ot_ctl_command('state')
+                                                        if self.DEBUG:
+                                                            print("Debugging enabled -> getting thread netdata")
+                                                            self.thread_netdata_info = str(self.run_ot_ctl_command('netdata show'))
+                                                            time.sleep(3)
+                                                            self.thread_netdata_info += '\n'
+                                                            self.thread_netdata_info += str(self.run_ot_ctl_command('ipaddr'))
+                                                            print("brand new network; self.thread_netdata_info: ", self.thread_netdata_info)
+                                                    else:
+                                                        if self.DEBUG:
+                                                            self.s_print("start_thread_mesh: failed to commit new dataset to active")
                                                 else:
                                                     if self.DEBUG:
-                                                        self.s_print("start_thread_mesh: failed to set dataset to active")
+                                                        self.s_print("start_thread_mesh: failed to set new dataset to active")
                                             else:
                                                 if self.DEBUG:
-                                                    self.s_print("start_thread_mesh: failed to set networkkey")
+                                                    self.s_print("start_thread_mesh: failed to set new networkkey")
                                         else:
                                             if self.DEBUG:
-                                                self.s_print("start_thread_mesh: failed to set channel")
+                                                self.s_print("start_thread_mesh: failed to set new channel")
                                     else:
                                         if self.DEBUG:
-                                            self.s_print("start_thread_mesh: failed to set networkname to CandleThread")
+                                            self.s_print("start_thread_mesh: failed to set new networkname to CandleThread")
 
 
             if dataset_loaded:
@@ -1688,6 +1826,7 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     self.s_print("\nERROR, no Thread dataset loaded!\n")
                 time.sleep(1)
+                self.thread_dataset_loaded = False
                 self.thread_set_active = False
 
             if self.thread_running and self.DEBUG:
@@ -1703,6 +1842,7 @@ class MatterAdapter(Adapter):
         else:
             self.s_print("\nERROR, start_thread_mesh: ot-ctl does not exist, or 'wpan0' not in ip link show\nself.ot_ctl_path: " + str(self.ot_ctl_path) + "\n" + str(ip_link_show_output) + "\n\n")
             time.sleep(1)
+            self.thread_dataset_loaded = False
             self.thread_set_active = False
 
 
@@ -2822,6 +2962,10 @@ class MatterAdapter(Adapter):
                     self.noise_delta = self.noise_counter - self.previous_noise_counter
                     self.previous_noise_counter = self.noise_counter
 
+                    self.timeout_delta = self.timeout_counter - self.previous_timeout_counter
+                    self.previous_timeout_counter = self.timeout_counter
+
+
                 #self.s_print("tick tock")
                 passed_time = time.time() - last_tick_tock_time
 
@@ -3530,7 +3674,7 @@ class MatterAdapter(Adapter):
                                             self.s_print("handle_event: that value has been received before: ", value)
 
                                     # Privacy risk to update the actual value
-                                    #self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['value'] = value
+                                    #self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['value'] = value
 
                                 if self.DEBUG:
                                     self.s_print("handle_event: received values:  device_id,endpoint_name,attribute_code,values: ", device_id, endpoint_name, attribute_code, self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'])

@@ -27,17 +27,26 @@
   "name": "Matter adapter",
   "options": {
     "default": {
+      "Vendor ID":"",
       "Brightness transition duration":0,
+	  "Allow Thread devices to connect to the internet": false,
 	  "Days between updating certificates":14,
       "Do not use Hotspot as WiFi network for devices": false,
-      "Vendor ID":"",
-	  "Thread channel":26,
+	  "Thread channel":15,
 	  "Matter server type":"Python",
 	  "Enable Matter server dashboard": false,
       "Debugging": false
     },
     "schema": {
       "properties": {
+        "Vendor ID":{
+            "type": "string",
+            "description": "You should set the Vendor ID of the Matter fabric. For example, the Home Assistant vendor ID is 134B"
+        },
+        "Allow Thread devices to connect to the internet": {
+            "type": "boolean",
+            "description": "Enabling this is not recommended, unless you have a Thread device that absolutely needs it. Note that firmware updating does not require this to be enabled. The default is to not allow this."
+        },
         "Brightness transition duration": {
             "description": "If you would like your lights brightness transitions to not be instantaneous you can set a specific speed in seconds here. The default is 0.",
             "type": "integer",
@@ -53,10 +62,6 @@
         "Do not use Hotspot as WiFi network for devices":{
             "type": "boolean",
             "description": "Advanced. The Hotspot offers a separate guest WiFi network for your smart devices. Using it will give you more insight into the communication habits of your Matter devices, and you can also block connections you don't want or trust. The default is to use the Hotspot feature to offer more protection against corporate surveillance."
-        },
-        "Vendor ID":{
-            "type": "string",
-            "description": "Advanced. You can manually set the Vendor ID of the Matter fabric. If you change this you will have to pair all your devices again. For example, the Home Assistant vendor ID is 134B"
         },
         "Thread channel":{
             "description": "Advanced. Which wireless channel the Thread network should use. Common recommendations are 11, 15, 20 and 25 or 26. Fun fact: Apple always uses 26. The default is 26.",
@@ -86,7 +91,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.5.27",
+  "version": "0.5.21",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

@@ -1221,6 +1221,49 @@
 						
 					}
 				}
+
+                if(typeof body.thread_netdata_registered == 'boolean'){
+                    const thread_netdata_hint_el = this.view.querySelector('#extension-matter-adapter-thread-netdata-hint');
+                    if( thread_netdata_hint_el){
+                        if(body.thread_netdata_registered == true){
+                            thread_netdata_hint_el.textContent = '🌐 Networking details have been shared with the Thread network';
+                        }
+                        else{
+                            thread_netdata_hint_el.textContent = '';
+                        }
+                    }
+                    
+                }
+
+
+
+                if(typeof body.thread_state_info == 'string'){
+                    const thread_state_info_hint_el = this.view.querySelector('#extension-matter-adapter-thread-state-info');
+                    if(thread_state_info_hint_el){
+                        thread_state_info_hint_el.textContent = body.thread_state_info;
+                    }
+                }
+                if(typeof body.thread_netdata_info == 'string'){
+                    const thread_state_info_hint_el = this.view.querySelector('#extension-matter-adapter-thread-netdata-info');
+                    if(thread_state_info_hint_el){
+                        thread_state_info_hint_el.textContent = body.thread_netdata_info;
+                    }
+                }
+                
+
+                if(typeof body.missing_vendor_id == 'boolean'){
+                    const vendor_id_hint_el = this.view.querySelector('#extension-matter-adapter-missing-vendor-id-hint');
+                    if(vendor_id_hint_el){
+                        if(body.missing_vendor_id == true){
+                            vendor_id_hint_el.classList.remove('extension-matter-adapter-hidden');
+                        }
+                        else{
+                            vendor_id_hint_el.classList.add('extension-matter-adapter-hidden');
+                        }
+                    }
+                }
+
+                
                 
                 if(typeof body.nodez != 'undefined'){
                     //if(this.debug){
@@ -1354,6 +1397,7 @@
 							if(this.debug){
 								console.warn("matter adapter: debug: otbr not started (yet)");
 							}
+                            thread_details_el.innerHTML += '<span>Thread network not starting yet</span>';
 						}
 					}
 					
@@ -1564,6 +1608,16 @@
 					}
 				}
 
+                if(typeof body.timeout_delta == 'number'){
+					if(this.debug){
+						console.log("body.timeout_delta: ", body.timeout_delta);
+					}
+					const timeout_el = this.view.querySelector('#extension-matter-adapter-thread-radio-timeouts');
+					if(timeout_el){
+						timeout_el.textContent = body.timeout_delta;
+					}
+				}
+
                 if(typeof body.thread_channel == 'number'){
 					if(this.debug){
 						console.log("body.thread_channel: ", body.thread_channel);
@@ -1573,6 +1627,18 @@
 						thread_channel_el.textContent = body.thread_channel;
 					}
 				}
+
+                if(typeof body.thread_dataset_loaded == 'boolean'){
+					if(this.debug){
+						console.log("body.thread_dataset_loaded: ", body.thread_dataset_loaded);
+					}
+					const thread_dataset_loaded_el = this.view.querySelector('#extension-matter-adapter-thread-dataset-loaded');
+					if(thread_dataset_loaded_el){
+						thread_dataset_loaded_el.textContent = body.thread_dataset_loaded;
+					}
+				}
+
+                
 
                 
 

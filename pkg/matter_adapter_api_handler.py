@@ -23,7 +23,7 @@ class MatterAPIHandler(APIHandler):
 
     def __init__(self, adapter, verbose=False):
         """Initialize the object."""
-        print("INSIDE API HANDLER INIT")
+        #print("INSIDE API HANDLER INIT")
         
         self.adapter = adapter
         self.DEBUG = self.adapter.DEBUG
@@ -106,7 +106,12 @@ class MatterAPIHandler(APIHandler):
                         wifi_credentials_available = False
                         if self.adapter.wifi_ssid != "" and self.adapter.wifi_password != "":
                             wifi_credentials_available = True
-                        
+
+                        missing_vendor_id = True
+                        if isinstance(self.adapter.vendor_id,str) and self.adapter.vendor_id == '':
+                            missing_vendor_id = False
+                        self.adapter.missing_vendor_id = missing_vendor_id
+
                         return APIResponse(
                           status=200,
                           content_type='application/json',
@@ -117,11 +122,11 @@ class MatterAPIHandler(APIHandler):
                                       'wifi_ssid': self.adapter.wifi_ssid,
                                       'wifi_credentials_available': wifi_credentials_available,
                                       'client_connected': self.adapter.client_connected,
-                                      #'nodes': self.adapter.nodes,
                                       'nodez': self.adapter.persistent_data['nodez'],
                                       'disable_matter_dashboard':self.adapter.disable_matter_dashboard,
                                       'thread_channel':self.adapter.thread_channel,
-                                      'matter_collision_detected':self.adapter.matter_collision_detected
+                                      'matter_collision_detected':self.adapter.matter_collision_detected,
+                                      'missing_vendor_id':missing_vendor_id
                                       }),
                         )
                         
@@ -172,7 +177,8 @@ class MatterAPIHandler(APIHandler):
                                       'otbr_started': self.adapter.otbr_started,
                                       'thread_running': self.adapter.thread_running,
                                       'thread_error': self.adapter.thread_error,
-                                      'thread_channel':self.adapter.thread_channel,
+                                      'thread_channel': self.adapter.thread_channel,
+                                      'thread_dataset_loaded': self.adapter.thread_dataset_loaded,
                                       'last_found_pairing_code': self.adapter.last_found_pairing_code,
                                       'client_connected': self.adapter.client_connected,
                                       'wifi_congestion_data': self.adapter.wifi_congestion_data,
@@ -180,16 +186,20 @@ class MatterAPIHandler(APIHandler):
                                       'thread_radio_is_alive_seconds_ago': thread_radio_is_alive_seconds_ago,
                                       'pairing_phase': self.adapter.pairing_phase,
                                       'pairing_attempt': self.adapter.pairing_attempt,
-                                      'pairing_phase_message':self.adapter.pairing_phase_message,
+                                      'pairing_phase_message': self.adapter.pairing_phase_message,
                                       'extension_cable_recommended': self.adapter.extension_cable_recommended,
-                                      'last_received_server_info':self.adapter.last_received_server_info,
-                                      'noise_delta':self.adapter.noise_delta,
-                                      'thread_diagnostics':self.adapter.thread_diagnostics,
+                                      'last_received_server_info': self.adapter.last_received_server_info,
+                                      'noise_delta': self.adapter.noise_delta,
+                                      'timeout_delta': self.adapter.timeout_delta,
+                                      'thread_diagnostics': self.adapter.thread_diagnostics,
                                       'thread_radio_serial_port': self.adapter.persistent_data['thread_radio_serial_port'],
-                                      'old_pairing_codes_count':len(self.adapter.persistent_data['pairing_codes'].keys()),
-                                      'last_update_check_seconds_ago':last_update_check_seconds_ago,
-                                      'last_update_check_response_seconds_ago':last_update_check_response_seconds_ago,
-                                      'matter_collision_detected':self.adapter.matter_collision_detected
+                                      'old_pairing_codes_count': len(self.adapter.persistent_data['pairing_codes'].keys()),
+                                      'last_update_check_seconds_ago': last_update_check_seconds_ago,
+                                      'last_update_check_response_seconds_ago': last_update_check_response_seconds_ago,
+                                      'matter_collision_detected': self.adapter.matter_collision_detected,
+                                      'thread_netdata_registered': self.adapter.thread_netdata_registered,
+                                      'thread_state_info':self.adapter.thread_state_info,
+                                      'thread_netdata_info':self.adapter.thread_netdata_info
                                       })
                         )
                     

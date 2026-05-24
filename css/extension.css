@@ -136,11 +136,11 @@ body #extension-matter-adapter-view .extension-matter-adapter-tab-selected {
     background-color: rgba(0, 0, 0, 0.18) !important;
 }
 
-
-
-
-
-
+#extension-matter-adapter-thread-state-info:empty,
+#extension-matter-adapter-thread-netdata-info:empty,
+#extension-matter-adapter-missing-vendor-id-hint:not(.extension-matter-adapter-hidden) ~ #extension-matter-adapter-still-starting-hint{
+	display:none;
+}
 
 #extension-matter-adapter-wifi-restore-countdown,
 #extension-matter-adapter-still-starting-hint{

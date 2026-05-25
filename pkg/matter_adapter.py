@@ -1925,11 +1925,11 @@ class MatterAdapter(Adapter):
                         
                         
 
-                        if not 'thread_dataset' in self.persistent_data:
-                            self.persistent_data['thread_dataset'] = "" + str(self.thread_dataset)
-                            self.should_save = True
+                        #if not 'thread_dataset' in self.persistent_data:
+                        #    self.persistent_data['thread_dataset'] = "" + str(self.thread_dataset)
+                        #    self.should_save = True
 
-                        elif 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 40:
+                        if 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 40:
                             if str(self.thread_dataset) == str(self.persistent_data['thread_dataset']):
                                 if self.DEBUG:
                                     self.s_print("OK, the thread dataset is still the same")
@@ -1939,8 +1939,8 @@ class MatterAdapter(Adapter):
                                     self.s_print("\nERROR, thread dataset is different from the version in persistent data!")
                                     self.s_print("\n\n", str(self.thread_dataset) + "\n != \n" + str(self.persistent_data['thread_dataset']) + "\n\n")
                                 self.thread_error = 'Thread dataset mismatch!'
-                                if len(self.thread_dataset) < len(self.persistent_data['thread_dataset']):
-                                    self.thread_dataset = ''
+                                #if len(self.thread_dataset) < len(self.persistent_data['thread_dataset']):
+                                #    self.thread_dataset = ''
                     else:
                         if self.DEBUG:
                             self.s_print("\nERROR, active thread dataset is way too short: " + str(active_dataset))

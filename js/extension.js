@@ -426,7 +426,7 @@
                     const otbr_commands = [
                             'debug',
                             'state',
-                            'state leader',
+                            'state leader',  // can be offline, disabled, detached, child, router, or leader
                             'state router',
                             'dataset',
                             'dataset help',

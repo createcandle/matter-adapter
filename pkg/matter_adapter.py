@@ -4231,12 +4231,14 @@ class MatterAdapter(Adapter):
             if self.client_connected and 'nodez' in self.persistent_data:
                 for matter_id in self.persistent_data['nodez']:
                     if 'node_id' in self.persistent_data['nodez'][str(matter_id)] and isinstance(self.persistent_data['nodez'][str(matter_id)]['node_id'],int):
-
+                        
+                        message_id = "check_node_update_" + str(self.persistent_data['nodez'][str(matter_id)]['node_id'])
+                        
                         message = {
-                                    "message_id": "check_node_update_" + str(self.persistent_data['nodez'][str(matter_id)]['node_id']),
+                                    "message_id": message_id,
                                     "command": "check_node_update",
                                     "args": {
-                                        "node_id": self.persistent_data['nodez'][str(matter_id)]['node_id']
+                                        "node_id": int(self.persistent_data['nodez'][str(matter_id)]['node_id'])
                                     }
                                 }
 
@@ -4568,16 +4570,17 @@ class MatterAdapter(Adapter):
         matter_id = 'matter-' + str(node_id)
 
         if self.DEBUG:
-                self.s_print("remove_node: Node seems to exist, will delete it")
-            message = {
-                    "message_id": "remove_node_" + str(node_id),
-                    "command": "remove_node",
-                    "args": {
-                        "node_id": int(node_id)
-                    }
-                  }
-            json_message = json.dumps(message)
-            self.ws.send(json_message)
+            self.s_print("remove_node: Node seems to exist, will delete it")
+            
+        message = {
+                "message_id": "remove_node_" + str(node_id),
+                "command": "remove_node",
+                "args": {
+                            "node_id": int(node_id)
+                        }
+                }
+        json_message = json.dumps(message)
+        self.ws.send(json_message)
 
         #if matter_id in self.nodes:
             

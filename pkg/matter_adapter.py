@@ -2442,18 +2442,37 @@ class MatterAdapter(Adapter):
                         if self.DEBUG:
                             self.s_print("DEVICE INFO: " + str(json.dumps(device_info)))
 
-                    elif message['message_id'] == 'remove_node':
+                    elif message['message_id'].startswith('remove_node_'):
                         if self.DEBUG:
-                            self.s_print("\n\nremove_node was successful\n\n")
+                            self.s_print("\n\nremove_node was successful\n\n", message)
                         self.device_was_deleted = True
+
+                        node_id = message['message_id'].replace('remove_node_','')
+                        matter_id = 'matter-' + str(node_id)
+                        if matter_id in self.persistent_data['nodez']:
+                            del self.persistent_data['nodez'][matter_id]
+                            self.should_save = True
+                            if self.DEBUG:
+                                print("remove_node: also removed thing_id from persistent_data: ", matter_id)
+                        
                         #self.nodes = message['result']
                         #self.parse_nodes()
-                        self.get_nodes()
+                        self.get_nodes(True)
 
-                    elif message['message_id'] == 'check_node_update':
+                    elif message['message_id'].startswith('check_node_update_'):
                         if self.DEBUG:
                             self.s_print("\n\nreceived successful check_node_update information\n\n")
                             self.s_print("successful check_node_update message: ", message)
+                        node_id = str(message['message_id']).replace('check_node_update_','')
+                        if node_id.isdigit():
+                            node_id = int(node_id)
+                            for matter_id in self.persistent_data['nodez']:
+                                if 'node_id' in self.persistent_data['nodez'][str(matter_id)] and isinstance(self.persistent_data['nodez'][str(matter_id)]['node_id'],int) and self.persistent_data['nodez'][str(matter_id)]['node_id'] == node_id:
+                                    if self.DEBUG:
+                                        print("setting update details:  matter_id, message", str(matter_id), message)
+                                    self.persistent_data['nodez'][str(matter_id)]['update'] = message
+                                    self.persistent_data['nodez'][str(matter_id)]['update']['last_update_check_timestamp'] = int(time.time())
+
                         self.last_matter_update_check_response_timestamp = int(time.time())
 
 
@@ -2504,11 +2523,20 @@ class MatterAdapter(Adapter):
                         if self.DEBUG:
                             self.s_print("timesync_command failed: ", message)
 
-                    elif message['message_id'] == 'check_node_update':
+                    elif message['message_id'].startswith('check_node_update_'):
                         if self.DEBUG:
                             self.s_print("\n\nchecking node firmware update apparently failed\n\n")
                             self.s_print("failed check_node_update message: ", message)
                         self.last_matter_update_check_response_timestamp = int(time.time())
+
+
+                    elif message['message_id'].startswith('remove_node_'):
+                        if self.DEBUG:
+                            self.s_print("\n\nremove_node failed\n\n", message)
+                        self.device_was_deleted = False
+                        #self.nodes = message['result']
+                        #self.parse_nodes()
+                        self.get_nodes(True)
 
                     else:
                         if self.DEBUG:
@@ -4205,7 +4233,7 @@ class MatterAdapter(Adapter):
                     if 'node_id' in self.persistent_data['nodez'][str(matter_id)] and isinstance(self.persistent_data['nodez'][str(matter_id)]['node_id'],int):
 
                         message = {
-                                    "message_id": "check_node_update",
+                                    "message_id": "check_node_update_" + str(self.persistent_data['nodez'][str(matter_id)]['node_id']),
                                     "command": "check_node_update",
                                     "args": {
                                         "node_id": self.persistent_data['nodez'][str(matter_id)]['node_id']
@@ -4225,8 +4253,31 @@ class MatterAdapter(Adapter):
         except Exception as ex:
             print("caught error in check_for_node_updates: ", ex)
         
-        
 
+    def update_node(self,node_id):
+        if self.DEBUG:
+            print("in update_node:  node_id: ", node_id)
+        
+        try:
+            if isinstance(node_id,(str,int)):
+                if self.client_connected and 'nodez' in self.persistent_data:
+                    message = {
+                                "message_id": "update_node_" + str(node_id),
+                                "command": "check_node_update",
+                                "args": {
+                                    "node_id": int(node_id)
+                                }
+                            }
+
+                    if self.DEBUG:
+                        self.s_print("update_node: sending message to Matter.server: \n", json.dumps(message,indent=4))
+
+                    json_message = json.dumps(message)
+                    self.ws.send(json_message)
+
+        except Exception as ex:
+            self.s_print("caught error in update_node: " + str(ex))
+        
 
 
 
@@ -4509,31 +4560,39 @@ class MatterAdapter(Adapter):
 
         if self.client_connected == False:
             if self.DEBUG:
-                self.s_print("remove_node: ERROR, client is not connected") # TODO: assuming that the matter server can even remove devices from thread
+                self.s_print("remove_node: ERROR, client is not connected") 
             return False
 
         self.get_nodes(True)
         time.sleep(3)
         matter_id = 'matter-' + str(node_id)
 
-
-        if matter_id in self.nodes:
-            if self.DEBUG:
+        if self.DEBUG:
                 self.s_print("remove_node: Node seems to exist, will delete it")
             message = {
-                    "message_id": "remove_node",
+                    "message_id": "remove_node_" + str(node_id),
                     "command": "remove_node",
                     "args": {
-                        "node_id": node_id
+                        "node_id": int(node_id)
                     }
                   }
             json_message = json.dumps(message)
             self.ws.send(json_message)
 
-        else:
-            if self.DEBUG:
-                self.s_print("\nERROR, remove_node: node doesn't seem to exist (already deleted?). Skipping delete")
-            self.device_was_deleted = True # pretend it was just deleted
+        #if matter_id in self.nodes:
+            
+
+        #else:
+        #    if self.DEBUG:
+        #        self.s_print("\nERROR, remove_node: node doesn't seem to exist (already deleted?). Skipping delete")
+        #    self.device_was_deleted = True # pretend it was just deleted
+
+
+        # TODO: Also remove thing? Though in theory this is already being done
+        # TODO: Remove logs?
+        # TODO: Assuming that the matter server can also remove devices from thread
+
+
 
         return True
 

@@ -149,10 +149,12 @@ class MatterAPIHandler(APIHandler):
                             if self.DEBUG:
                                 print("get_main_poll: self.adapter.turn_wifi_back_on_at: ", self.adapter.turn_wifi_back_on_at)
                             wifi_restore_countdown = round(self.adapter.turn_wifi_back_on_at - time.time())
-                            if self.DEBUG:
-                                print("get_main_poll: wifi_restore_countdown: ", wifi_restore_countdown)
+                            
                             if wifi_restore_countdown < 0:
                                 wifi_restore_countdown = 0
+                            else:
+                                if self.DEBUG:
+                                    print("get_main_poll: wifi_restore_countdown: ", wifi_restore_countdown)
                         
                         
                         thread_radio_is_alive_seconds_ago = None
@@ -301,6 +303,8 @@ class MatterAPIHandler(APIHandler):
                         
                     elif action == 'check_for_updates':
                         state = False
+                        if self.DEBUG:
+                                print("got request to check_for_updates")
                         try:
                             if self.adapter.client_connected and (self.adapter.last_matter_update_check_timestamp < time.time() - 300 or (self.DEBUG and self.adapter.last_matter_update_check_timestamp < time.time() - 10)):
                                 self.adapter.last_matter_update_check_timestamp = int(time.time())
@@ -318,7 +322,29 @@ class MatterAPIHandler(APIHandler):
                           }),
                         )
 
+                    elif action == 'update_node':
+                        state = False
+                        
+                        try:
+                            if 'node_id' in request.body and str(request.body['node_id']) != '':
+                                if self.DEBUG:
+                                    print("got request to update_node: ", request.body['node_id'])
+                                self.adapter.update_node(int(request.body['node_id']))
+                                state = True
+                        except Exception as ex:
+                            print("caught error handling update_node request: ", ex)
+                        
 
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({
+                            'state':state
+                          }),
+                        )
+
+
+                    
 
 
                     # DISCOVER
@@ -727,14 +753,16 @@ class MatterAPIHandler(APIHandler):
                     
                     
                     # DELETE
-                    elif action == 'delete':
+                    elif action == 'delete_node':
                         if self.DEBUG:
-                            print("API: in delete")
+                            print("API: in delete_node")
                         
                         state = False
                         message = "An unknown error has occured."
                         self.adapter.device_was_deleted = False
                         try:
+
+                            # REMOVE THE THING
                             node_id = str(request.body['node_id'])
                             if node_id.startswith('matter-'):
                                 node_id = node_id.replace('matter-','')
@@ -804,7 +832,7 @@ class MatterAPIHandler(APIHandler):
                           content_type='application/json',
                           content=json.dumps({'state' : state, 
                                               'message':message, 
-                                              'device_was_deleted':self.adapter.device_was_deleted,
+                                              'device_was_deleted':self.adapter.device_was_deleted, # TODO: hacky solution
                                               'nodez':self.adapter.persistent_data['nodez']
                                           }),
                         )
@@ -821,7 +849,6 @@ class MatterAPIHandler(APIHandler):
                         
                         try:
                             node_id = str(request.body['node_id'])
-                            #state = self.delete_item(name) # This method returns True if deletion was succesful
                             
                             state = self.adapter.share_node(node_id)
                             

@@ -105,9 +105,17 @@
             // This is not needed, but might be interesting to see. It will show you the API that the controller has available. For example, you can get a list of all the things this way.
             //console.log("window API: ", window.API);
             
-			
-			
-			
+
+            // Compensating for allowing the main menu button to almost always be visible and clickable.
+            const menu_item_el = document.getElementById('menu-item');
+            const add_thing_screen_el = document.getElementById('add-thing-screen');
+            if(menu_item_el && add_thing_screen_el){
+                menu_item_el.addEventListener('click', () => {
+					if(!add_thing_screen_el.classList.contains('hidden')){
+						add_thing_screen_el.add('hidden');
+					}
+                });
+            }
 	    }
 
 
@@ -666,6 +674,7 @@
 					
 					if(this.barcode_detector_supported && window.location.protocol.startsWith('https')){
 						this.start_local_qr_scanner();
+                        
 					}
 					else if(typeof this.matter_qr_scanner_url == 'string'){
 						if(this.debug){
@@ -684,7 +693,7 @@
 						this.total_busy_polling_counter = 0;
 					}
 					
-					document.getElementById('extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
+					this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
 					
 				});
 				
@@ -949,7 +958,6 @@
 					this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
 				}
 				
-                
     			this.view.querySelector('#extension-matter-adapter-pairing-network-question-normal-button').addEventListener('click', () => {
     				this.second_page_el.classList.remove('extension-matter-adapter-pairing-questioning');
                     this.second_page_el.classList.add('extension-matter-adapter-pairing-normal');
@@ -959,6 +967,15 @@
     				this.second_page_el.classList.remove('extension-matter-adapter-pairing-questioning');
                     this.second_page_el.classList.add('extension-matter-adapter-pairing-network');
     			});
+                
+                this.view.querySelector('#extension-matter-adapter-pairing-accept-thing-button').addEventListener('click', () => {
+    				const succes_el = this.view.querySelector('#extension-matter-adapter-pairing-success-hint');
+                    if(succes_el){
+                        succes_el.classList.add('extension-matter-adapter-hidden');
+                    }
+                    this.show_pairing_page();
+    			});
+
                 
                 
                 /*
@@ -1765,7 +1782,7 @@
 									const pairing_failed_el = this.view.querySelector('#extension-matter-adapter-pairing-failed-hint');
 									if(pairing_failed_el){
 										pairing_failed_el.classList.remove('extension-matter-adapter-hidden');
-										pairing_failed_el.scrollIntoView({ 'block': 'center',  'behavior': 'smooth' });
+										pairing_failed_el.scrollIntoView({'block':'center', 'behavior':'smooth'});
 									}
 									
 								}
@@ -1925,8 +1942,10 @@
 			
             // Reset elements to start position
             
-			this.second_page_el.classList.add('extension-matter-adapter-pairing-questioning');
-            this.second_page_el.classList.remove('extension-matter-adapter-pairing-normal');
+			//this.second_page_el.classList.add('extension-matter-adapter-pairing-questioning');
+            //this.second_page_el.classList.remove('extension-matter-adapter-pairing-normal');
+            this.second_page_el.classList.remove('extension-matter-adapter-pairing-questioning');
+            this.second_page_el.classList.add('extension-matter-adapter-pairing-normal');
 			this.second_page_el.classList.remove('extension-matter-adapter-pairing-network');
             this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
 			this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-area').classList.remove('extension-matter-adapter-hidden');
@@ -2287,8 +2306,9 @@
 				//console.log("no interval to clear? ", e);
 			} 
             
+            //document.getElementById("extension-matter-adapter-content-container").scrollTop = 0;
+            this.view.scrollTop = 0;
 
-        
             // Undo the iphone fix, so that the main menu button is clickable again
             this.view.style.zIndex = 'auto';
         
@@ -2372,6 +2392,12 @@
 				    return;
 				}
 				
+                if(this.debug && list.innerHTML != ''){
+                    if(this.debug){
+						console.warn('matter adapter: DEBUG, so not re-rendering the nodes list');
+					}
+                    return
+                }
 				
 				const original = this.view.querySelector('#extension-matter-adapter-original-item');
 			    //console.log("original: ", original);
@@ -2535,6 +2561,84 @@
     					}	
 					    */
 					    
+
+
+
+                        // CANCEL UPDATE BUTTON
+
+                        const cancel_update_button = clone.querySelector('.extension-matter-adapter-overlay-cancel-update-button');
+                        cancel_update_button.addEventListener('click', () => {
+                            if(this.debug){
+                                console.log("matter adapter debug: cancel update button has been clicked.  my_node_id: ", my_node_id);
+                            }
+                            let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+                            item_el.classList.remove("extension-matter-adapter-update");
+                            //clone.classList.remove("extension-matter-adapter-update");
+                        });
+
+                        const start_update_button = clone.querySelector('.extension-matter-adapter-overlay-start-update-button');
+                        start_update_button.dataset.node_id = item_data['node_id'];
+                        start_update_button.addEventListener('click', (event) => {
+                            if(this.debug){
+                                console.log("matter adapter debug: clicked on start update button.  my_node_id: ", my_node_id);
+                            }
+                            //console.log("- node_id:" + item_data['node_id']);
+                            //console.log("data attribute: ", event.target.dataset);
+                            //console.log("data attribute: ", event.target.dataset.node_id);
+            
+                            let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+                            item_el.classList.remove("extension-matter-adapter-update");
+                            item_el.classList.add("extension-matter-adapter-updating");
+            
+                            //setTimeout(() => hideBtn(0), 1000);
+            
+                            //setTimeout(function(){ 
+                            //	parent3.classList.remove("updating");
+                            //}, 600000); // after 10 minutes, remove updating styling no matter what
+            
+            
+                            // Disable all update buttons if one has been clicked
+                            var update_buttons = document.getElementsByClassName("extension-matter-adapter-item-update-button");
+                            for(var i = 0; i < update_buttons.length; i++)
+                            {
+                                update_buttons[i].disabled = true;
+                            }
+                            //pre.innerText = "Please wait 10 minutes before you start another update!";
+                            
+                            if(this.debug){
+                                console.warn("matter adapter debug: calling update_node with my_node_id: ", my_node_id);
+                            }
+                            
+                            
+                            // Send node_update request to backend
+                            window.API.postJson(
+                                `/extensions/${this.id}/api/ajax`,
+                                {'action':'update_node','node_id':my_node_id}
+
+                            ).then((body) => { 
+                                if(this.debug){
+                                    console.log("matter adapter debug: update_node response.  node_id,body: ", my_node_id, body);
+                                }
+                                if(typeof body['state'] == 'boolean' && body['state'] == true){
+                                    this.updating_firmware = true;
+                                    this.flash_message("Succesfully requested firmware update");
+                                }
+                                
+
+                            }).catch((err) => {
+                                if(this.debug){
+                                    console.error("matter adapter debug: caught error calling update_node: ", err);
+                                }
+                            });
+                            
+                        });
+
+                        
+
+
+
+
+
                         
                         // Insert data into item
                     
@@ -2545,7 +2649,6 @@
 							
 							if(!link_title_span_el){
 	    						
-                        
 	                            // Add title if it could be found
 	                            try{
 		    						var a_el = document.createElement("a");
@@ -2631,6 +2734,97 @@
 								}
     						}
 						
+
+
+
+
+
+
+
+
+
+
+
+                            if(typeof item_data['update'] != "undefined"){
+                                if(typeof item_data['update']['result'] != "undefined" && typeof item_data['update']['last_update_check_timestamp'] == 'number'){
+                                    const line3_el = clone.querySelector('.extension-matter-adapter-line3');
+                                    if(line3_el){
+                                        const week_ago_timestamp = Math.round(Date.now() / 1000) - (38400 * 7);
+                                        console.log("week_ago_timestamp: ", week_ago_timestamp);
+                                        console.log("last_update_check_timestamp: ", item_data['update']['last_update_check_timestamp']);
+                                        if(item_data['update']['last_update_check_timestamp'] > week_ago_timestamp){ // 7 days
+                                            if(this.debug){
+                                                console.log("recent update info is available: ", item_data['update']);
+                                            }
+
+                                            if(item_data['update']['result'] == null){
+                                                line3_el.innerHTML = '<div class="extension-matter-adapter-item-no-update-container">No update available</div>';
+                                            }
+                                            else{
+                                                line3_el.innerHTML = '';
+                                                /*
+                                                {
+                                                    "vid": 4476,
+                                                    "pid": 32775,
+                                                    "software_version": 16842756,
+                                                    "software_version_string": "1.1.4",
+                                                    "firmware_information": "",
+                                                    "min_applicable_software_version": 16777225,
+                                                    "max_applicable_software_version": 16842755,
+                                                    "release_notes_url": "",
+                                                    "update_source": "main-net-dcl"
+                                                } 
+                                                */
+                                                const update_button_el = document.createElement('button');
+                                                update_button_el.classList.add('extension-matter-adapter-item-update-button');
+                                                update_button_el.classList.add('text-button');
+                                                
+                                                if(typeof item_data['update']['result']['software_version_string'] == 'string'){
+                                                    update_button_el.textContent = 'Update to v' + item_data['update']['result']['software_version_string'];
+                                                    //line3_el.innerHTML = '<button class="extension-matter-adapter-item-update-container extension-matter-adapter-item-update-available"> + '</button>';
+                                                }
+                                                else{
+                                                    update_button_el.textContent = 'Update';
+                                                    //line3_el.innerHTML = '<button class="extension-matter-adapter-item-update-container extension-matter-adapter-item-update-available">Update</button>';
+                                                }
+                                                update_button_el.addEventListener('click', () => {
+                                                    
+                                                    //let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+                                                    //item_el.classList.add("extension-matter-adapter-update");
+                                                    clone.classList.add("extension-matter-adapter-update");
+                                                    
+                                                    update_button_el.classList.add('extension-matter-adapter-faded');
+                                                    window.API.postJson(
+                                                        `/extensions/${this.id}/api/ajax`,
+                                                        {'action':'update_node','node_id':item_data['node_id']}
+
+                                                    ).then((body) => { 
+                                                        if(this.debug){
+                                                            console.log("response from calling update_node: ", body);
+                                                        }
+                                                    })
+                                                    .catch((err) => {
+                                                        if(this.debug){
+                                                            console.log("matter adapter debug: caught error calling update_node: ", err);
+                                                        }
+                                                    });
+                                                })
+                                                
+                                                line3_el.appendChild(update_button_el);
+                                            }
+                                        }
+                                        else{
+                                            if(this.debug){
+                                                console.log("update info was more than a week old, not adding update button");
+                                            }
+                                        }
+                                    }
+                                    
+                                }
+
+                            }
+
+                            
 						
     					}
     					catch(e){
@@ -2672,7 +2866,7 @@
 		                        const delete_confirm_button = clone.querySelector('.extension-matter-adapter-item-delete-confirm-button');
 		    					delete_confirm_button.addEventListener('click', (event) => {
 		                            if(this.debug){
-		                                console.log("matter adapter debug: delete confirm button clicked. event: ", event);
+		                                console.log("matter adapter debug: delete confirm button clicked");
 		                            }
                         
 		                            delete_confirm_button.classList.add('extension-matter-adapter-hidden');
@@ -2686,23 +2880,24 @@
 		    						// Ask backend to delete device from Matter fabric
 		    						window.API.postJson(
 		    							`/extensions/${this.id}/api/ajax`,
-		    							{'action':'delete','node_id':item_data['node_id']}
+		    							{'action':'delete_node','node_id':my_node_id}
+
 		    						).then((body) => { 
 		    							if(this.debug){
 		                                    console.log("matter adapter debug: delete matter item reaction: ", body);
-		                                    console.log("matter adapter debug:Do event and item exist here?: ", event);
+		                                    console.log("matter adapter debug: do event and item exist here?: ", event);
 		                                }
-		                                if(body.state == true){
+		                                if(typeof body.state == 'boolean' && body.state == true){
 		                                    this.nodez = body.nodez;
 		                                    //let item_el = local_event.currentTarget.closest(".extension-matter-adapter-item");
 		                                    if(typeof event.target != 'undefined'){
 		                                        //console.log("in delete response, event.target exists");
-		                                        let item_el = event.target.closest('extension-matter-adapter-item');
+		                                        const item_el = event.target.closest('.extension-matter-adapter-item');
 		                                        //console.log('item_el ', item_el);
 		                                        item_el.classList.add("extension-matter-adapter-hidden");
 		                                        //console.log("item_el.classList: ", item_el.classList);
 		                                    }
-                                
+                                            this.flash_message('Device deleted successfully');
 		                                    if(this.debug){
 		                                        console.log("matter adapter debug: Delete succeeded. Message: ", body.message);
 		                                    }
@@ -2713,13 +2908,16 @@
 		                                else{
 		                                    if(this.debug){
 		                                        console.error("matter adapter debug: Delete failed. Message: ", body.message);
-		                                        this.flash_message(body.message);
+		                                        this.flash_message("Delete error: " + body.message);
 		                                    }
+                                            else{
+                                                this.flash_message('Failed to delete device');
+                                            }
 		                                }
 
-		    						}).catch((e) => {
+		    						}).catch((err) => {
 		    							if(this.debug){
-		                                    console.error('matter adapter debug: delete: connection error', e);
+		                                    console.error('matter adapter debug: caught error calling delete_node', err);
 		                                    this.flash_message("An error occured during the delete process. Try reloading the page.");
 		                                }
 		    						});
@@ -2742,92 +2940,7 @@
 								
 								
 								
-								// UPATE
 								
-								const show_update_button = clone.querySelector('.extension-matter-adapter-item-update-button');
-								if(show_update_button){
-		        					show_update_button.addEventListener('click', () => {
-		        						if(this.debug){
-											console.log("matter adapter debug: clicked on show update button. thing_id: ", thing_id);
-										}
-		        						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-		        						item_el.classList.add("extension-matter-adapter-update");
-		        					});
-							
-        					
-                        
-								    /*
-			    					const read_about_risks_button = clone.querySelectorAll('.extension-matter-adapter-read-about-risks')[0];
-			    					read_about_risks_button.addEventListener('click', (event) => {
-			    						document.getElementById('extension-matter-adapter-content').classList = ['extension-matter-adapter-show-tab-tutorial'];
-			    					});
-								    */
-					
-			    					const cancel_update_button = clone.querySelector('.extension-matter-adapter-overlay-cancel-update-button');
-			    					cancel_update_button.addEventListener('click', (event) => {
-			    						if(this.debug){
-											console.log("matter adapter debug: cancel update button has been clicked.  thing_id: ", thing_id);
-										}
-			    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-			    						item_el.classList.remove("extension-matter-adapter-update");
-			    					});
-					
-					
-					
-								    // UPDATE
-					
-			    					// Click on start firmware update button
-			                        /*
-			    					const start_update_button = clone.querySelectorAll('.extension-matter-adapter-overlay-start-update-button')[0];
-			                        start_update_button.dataset.node_id = item_data['node_id'];
-			    					start_update_button.addEventListener('click', (event) => {
-			    						//console.log("clicked on start update button. Event:", event);
-			    						//console.log("- node_id:" + item_data['node_id']);
-			                            //console.log("data attribute: ", event.target.dataset);
-			                            //console.log("data attribute: ", event.target.dataset.node_id);
-                        
-			    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-			    						item_el.classList.remove("extension-matter-adapter-update");
-			    						item_el.classList.add("extension-matter-adapter-updating");
-						
-			    						//setTimeout(() => hideBtn(0), 1000);
-						
-			    						//setTimeout(function(){ 
-			    						//	parent3.classList.remove("updating");
-			    						//}, 600000); // after 10 minutes, remove updating styling no matter what
-						
-						
-			    						// Disable all update buttons if one has been clicked
-			    						var update_buttons = document.getElementsByClassName("extension-matter-adapter-item-update-button");
-			    						for(var i = 0; i < update_buttons.length; i++)
-			    						{
-			    							update_buttons[i].disabled = true;
-			    						}
-			    						//pre.innerText = "Please wait 10 minutes before you start another update!";
-						
-						
-			    						// Send update request to backend
-			    						window.API.postJson(
-			    							`/extensions/${this.id}/api/ajax`,
-			    							{'action':'update-device','node_id':event.target.dataset.node_id}
-			    						).then((body) => { 
-			                                if(this.debug){
-			    							    //console.log("Update item reaction: ");
-			    							    //console.log(body);
-			    							    pre.innerText = "update firmware response: " + body['update'];
-			                                }
-			    							this.updating_firmware = true;
-
-			    						}).catch((e) => {
-			    							if(this.debug){
-			                                    console.log("matter adapter debug: postJson error while requesting update start");
-			                                }
-			    						});
-					
-			    				  	});
-								    */
-								}
-	        					
                         
                     
 							    
@@ -2872,8 +2985,6 @@
 			                            let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
 			                            item_el.querySelector('.extension-matter-adapter-rule-share-cancel-button').value = 'Close'; 
 			                            item_el.querySelector('.extension-matter-adapter-share-code').innerText = "One moment... ";
-			    						//let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-			    						//item_el.classList.remove("extension-matter-adapter-update");
                             
 			    						// Send new values to backend
 			    						window.API.postJson(
@@ -2933,9 +3044,9 @@
                         if( typeof item_data['update'] != 'undefined' ){
                             if(item_data['update']['state'] == "updating"){
                                 clone.classList.add('extension-matter-adapter-updating');
-                                const clone_progress_bar = clone.querySelectorAll('.extension-matter-adapter-update-progress-bar')[0];
+                                const clone_progress_bar = clone.querySelector('.extension-matter-adapter-update-progress-bar');
                                 clone_progress_bar.style.width = item_data['update']['progress'] + "%";
-                                const clone_progress_bar_percentage = clone.querySelectorAll('.extension-matter-adapter-update-progress-bar-percentage')[0];
+                                const clone_progress_bar_percentage = clone.querySelector('.extension-matter-adapter-update-progress-bar-percentage');
                                 clone_progress_bar_percentage.innerText = item_data['update']['progress'] + "%";
                                 this.updating_firmware = true;
         					}
@@ -3251,7 +3362,7 @@
 					var update_buttons = document.getElementsByClassName("extension-matter-adapter-item-update-button");
 					for(var i = 0; i < update_buttons.length; i++)
 					{
-						update_buttons[i].disabled = true;
+						update_buttons[i].disabled = false;
 					}
 				}
 				/*
@@ -3637,6 +3748,13 @@
 						video_el.play();
 					
 						video_el.detecting_interval = setInterval(detectCode, 250);
+
+                        setTimeout(() => {
+                            const pairing_scanner_container_el = this.view.querySelector('#extension-matter-adapter-pairing-scanner-container');
+                            if(pairing_scanner_container_el){
+                                pairing_scanner_container_el.scrollIntoView({'behavior':'smooth','block':'center'});
+                            }
+                        },1000);
 				    })
 				    .catch((err) => {
 						if(this.debug){
@@ -4046,6 +4164,8 @@
 				}
 			});
 		}
+
+
 		
 		render_old_pairing_codes_list(){
 			if(this.debug){
@@ -4054,6 +4174,7 @@
 			if(this.old_pairing_codes){
 				const old_codes_list_el = this.view.querySelector('#extension-matter-adapter-pairing-old-pairing-codes-list');
 				if(old_codes_list_el){
+                    old_codes_list_el.innerHTML = '';
 					for (const [pairing_code, device_details] of Object.entries(this.old_pairing_codes)) {
 						if(this.debug){
 							console.log("matter adapter debug: render_old_pairing_codes_list:  pairing_code,device_details: ", pairing_code, device_details);

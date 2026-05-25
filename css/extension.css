@@ -296,7 +296,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
     width: 3.5rem;
     height: 3.5rem;
     display: inline-block;
-    background-color: red;
+    background-color: orange;
     text-align: center;
     border-radius: 2.5rem;
     color: white;
@@ -406,10 +406,10 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	border-radius: .5rem;
 	width:100%;
     flex-direction:column;
+	position: relative;
 }
 
 .extension-matter-adapter-item-header{
-	position: relative;
 	width:100%;
 }
 
@@ -810,14 +810,12 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 /*  PAIRING  */
 
 
-#extension-matter-adapter-pairing-network-question-container{
-	display:none
-}
 .extension-matter-adapter-pairing-questioning #extension-matter-adapter-pairing-network-question-container{
 	display:block;
 }
-.extension-matter-adapter-pairing-questioning #extension-matter-adapter-pairing-steps{
-	display:none;
+
+#extension-matter-adapter-pairing-steps{
+	margin-bottom:30vh;
 }
 
 #extension-matter-adapter-view #extension-matter-adapter-pairing-network-question-normal-button,
@@ -826,13 +824,11 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	padding:1rem 2rem;
 }
 
-
+#extension-matter-adapter-pairing-network-question-container,
+.extension-matter-adapter-pairing-questioning #extension-matter-adapter-pairing-steps,
 .extension-matter-adapter-pairing-network #extension-matter-adapter-pairing-bluetooth-hint,
 .extension-matter-adapter-pairing-network #extension-matter-adapter-pairing-step-wifi,
-.extension-matter-adapter-pairing-network #extension-matter-adapter-pairing-step-qr{
-	display:none;
-}
-
+.extension-matter-adapter-pairing-network #extension-matter-adapter-pairing-step-qr,
 .extension-matter-adapter-pairing-normal #extension-matter-adapter-pairing-step-network-code{
     display:none;
 }
@@ -1484,6 +1480,27 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 }
 
 
+.extension-matter-adapter-item-no-update-container{
+	opacity:.5;
+}
+
+.extension-matter-adapter-item-update-available{
+	color:green;
+	font-weight:bold;
+}
+
+#extension-matter-adapter-view button.extension-matter-adapter-item-update-button{
+	display:block;
+	font-size:1.6rem;
+	background-color:green;
+	margin:2rem 0;
+}
+
+
+.extension-matter-adapter-update-spinner{
+	display:block;
+	margin:0 auto;
+}
 
 
 
@@ -1491,6 +1508,10 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 
 #extension-matter-adapter-discovered-devices-list{
 	min-height:10rem;
+}
+
+#extension-matter-adapter-discover-button{
+	margin-bottom:4rem;
 }
 
 #extension-matter-adapter-content-container.extension-matter-adapter-busy-discovering #extension-matter-adapter-discover-button,

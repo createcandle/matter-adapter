@@ -1720,7 +1720,7 @@ class MatterAdapter(Adapter):
                         #if self.DEBUG:
                         #    print("OK, existing dataset was succesfully set to active with vendor_id: ", self.vendor_id)
                     
-                    if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
+                    if str(self.run_ot_ctl_command('dataset set active')).rstrip() == 'Done':
                         if self.DEBUG:
                             self.s_print("start_thread_mesh: OK, loaded and committed existing thread dataset")
                         dataset_loaded = True
@@ -1900,18 +1900,21 @@ class MatterAdapter(Adapter):
                                 self.s_print("\nERROR, thread_dataset from dataset active -x was too short to be valid: ", self.thread_dataset)
                             return
 
+
                         if self.DEBUG:
                             self.s_print("self.thread_dataset: -->" + str(self.thread_dataset) + "<--")
-                        self.set_thread_dataset()
+                        
+                        
 
                         if not 'thread_dataset' in self.persistent_data:
                             self.persistent_data['thread_dataset'] = "" + str(self.thread_dataset)
                             self.should_save = True
 
-                        elif 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 10:
+                        elif 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 40:
                             if str(self.thread_dataset) == str(self.persistent_data['thread_dataset']):
                                 if self.DEBUG:
                                     self.s_print("OK, the thread dataset is still the same")
+                                
                             else:
                                 if self.DEBUG:
                                     self.s_print("\nERROR, thread dataset is different from the version in persistent data!")
@@ -1935,7 +1938,10 @@ class MatterAdapter(Adapter):
                 self.thread_dataset_loaded = False
                 self.thread_set_active = False
 
-            if self.thread_running and self.DEBUG:
+            if self.thread_set_active and isinstance(self.thread_dataset,str) and len(self.thread_dataset) > 40:
+                # Send Thread dataset info to Matter.server
+                self.set_thread_dataset()
+
                 self.s_print("__THREAD DETAILS__")
                 self.s_print(str(self.run_ot_ctl_command('dataset active -x')))
                 self.s_print(str(self.run_ot_ctl_command('netdata show')))
@@ -1943,6 +1949,13 @@ class MatterAdapter(Adapter):
                 self.s_print("")
                 self.s_print(str(run_command('sudo sysctl -a | grep .wpan0.')))
                 self.s_print("")
+            else:
+                if self.DEBUG:
+                    self.s_print("__THREAD DETAILS__")
+                    self.s_print("\nERROR, no Thread dataset loaded!\n")
+
+            
+                
 
 
         else:
@@ -2006,8 +2019,21 @@ class MatterAdapter(Adapter):
                                         if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
                                             if self.DEBUG:
                                                 self.s_print("start_thread_mesh: OK, called dataset commit active on brand new thread dataset")
-                                            dataset_loaded = True
-                                            self.thread_dataset_loaded = True
+
+                                            active_dataset = self.run_ot_ctl_command('dataset active -x')
+                                            if self.DEBUG:
+                                                self.s_print("dataset loaded, in theory. dataset active -x: " + str(active_dataset))
+
+                                            if isinstance(active_dataset,str) and 'Done' in active_dataset and len(active_dataset) > 40:
+                                                self.thread_dataset = str(active_dataset).replace('Done','').strip().rstrip()
+                                                if self.DEBUG:
+                                                    print("self.thread_dataset from 'dataset active -x' command: ", self.thread_dataset)
+                                                    print("\nSAVING NEW THREAD DATASET TO PERSISTENT DATA\n")
+                                                self.persistent_data['thread_dataset'] = self.thread_dataset
+                                                self.save_persistent_data()
+                                                
+                                                dataset_loaded = True
+                                                self.thread_dataset_loaded = True
 
                                         else:
                                             if self.DEBUG:

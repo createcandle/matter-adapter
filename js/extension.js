@@ -1725,7 +1725,7 @@
 						pairing_progress_message_el.textContent = body.pairing_phase_message;
 					}
 					
-					if(body.pairing_phase_message == 'Pairing completed succesfully'){
+					if(body.pairing_phase_message == 'Pairing completed successfully'){
 						
 						const busy_pairing_indicator_el = this.view.querySelector('#extension-matter-adapter-busy-pairing-indicator');
 						if(busy_pairing_indicator_el){

@@ -1315,6 +1315,9 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
     display:block;
 }
 
+.extension-matter-adapter-show-if-developer{
+	background-color:#555;
+}
 
 body:not(.developer) .extension-matter-adapter-show-if-developer{
     display:none;

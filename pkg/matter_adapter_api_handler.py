@@ -115,6 +115,10 @@ class MatterAPIHandler(APIHandler):
                             missing_vendor_id = True
                         self.adapter.missing_vendor_id = missing_vendor_id
 
+                        has_thread_dataset = False
+                        if isinstance(self.adapter.persistent_data['thread_dataset'],str) and len(self.adapter.persistent_data['thread_dataset']) > 40:
+                            has_thread_dataset = True
+                            
                         return APIResponse(
                           status=200,
                           content_type='application/json',
@@ -130,7 +134,8 @@ class MatterAPIHandler(APIHandler):
                                       'thread_channel':self.adapter.thread_channel,
                                       'matter_collision_detected':self.adapter.matter_collision_detected,
                                       'missing_vendor_id':missing_vendor_id,
-                                      'thread_network_name':self.adapter.thread_network_name
+                                      'thread_network_name':self.adapter.thread_network_name,
+                                      'has_thread_dataset':has_thread_dataset
                                       }),
                         )
                         
@@ -164,6 +169,9 @@ class MatterAPIHandler(APIHandler):
                         if self.adapter.thread_running == True:
                             self.adapter.update_thread_state_info()
 
+                        has_thread_dataset = False
+                        if isinstance(self.adapter.persistent_data['thread_dataset'],str) and len(self.adapter.persistent_data['thread_dataset']) > 40:
+                            has_thread_dataset = True
 
 
                         return APIResponse(
@@ -208,7 +216,8 @@ class MatterAPIHandler(APIHandler):
                                       'matter_collision_detected': self.adapter.matter_collision_detected,
                                       'thread_netdata_registered': self.adapter.thread_netdata_registered,
                                       'thread_state_info':self.adapter.thread_state_info,
-                                      'thread_netdata_info':self.adapter.thread_netdata_info
+                                      'thread_netdata_info':self.adapter.thread_netdata_info,
+                                      'has_thread_dataset':has_thread_dataset
                                       })
                         )
                     

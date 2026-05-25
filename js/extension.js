@@ -235,7 +235,7 @@
 					return
 				}
 				
-                title_el.addEventListener('click', (event) => {
+                title_el.addEventListener('click', () => {
 					if(this.view.classList.contains('extension-matter-adapter-title-easter-egg')){
 						this.view.classList.remove('extension-matter-adapter-title-easter-egg');
 					}else{
@@ -251,7 +251,7 @@
                 var all_tab_buttons = this.view.querySelectorAll('.extension-matter-adapter-main-tab-button');
 
                 for(var i=0; i< all_tab_buttons.length;i++){
-                    all_tab_buttons[i].addEventListener('click', (event) => {
+                    all_tab_buttons[i].addEventListener('click', () => {
                         //console.log("tab button clicked", event);
                         var desired_tab = event.target.innerText.toLowerCase();
 
@@ -277,7 +277,7 @@
 
                 // Thread tab
 
-                this.view.querySelector('#extension-matter-adapter-get-thread-network-code-button').addEventListener('click', (event) => {
+                this.view.querySelector('#extension-matter-adapter-get-thread-network-code-button').addEventListener('click', () => {
                     window.API.postJson(
 						`/extensions/${this.id}/api/ajax`,
 						{'action':'get_thread_network_code'}
@@ -311,7 +311,7 @@
 
                 const copy_thread_network_code_button_el = this.view.querySelector('#extension-matter-adapter-copy-thread-network-code-to-clipboard-button');
                 if(copy_thread_network_code_button_el){
-                    copy_thread_network_code_button_el.addEventListener('click', (event) => {
+                    copy_thread_network_code_button_el.addEventListener('click', () => {
                         const current_code = this.view.querySelector('#extension-matter-adapter-thread-network-code').textContent;
                         if(typeof current_code == 'string' && current_code.length > 40){
                             try{
@@ -328,9 +328,11 @@
                 }
 
 
+                
+
                 const show_enter_thread_network_code_button_el = this.view.querySelector('#extension-matter-adapter-enter-thread-network-code-button');
                 if(show_enter_thread_network_code_button_el){
-                    show_enter_thread_network_code_button_el.addEventListener('click', (event) => {
+                    show_enter_thread_network_code_button_el.addEventListener('click', () => {
                         show_enter_thread_network_code_button_el.classList.add('extension-matter-adapter-hidden');
                         this.view.querySelector('#extension-matter-adapter-enter-thread-network-code-container').classList.remove('extension-matter-adapter-hidden');
                     });
@@ -338,7 +340,7 @@
                 
                 const save_thread_network_code_button_el = this.view.querySelector('#extension-matter-adapter-save-thread-network-code-button');
                 if(save_thread_network_code_button_el){
-                    save_thread_network_code_button_el.addEventListener('click', (event) => {
+                    save_thread_network_code_button_el.addEventListener('click', () => {
 
                         let new_thread_network_code = this.view.querySelector('#extension-matter-adapter-thread-network-code-input').value;
                         if(new_thread_network_code.length > 40){
@@ -357,6 +359,11 @@
                                             console.log('matter adapter debug: get_thread_network_code response: state was good');
                                         }
                                         this.flash_message("Thread code was saved");
+
+                                        const import_thread_dataset_hint_el = this.view.querySelector('#extension-matter-adapter-import-thread-dataset-hint');
+                                        if(import_thread_dataset_hint_el){
+                                            import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
+                                        }
                                     }
                                     else{
                                         if(this.debug){
@@ -386,6 +393,22 @@
                 }
 
                 
+                const join_thread_network_shortcut_button_el = this.view.querySelector('#extension-matter-adapter-join-existing-network-button');
+                if(join_thread_network_shortcut_button_el){
+                    join_thread_network_shortcut_button_el.addEventListener('click', () => {
+                        this.view.querySelector('#extension-matter-adapter-tab-button-thread').click();
+                        show_enter_thread_network_code_button_el.classList.add('extension-matter-adapter-hidden');
+                        const input_container_el = this.view.querySelector('#extension-matter-adapter-enter-thread-network-code-container');
+                        if(input_container_el){
+                            input_container_el.classList.remove('extension-matter-adapter-hidden');
+                            setTimeout(() => {
+                                input_container_el.scrollIntoView({'block':'center','behavior':'smooth'})
+                            },100);
+                        }
+                    });
+                }
+
+                
                 const command_input_el = this.view.querySelector('#extension-matter-adapter-thread-command-input');
                 if(command_input_el){
 
@@ -393,8 +416,10 @@
 
                     // https://openthread.google.cn/reference/cli/commands
                     const otbr_commands = [
+                            'debug',
                             'state',
                             'state leader',
+                            'state router',
                             'dataset',
                             'dataset help',
                             'netdata show',
@@ -434,7 +459,7 @@
                             'counters ip',
                             'csl',
                             'bufferinfo',
-                            'debug',
+                            'leaderdata',
                             'leaderweight',
                             'linkmetrics',
                             'macfilter addr',
@@ -812,7 +837,8 @@
                 
                 if(!this.kiosk){
                     this.view.querySelector('#extension-matter-adapter-dashboard-button').addEventListener('click', () => {
-                        const dashboard_url = window.location.protocol + '//' + window.location.host + ':5580';
+                        //const dashboard_url = window.location.protocol + '//' + window.location.host + ':5580';
+                        const dashboard_url = 'http://' + window.location.host + ':5580';
                         if(this.debug){
                             console.log("opening dashboard_url: ", dashboard_url);
                         }
@@ -1391,9 +1417,18 @@
 					}
 				}
 
+
+                if(typeof body.has_thread_dataset == 'boolean' && body.has_thread_dataset == false){
+                    const import_thread_dataset_hint_el = this.view.querySelector('#extension-matter-adapter-import-thread-dataset-hint');
+                    if(import_thread_dataset_hint_el){
+                        import_thread_dataset_hint_el.classList.remove('extension-matter-adapter-hidden');
+                    }
+                }
+
+
                 if(typeof body.thread_netdata_registered == 'boolean'){
                     const thread_netdata_hint_el = this.view.querySelector('#extension-matter-adapter-thread-netdata-hint');
-                    if( thread_netdata_hint_el){
+                    if(thread_netdata_hint_el){
                         if(body.thread_netdata_registered == true){
                             thread_netdata_hint_el.textContent = '🌐 Networking details have been shared with the Thread network';
                         }

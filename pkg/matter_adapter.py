@@ -505,8 +505,13 @@ class MatterAdapter(Adapter):
             self.thread_dataset = self.persistent_data['thread_dataset']
 
         if not 'thing_index' in self.persistent_data:
-            self.persistent_data['thing_index'] = 50
+            self.persistent_data['thing_index'] = 10
             self.should_save = True
+
+        if not 'leaderweight' in self.persistent_data:
+            self.persistent_data['leaderweight'] = 64
+
+        
 
 
         # LOAD CONFIG
@@ -1117,11 +1122,17 @@ class MatterAdapter(Adapter):
             #print(str(self.run_ot_ctl_command('dataset set active ' + str(new_dataset))))
             if load_dataset_check == 'Done':
                 self.thread_dataset = new_dataset
+                if self.persistent_data['thread_dataset'] == '' or self.vendor_id == '':
+                    if self.DEBUG:
+                        print("import_thread_dataset:  lowering leaderweight to 60")
+                    self.persistent_data['leaderweight'] = 60 # Lower than the 64 of the 'main' controller
+
                 self.persistent_data['thread_dataset'] = new_dataset
+                
                 self.save_persistent_data()
                 
                 #self.find_thread_radio()
-                if self.found_thread_radio_again or self.found_new_thread_radio:
+                if self.vendor_id != '' and self.found_thread_radio_again or self.found_new_thread_radio:
                     if str(self.run_ot_ctl_command('ifconfig up')).rstrip() == 'Done':
                         if str(self.run_ot_ctl_command('thread start')).rstrip() == 'Done':
                             if self.DEBUG:
@@ -1426,7 +1437,7 @@ class MatterAdapter(Adapter):
 
     def start_matter_server(self):
         if self.DEBUG:
-            print("in start_matter_server.  self.matter_server_type: ", self.matter_server_type)
+            self.s_print("in start_matter_server.  self.matter_server_type: ", self.matter_server_type)
 
         if not os.path.exists(self.hasdata_dir_path):
             self.s_print("\nERROR, start_matter_server: hasdata_dir_path did not exist yet. Creating it now.")
@@ -1434,7 +1445,7 @@ class MatterAdapter(Adapter):
 
         if not os.path.exists(self.matter_serverjs_start_path):
             if self.DEBUG:
-                print("\nERROR, falling back to Python because matter_serverjs_start_path could not be found: ", self.matter_serverjs_start_path)
+                self.s_print("\nERROR, falling back to Python because matter_serverjs_start_path could not be found: ", self.matter_serverjs_start_path)
             self.matter_server_type = 'Python'
 
         #
@@ -1445,16 +1456,16 @@ class MatterAdapter(Adapter):
 
         if self.matter_server_type == 'Python':
             if self.DEBUG:
-                print("\n\n Starting PYTHON version of Matter.server\n\n")
+                self.s_print("\n\n Starting PYTHON version of Matter.server\n\n")
             python3_path = str(run_command('readlink $(which python3)'))
             python3_path = "/usr/bin/" + str(python3_path).rstrip()
 
             if self.DEBUG:
-                print("start_matter_server:  python3_path: ", python3_path)
+                self.s_print("start_matter_server:  python3_path: ", python3_path)
 
             if not os.path.exists(python3_path):
                 if self.DEBUG:
-                    print("start_matter_server: error, could not find python binary at path: ", python3_path)
+                    self.s_print("start_matter_server: error, could not find python binary at path: ", python3_path)
                 python3_path = 'python3'
             # /home/pi/.webthings/addons/matter-adapter/lib/
             #matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.data_dir_path)
@@ -1526,7 +1537,7 @@ class MatterAdapter(Adapter):
         
         else:
             if self.DEBUG:
-                print("\n\n Starting NodeJS version of Matter.server\n\n")
+                self.s_print("\n\n Starting NodeJS version of Matter.server\n\n")
             
             # ALL AVAILABLE FLAGS ARE DOCUMENTED HERE: https://github.com/matter-js/matterjs-server/blob/main/docs/cli.md
             #matter_server_command = 'npm run server --
@@ -1612,7 +1623,7 @@ class MatterAdapter(Adapter):
 
 
         if self.DEBUG:
-            print("Started Matter.server")
+            self.s_print("Started Matter.server")
 
 
 
@@ -1620,7 +1631,7 @@ class MatterAdapter(Adapter):
     # Currently unused, but could optimize which Thread channel to select. Apple always chooses 26 though, so that might not be a bad choice either.
     def wifi_congestion_scan(self):
         if self.DEBUG:
-            print("in wifi_congestion_scan (BLOCKED)")
+            self.s_print("in wifi_congestion_scan (BLOCKED)")
 
         return
         channel_data = {}
@@ -1705,45 +1716,45 @@ class MatterAdapter(Adapter):
 
             if 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 40:
                 if self.DEBUG:
-                    print("OK, there is a thread dataset in persistent data. Will attempt to load it.")
+                    self.s_print("\n+\n++\n+++\nOK, there is a thread dataset in persistent data. Will attempt to load it.")
                 #dataset networkkey
                 #if str(self.run_ot_ctl_command('dataset set active ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
-                load_dataset_check = str(self.run_ot_ctl_command('dataset init tlvs ' + str(self.persistent_data['thread_dataset']), 60)).rstrip()
+                #load_dataset_check = str(self.run_ot_ctl_command('dataset init tlvs ' + str(self.persistent_data['thread_dataset']), 60)).rstrip()
+                load_dataset_check = str(self.run_ot_ctl_command('dataset set active ' + str(self.persistent_data['thread_dataset']), 60)).rstrip()
+                if self.DEBUG:
+                    self.s_print("load_dataset_check: ", load_dataset_check)
 
                 #if str(self.run_ot_ctl_command('dataset init active ' + str(self.persistent_data['thread_dataset']))).rstrip() == 'Done':
                 if load_dataset_check == 'Done':
-                
-                    initial_dataset = str(self.run_ot_ctl_command('dataset')).rstrip()
-                    self.s_print("loaded initial_dataset? ", initial_dataset)
+                    dataset_loaded = True
+                    self.thread_dataset_loaded = True
+                    
+                    if self.DEBUG:
+                        self.s_print("OK, thread dataset from persistent data was successfully initialised")
+                        initial_dataset = str(self.run_ot_ctl_command('dataset')).rstrip()
+                        self.s_print("loaded initial_dataset?: \n\n", initial_dataset, "\n\n")
                     
                     #if str(self.run_ot_ctl_command('dataset set active ' + str(self.vendor_id))).rstrip() == 'Done':
                         #if self.DEBUG:
                         #    print("OK, existing dataset was succesfully set to active with vendor_id: ", self.vendor_id)
                     
-                    if str(self.run_ot_ctl_command('dataset set active')).rstrip() == 'Done':
+                    
+                    up_check = str(self.run_ot_ctl_command('ifconfig up')).rstrip()
+                    if up_check == 'Done':
                         if self.DEBUG:
-                            self.s_print("start_thread_mesh: OK, loaded and committed existing thread dataset")
-                        dataset_loaded = True
-                        self.thread_dataset_loaded = True
-
-                        #if self.DEBUG:
-                        #    print("start_thread_mesh: doing ifconfig wpan0 up")
-                        #run_command('ifconfig wpan0 up')
-                        if str(self.run_ot_ctl_command('ifconfig up')).rstrip() == 'Done':
+                            self.s_print("loaded dataset from persistent data, and OTBR ifconfig up done")
+                        if str(self.run_ot_ctl_command('thread start')).rstrip() == 'Done':
                             if self.DEBUG:
-                                print("loaded dataset from persistent data, and OTBR ifconfig up done")
-                            if str(self.run_ot_ctl_command('thread start')).rstrip() == 'Done':
-                                if self.DEBUG:
-                                    print("loaded dataset from persistent data, and Start Thread done")
-                                self.thread_running = True
-                                if self.DEBUG:
-                                    self.s_print("\nstart_thread_mesh: OK, Thread has now fully started\n")
-
+                                self.s_print("loaded dataset from persistent data, and Start Thread done")
+                            self.thread_running = True
+                            if self.DEBUG:
+                                self.s_print("\nstart_thread_mesh: OK, Thread has now fully started\n")
+                            dataset_loaded = True
+                            self.thread_dataset_loaded = True
                     else:
                         if self.DEBUG:
-                            self.s_print("\nERROR, dataset commit active FAILED")
-                        self.thread_error = 'Committing the Thread dataset failed'
-                        
+                            self.s_print("WARNING, loaded dataset, but ifconfig up failed: ", up_check)
+                        self.thread_error = 'Failed to bring up wpan0'
 
                     #else:
                     #    if self.DEBUG:
@@ -1758,7 +1769,9 @@ class MatterAdapter(Adapter):
                     if self.DEBUG:
                         self.s_print("ERROR: start_thread_mesh: loading the dataset timed out")
                     self.thread_error = 'Loading the Thread dataset timed out'
-
+                else:
+                    if self.DEBUG:
+                        self.s_print("Loading the existing Thread dataset returned load_dataset_check: ", load_dataset_check)
 
 
 
@@ -1766,16 +1779,16 @@ class MatterAdapter(Adapter):
 
             else:
                 if self.DEBUG:
-                    print("warning, no thread dataset in persistent data")
+                    self.s_print("warning, no thread dataset in persistent data")
                 dataset_loaded = self.create_new_thread_dataset()
 
 
             if dataset_loaded == False:
                 if self.DEBUG:
-                    print("\nstart_thread_mesh: FAILED TO LOAD EXISTING DATASET OR CREATE A NEW ONE\n")
+                    self.s_print("\nstart_thread_mesh: FAILED TO LOAD EXISTING DATASET OR CREATE A NEW ONE\n")
                 self.thread_dataset_loaded = False
 
-                self.thread_error = 'FAILED TO LOAD OR CREATE THREAD NETWORK (DATASET)'
+                self.thread_error = 'FAILED TO LOAD OR CREATE THREAD NETWORK CODE'
 
 
                 #
@@ -1813,13 +1826,13 @@ class MatterAdapter(Adapter):
                         netdata_prefix_command = 'netdata publish prefix fd00:' + str(self.hotspot_net_number) + '::/64 paos high'
                         if str(self.run_ot_ctl_command(netdata_prefix_command)).rstrip() == 'Done':
                             if self.DEBUG:
-                                print("\nsuccesfully published Hotspot Ipv6 prefix to Thread network netdata:\n", netdata_prefix_command)
+                                self.s_print("\nsuccesfully published Hotspot Ipv6 prefix to Thread network netdata:\n", netdata_prefix_command)
 
                         # netdata publish route fd00:1234:5678::/64 s high
                         netdata_route_command = 'netdata publish route fd00:' + str(self.hotspot_net_number) + '::1/64 paros high'
                         if str(self.run_ot_ctl_command(netdata_route_command)).rstrip() == 'Done':
                             if self.DEBUG:
-                                print("succesfully published Hotpot route to Candle controller to Thread network netdata:\n", netdata_route_command,"\n")
+                                self.s_print("succesfully published Hotpot route to Candle controller to Thread network netdata:\n", netdata_route_command,"\n")
 
                     if str(self.run_ot_ctl_command('netdata register')).rstrip() == 'Done':
                         if self.DEBUG:
@@ -1831,11 +1844,17 @@ class MatterAdapter(Adapter):
                         self.thread_netdata_registered = False
 
                 
-
+                
+                if str(self.run_ot_ctl_command('leaderweight ' + str(self.persistent_data['leaderweight']))).rstrip() == 'Done':
+                    if self.DEBUG:
+                        self.s_print("leaderweight set to: ", self.persistent_data['leaderweight'])
+                else:
+                    if self.DEBUG:
+                        self.s_print("\nERROR, failed to set leaderweight to: ", self.persistent_data['leaderweight'])
 
                 if str(self.run_ot_ctl_command('ifconfig up')).rstrip() == 'Done':
                     if self.DEBUG:
-                        print("OTBR ifconfig up done")
+                        self.s_print("OTBR ifconfig up done")
                     if str(self.run_ot_ctl_command('thread start')).rstrip() == 'Done':
                         self.thread_running = True
                         if self.DEBUG:
@@ -1844,12 +1863,12 @@ class MatterAdapter(Adapter):
 
 
                 if self.DEBUG:
-                    print("Debugging enabled -> getting thread netdata")
+                    self.s_print("Debugging enabled -> getting thread netdata")
                     self.thread_netdata_info = str(self.run_ot_ctl_command('netdata show'))
                     time.sleep(3)
                     self.thread_netdata_info += '\n'
                     self.thread_netdata_info += str(self.run_ot_ctl_command('ipaddr'))
-                    print("brand new network; self.thread_netdata_info: ", self.thread_netdata_info)
+                    self.s_print("brand new network; self.thread_netdata_info: ", self.thread_netdata_info)
 
 
 
@@ -1939,10 +1958,11 @@ class MatterAdapter(Adapter):
                 self.thread_set_active = False
 
             if self.thread_set_active and isinstance(self.thread_dataset,str) and len(self.thread_dataset) > 40:
-                # Send Thread dataset info to Matter.server
-                self.set_thread_dataset()
+                if self.client_connected == True:
+                    # Send Thread dataset info to Matter.server if it's already running
+                    self.set_thread_dataset()
 
-                self.s_print("__THREAD DETAILS__")
+                self.s_print("\n__THREAD DETAILS__")
                 self.s_print(str(self.run_ot_ctl_command('dataset active -x')))
                 self.s_print(str(self.run_ot_ctl_command('netdata show')))
                 self.s_print(str(self.run_ot_ctl_command('ipaddr')))
@@ -1951,7 +1971,7 @@ class MatterAdapter(Adapter):
                 self.s_print("")
             else:
                 if self.DEBUG:
-                    self.s_print("__THREAD DETAILS__")
+                    self.s_print("\n__THREAD DETAILS__")
                     self.s_print("\nERROR, no Thread dataset loaded!\n")
 
             
@@ -1983,8 +2003,8 @@ class MatterAdapter(Adapter):
     def create_new_thread_dataset(self):
         dataset_loaded = False
         if self.DEBUG:
-            print('in create_new_thread_dataset')
-            print("\n\n!\n\nWARNING, creating brand new thread dataset\n\n")
+            self.s_print('in create_new_thread_dataset')
+            self.s_print("\n\n!\n\nWARNING, creating brand new thread dataset\n\n")
 
         try:
             if self.run_ot_ctl_command('dataset init new'):
@@ -2001,11 +2021,11 @@ class MatterAdapter(Adapter):
                                 #        self.s_print("channel set")
                                 if str(self.run_ot_ctl_command('dataset channel ' + str(self.thread_channel))).rstrip() == 'Done':
                                     if self.DEBUG:
-                                        print("\nstart_thread_mesh: OK, new dataset channel was set to: ", str(self.thread_channel))
+                                        self.s_print("\ncreate_new_thread_dataset: OK, new dataset channel was set to: ", str(self.thread_channel))
                                     
                                     if str(self.run_ot_ctl_command('dataset networkkey ' + str(networkkey))).rstrip() == 'Done': #11112233445566778899DEAD1111DEAD
                                         if self.DEBUG:
-                                            print("\nstart_thread_mesh: OK, new dataset network key was set")
+                                            self.s_print("\ncreate_new_thread_dataset: OK, new dataset network key was set")
                                         
                                         #set_active_output = str(self.run_ot_ctl_command('dataset set active ' + str(self.vendor_id))).rstrip()
                                         #if set_active_output == 'Done':
@@ -2013,22 +2033,22 @@ class MatterAdapter(Adapter):
                                         #        print("OK, brand new dataset was succesfully set to active with vendor_id: ", self.vendor_id)
                                         #else:
                                         #    if self.DEBUG:
-                                        #        self.s_print("start_thread_mesh: failed to set new dataset to active with vendor_ID: \n", set_active_output)
+                                        #        self.s_print("create_new_thread_dataset: failed to set new dataset to active with vendor_ID: \n", set_active_output)
 
                                         
                                         if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
                                             if self.DEBUG:
-                                                self.s_print("start_thread_mesh: OK, called dataset commit active on brand new thread dataset")
+                                                self.s_print("create_new_thread_dataset: OK, called dataset commit active on brand new thread dataset")
 
                                             active_dataset = self.run_ot_ctl_command('dataset active -x')
                                             if self.DEBUG:
-                                                self.s_print("dataset loaded, in theory. dataset active -x: " + str(active_dataset))
+                                                self.s_print("create_new_thread_dataset: dataset loaded, in theory. dataset active -x: " + str(active_dataset))
 
                                             if isinstance(active_dataset,str) and 'Done' in active_dataset and len(active_dataset) > 40:
                                                 self.thread_dataset = str(active_dataset).replace('Done','').strip().rstrip()
                                                 if self.DEBUG:
-                                                    print("self.thread_dataset from 'dataset active -x' command: ", self.thread_dataset)
-                                                    print("\nSAVING NEW THREAD DATASET TO PERSISTENT DATA\n")
+                                                    self.s_print("create_new_thread_dataset: self.thread_dataset from 'dataset active -x' command: ", self.thread_dataset)
+                                                    self.s_print("\ncreate_new_thread_dataset: SAVING NEW THREAD DATASET TO PERSISTENT DATA\n")
                                                 self.persistent_data['thread_dataset'] = self.thread_dataset
                                                 self.save_persistent_data()
                                                 
@@ -2049,7 +2069,7 @@ class MatterAdapter(Adapter):
                                     self.s_print("start_thread_mesh: failed to set new networkname to: ", + str(self.thread_network_name))
 
         except Exception as ex:
-            print("caught error in create_new_thread_dataset: ", ex)
+            self.s_print("caught error in create_new_thread_dataset: ", ex)
         
 
         return dataset_loaded
@@ -2399,13 +2419,13 @@ class MatterAdapter(Adapter):
 
                     elif message['message_id'] == 'commission_with_code':
                         if self.DEBUG:
-                            self.s_print("\n\nNew device paired successfuly\n\n")
-                        self.send_pairing_prompt("New device paired successfuly")
+                            self.s_print("\n\nNew device paired successfully\n\n")
+                        self.send_pairing_prompt("New device paired successfully")
                         self.get_nodes()
 
                     elif message['message_id'] == 'node_added':
                         if self.DEBUG:
-                            self.s_print("\n\nNew device paired successfuly\n\n")
+                            self.s_print("\n\nNew device paired successfully\n\n")
 
                     elif message['message_id'] == 'get_nodes':
                         if 'result' in message:

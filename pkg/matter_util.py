@@ -666,9 +666,13 @@ def process_node(node):
 def uncamel(value):
     output = ''
     if isinstance(value,str) and len(value) > 1:
-        for char in value:
-            if char.isupper():
-                output += "_" + char.lower()
+        #for char in value:
+        for index, char in enumerate(value):
+            next_char_is_lower = False
+            if index < len(value) - 1 and value[index + 1] != ' ' and value[index + 1].islower():
+                next_char_is_lower = True
+            if char.isupper() and next_char_is_lower:
+                output = output + "_" + char.lower()
             else:
                 output += char
         if output.startswith("_"):

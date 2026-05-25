@@ -454,7 +454,7 @@ class MatterDevice(Device):
                                 elif attribute_code.endswith('.Attributes.RecentEvent'):
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['value'] = 'None'
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['supported'] = True
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] = True
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] = False
                                 else:
                                     if self.DEBUG:
                                         print("warning: attribute_code fell through: no early value is being set for: ", attribute_code)

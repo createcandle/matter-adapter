@@ -161,6 +161,11 @@ class MatterAPIHandler(APIHandler):
                         last_update_check_seconds_ago = int(time.time()) - self.adapter.last_matter_update_check_timestamp
                         last_update_check_response_seconds_ago = int(time.time()) - self.adapter.last_matter_update_check_response_timestamp
 
+                        if self.adapter.thread_running == True:
+                            self.adapter.update_thread_state_info()
+
+
+
                         return APIResponse(
                           status=200,
                           content_type='application/json',

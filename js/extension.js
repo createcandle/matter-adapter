@@ -154,6 +154,10 @@
                     this.second_page_el.classList.add('extension-matter-adapter-is-mobile');
                 }
                 
+                //this.view.querySelector('#extension-matter-adapter-tab-button-thread').addEventListener('click', () => {});
+                
+
+
                 // Discover button
                 // Only visible for developers.
                 this.view.querySelector('#extension-matter-adapter-discover-button').addEventListener('click', () => {
@@ -273,7 +277,6 @@
 
                 // Thread tab
 
-                
                 this.view.querySelector('#extension-matter-adapter-get-thread-network-code-button').addEventListener('click', (event) => {
                     window.API.postJson(
 						`/extensions/${this.id}/api/ajax`,
@@ -304,8 +307,6 @@
                         this.flash_message("Connection error while trying to get the Thread network code");
 					});
                 });
-
-
 
 
                 const copy_thread_network_code_button_el = this.view.querySelector('#extension-matter-adapter-copy-thread-network-code-to-clipboard-button');
@@ -1672,6 +1673,7 @@
 							if(progress_bar_width >= 100){
 								progress_bar_width = 100;
 								pairing_progress_bar_container_el.style.background = 'green';
+                                
 							}
 							else{
 								pairing_progress_bar_container_el.style.background = 'rgba(0,0,0,.3)';
@@ -4025,24 +4027,29 @@
 						old_code_item_el.classList.add('extension-matter-adapter-old-pairing-code-item');
 						old_code_item_el.classList.add('extension-matter-adapter-flex-align-center');
 						old_code_item_el.classList.add('extension-matter-adapter-flex-between');
-						
+                        old_code_item_el.classList.add('extension-matter-adapter-printable');
 						
 						const names_wrapper_el = document.createElement('div');
 						names_wrapper_el.classList.add('extension-matter-adapter-flex-wrap-when-narrow');
+                        names_wrapper_el.classList.add('extension-matter-adapter-printable');
 						
 						const vendor_name_el = document.createElement('span');
 						vendor_name_el.classList.add('extension-matter-adapter-old-pairing-code-item-vendor-name');
 						vendor_name_el.textContent = device_details['vendor_name'];
 						names_wrapper_el.appendChild(vendor_name_el);
+                        names_wrapper_el.classList.add('extension-matter-adapter-printable');
 						
 						const product_name_el = document.createElement('span');
 						product_name_el.classList.add('extension-matter-adapter-old-pairing-code-item-product-name');
 						product_name_el.textContent = device_details['product_name'];
 						names_wrapper_el.appendChild(product_name_el);
+                        names_wrapper_el.classList.add('extension-matter-adapter-printable');
 						
 						old_code_item_el.appendChild(names_wrapper_el);
+                        old_code_item_el.classList.add('extension-matter-adapter-printable');
 						
 						const qr_code_el = document.createElement('div');
+                        qr_code_el.classList.add('extension-matter-adapter-printable');
 						qr_code_el.classList.add('extension-matter-adapter-old-pairing-code-item-qr-code');
 			    	    let qrcode = new QRCode( qr_code_el, {
 			    		    width : 70,
@@ -4099,9 +4106,18 @@
 							// temporarily add a stylesheet that limits printing to only the list
 							const print_css = `
 								@media print {
-								  body *:not(.printable, .printable *) {
-								    display: none!important;
-								  }
+                                  #extension-matter-adapter-pairing-steps div:not(.extension-matter-adapter-printable),
+                                  #extension-matter-adapter-print-old-codes-button,
+                                  #main-menu,
+                                  #extension-matter-adapter-back-button,
+                                  h2{
+                                    display: none!important;
+                                  }
+                                  .extension-matter-adapter-printable{
+                                    color:black!important;
+                                  }
+                                  .extension-matter-adapter-old-pairing-code-item{padding:1rem}
+                                  
 								}
 							`;
 							

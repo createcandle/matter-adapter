@@ -119,11 +119,13 @@
 
 #extension-matter-adapter-view .extension-matter-adapter-tab-buttons button {
     background-color: transparent;
-    border-right: 1px solid rgba(0, 0, 0, .1);
     color: #eee;
     cursor: pointer;
     font-size: 1.8rem;
     flex-grow: 1;
+}
+#extension-matter-adapter-view .extension-matter-adapter-tab-buttons button:not(:last-of-type){
+    border-right: 1px solid rgba(0, 0, 0, .1);
 }
 
 #extension-matter-adapter-view .extension-matter-adapter-tab-buttons button:hover {
@@ -136,10 +138,20 @@ body #extension-matter-adapter-view .extension-matter-adapter-tab-selected {
     background-color: rgba(0, 0, 0, 0.18) !important;
 }
 
+#extension-matter-adapter-thread-state-info{
+	text-align:center;
+	font-weight: bold;
+}
 #extension-matter-adapter-thread-state-info:empty,
 #extension-matter-adapter-thread-netdata-info:empty,
 #extension-matter-adapter-missing-vendor-id-hint:not(.extension-matter-adapter-hidden) ~ #extension-matter-adapter-still-starting-hint{
 	display:none;
+}
+
+#extension-matter-adapter-thread-state-info:not(:empty)::before{
+	content:'State: ';
+	margin-right:.5rem;
+	font-weight: 100;
 }
 
 #extension-matter-adapter-wifi-restore-countdown,
@@ -370,6 +382,9 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	display:none;
 }
 
+#extension-matter-adapter-check-for-updates-button-container{
+	margin-bottom:10rem;
+}
 
 
 .extension-matter-adapter-tiny-plus-button{
@@ -1100,6 +1115,9 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 
 .extension-matter-adapter-start-pairing-button{
     display:none;
+}
+#extension-matter-adapter-start-normal-pairing-button{
+	margin-top:2rem;
 }
 .extension-matter-adapter-pairing-normal #extension-matter-adapter-start-normal-pairing-button{
     display:inline-block;

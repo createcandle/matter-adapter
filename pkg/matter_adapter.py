@@ -518,8 +518,8 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             self.s_print("PWD:" + str(pwd))
             self.s_print("initial self.thread_dataset: ", self.thread_dataset)
-            self.s_print("\nself.enums_lookup: ", self.enums_lookup)
-            self.s_print("\nself.events_lookup: ", self.events_lookup)
+            #self.s_print("\nself.enums_lookup: ", self.enums_lookup)
+            #self.s_print("\nself.events_lookup: ", self.events_lookup)
 
         # Override vendor ID
         if len(self.vendor_id) > 2 and len(self.vendor_id) < 7:
@@ -1659,7 +1659,7 @@ class MatterAdapter(Adapter):
     # TODO: implement a feature to find all nearby Thread networks using otbr cli/agent
 
 
-
+    # Gets called once the Thread radio is alive and ready
     def start_thread_mesh(self):
         if self.DEBUG:
             self.s_print("in start_thread_mesh")
@@ -1681,10 +1681,6 @@ class MatterAdapter(Adapter):
             if self.DEBUG:
                 self.s_print("txpower_output: ", txpower_output)
             
-
-            
-
-
             initial_thread_state = str(self.run_ot_ctl_command('state')).rstrip()
             if self.DEBUG:
                 self.s_print("initial_thread_state: \n" + str(initial_thread_state))
@@ -1730,54 +1726,18 @@ class MatterAdapter(Adapter):
                         dataset_loaded = True
                         self.thread_dataset_loaded = True
 
-                        if self.help_thread_devices_to_connect_to_the_internet:
-
-                            if self.use_hotspot and self.hotspot_net_number != None:
-
-                                # TODO: should a default route be added as well?
-                                # sudo ip -6 route add fd11:22::/64 dev wpan0 via fd11:db8:1::2
-                                # from:
-                                # https://devzone.nordicsemi.com/f/nordic-q-a/123130/issue-with-otbr-setup-and-sudo-ot-ctl-command
-
-                                # netdata publish prefix fd00:1234:5678::/64 paos med
-                                netdata_prefix_command = 'netdata publish prefix fd00:' + str(self.hotspot_net_number) + '::/64 paos high'
-                                if str(self.run_ot_ctl_command(netdata_prefix_command)).rstrip() == 'Done':
-                                    if self.DEBUG:
-                                        print("\nsuccesfully published Hotspot Ipv6 prefix to Thread network netdata:\n", netdata_prefix_command)
-
-                                # netdata publish route fd00:1234:5678::/64 s high
-                                netdata_route_command = 'netdata publish route fd00:' + str(self.hotspot_net_number) + '::1/64 paros high'
-                                if str(self.run_ot_ctl_command(netdata_route_command)).rstrip() == 'Done':
-                                    if self.DEBUG:
-                                        print("succesfully published Hotpot route to Candle controller to Thread network netdata:\n", netdata_route_command,"\n")
-
-                            if str(self.run_ot_ctl_command('netdata register')).rstrip() == 'Done':
-                                if self.DEBUG:
-                                    self.s_print("\nOK, netdata register seems to have succeeded")
-                                self.thread_netdata_registered = True
-                            else:
-                                if self.DEBUG:
-                                    self.s_print("\nERROR, failed to provide the thread network with internet access details")
-                                self.thread_netdata_registered = False
-                        
-                        self.thread_state_info = self.run_ot_ctl_command('state')
-                        if self.DEBUG:
-                            print("Debugging enabled -> getting thread netdata")
-                            self.thread_netdata_info = str(self.run_ot_ctl_command('netdata show'))
-                            time.sleep(3)
-                            self.thread_netdata_info += '\n'
-                            self.thread_netdata_info += str(self.run_ot_ctl_command('ipaddr'))
-                            print("self.thread_netdata_info: ", self.thread_netdata_info)
-
                         #if self.DEBUG:
                         #    print("start_thread_mesh: doing ifconfig wpan0 up")
                         #run_command('ifconfig wpan0 up')
                         if str(self.run_ot_ctl_command('ifconfig up')).rstrip() == 'Done':
                             if self.DEBUG:
-                                print("OTBR ifconfig up done")
-                            self.thread_running = True
-                            if self.DEBUG:
-                                self.s_print("\nstart_thread_mesh: OK, Thread has now fully started\n")
+                                print("loaded dataset from persistent data, and OTBR ifconfig up done")
+                            if str(self.run_ot_ctl_command('thread start')).rstrip() == 'Done':
+                                if self.DEBUG:
+                                    print("loaded dataset from persistent data, and Start Thread done")
+                                self.thread_running = True
+                                if self.DEBUG:
+                                    self.s_print("\nstart_thread_mesh: OK, Thread has now fully started\n")
 
                     else:
                         if self.DEBUG:
@@ -1893,12 +1853,7 @@ class MatterAdapter(Adapter):
 
 
 
-                self.thread_state_info = str(self.run_ot_ctl_command('state'))
-                self.thread_state_info = self.thread_state_info.replace('Done','')
-                self.thread_state_info = self.thread_state_info.rstrip()
-                self.thread_state_info = self.thread_state_info.strip()
-                if self.DEBUG:
-                    self.s_print("self.thread_state_info is now \n" + str(self.thread_state_info))
+                self.update_thread_state_info()
 
 
                 if 'leader' in self.thread_state_info or 'router' in self.thread_state_info:
@@ -1997,7 +1952,13 @@ class MatterAdapter(Adapter):
             self.thread_set_active = False
 
 
-
+    def update_thread_state_info(self):
+        self.thread_state_info = str(self.run_ot_ctl_command('state'))
+        self.thread_state_info = self.thread_state_info.replace('Done','')
+        self.thread_state_info = self.thread_state_info.rstrip()
+        self.thread_state_info = self.thread_state_info.strip()
+        if self.DEBUG:
+            self.s_print("update_thread_state_info: Thread state is now: " + str(self.thread_state_info))
 
 
 
@@ -2391,7 +2352,7 @@ class MatterAdapter(Adapter):
                         self.busy_discovering = False
                         self.busy_pairing = False
                         self.pairing_phase = 100
-                        self.pairing_phase_message = 'Pairing completed successfuly'
+                        self.pairing_phase_message = 'Pairing completed successfully'
                         self.get_nodes(True) # True = force
 
                        # matter_device.py adds it to self.persistent_data['pairing_codes']

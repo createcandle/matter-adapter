@@ -47,6 +47,8 @@
             
             this.retried_init = false;
 			this.no_devices_hint_el_removed = false;
+
+            this.matter_client_connected_count = 0; // hide the starting hint if the client has been connected for a few polls
 			
 			this.scan_window = null;
 			this.matter_qr_scanner_url = null;
@@ -294,17 +296,22 @@
                             console.log("matter adapter debug: get_thread_network_code response: ", body);
                         }
                         if(typeof body.state == 'boolean'){
-                            if(body.state == true && typeof body.thread_network_code == 'string'){
-                                if(this.debug){
-                                    console.log('matter adapter debug: get_thread_network_code response: state was good');
+                            const network_code_display_el = this.view.querySelector('#extension-matter-adapter-thread-network-code');
+                            if(network_code_display_el){
+                                if(body.state == true && typeof body.thread_network_code == 'string'){
+                                    if(this.debug){
+                                        console.log('matter adapter debug: get_thread_network_code response: state was good');
+                                    }
+                                    this.view.querySelector('#extension-matter-adapter-thread-network-code-container').classList.remove('extension-matter-adapter-hidden');
+                                    network_code_display_el.textContent = body.thread_network_code;
                                 }
-                                this.view.querySelector('#extension-matter-adapter-thread-network-code').textContent = body.thread_network_code;
-                            }
-                            else{
-                                if(this.debug){
-                                    console.error('matter adapter debug: error, get_thread_network_code failed. body.state: ', body.state);
+                                else{
+                                    if(this.debug){
+                                        console.error('matter adapter debug: error, get_thread_network_code failed. body.state: ', body.state);
+                                    }
+                                    network_code_display_el.textContent = ''
+                                    this.flash_message("Could not get the Thread network code");
                                 }
-                                this.flash_message("Could not get the Thread network code");
                             }
                         }
                         
@@ -427,80 +434,26 @@
                             'debug',
                             'state',
                             'state leader',  // can be offline, disabled, detached, child, router, or leader
-                            'state router',
-                            'dataset',
-                            'dataset help',
-                            'netdata show',
-                            'netdata show local',
-                            'netdata help',
-                            'netstat',
-                            'networkdiagnostic',
-                            'networkidtimeout',
-                            'networkkey',
-                            'channel',
-                            'channel manager',
-                            'channel monitor',
-                            'channel supported',
-                            'child list',
-                            'child table',
-                            'child 1',
-                            'childip',
-                            'childip max',
-                            'coaps',
-                            'commissioner id',
-                            'commissioner provisioningurl',
-                            'panid',
-                            'parent',
-                            'ipaddr',
+                            'leaderdata',
+                            'leaderweight',
+                            'commissioner state',
                             'dataset',
                             'dataset active',
                             'dataset active -x',
-                            'router table',
-                            'neighbor table',
-                            'commissioner start',
-                            'commissioner state',
-                            'onlinkprefix',
-                            'networkname',
+                            'dataset meshlocalprefix',
+                            'ipaddr',
+                            'netdata show',
+                            'netdata show local',
+                            'netstat',
+                            '',
                             'admitter state',
                             'admitter enrollers',
-                            'counters',
-                            'counters ip',
-                            'csl',
                             'bufferinfo',
-                            'leaderdata',
-                            'leaderweight',
-                            'linkmetrics',
-                            'macfilter addr',
-                            'meshdiag topology',
-                            'multiradio',
-                            'multiradio neighbor list',
-                            'nat64',
-                            'nat64 state',
-                            'nat64 cidr',
-                            'nat64 mappings',
-                            'neighbor conntime list',
-                            'partitionid',
-                            'platform',
-                            'preferrouterid',
-                            'prefix',
-                            'prefix meshlocal',
-                            'promiscuous',
-                            'pskc',
-                            'radio',
-                            'radio stats',
-                            'rcp version',
-                            'region',
-                            'rloc16',
-                            'route',
-                            'router list',
-                            'routereligible', // Enables or disables the router role.
-                            'routerselectionjitter',
-                            'routerupgradethreshold',
-                            'scan energy 10',
-                            'scan',
-                            'scan 26',
-                            'singleton', // if node is only router on the network
-                            'sntp query', // time server
+                            'ba state',
+                            'ba sessions',
+                            'batracker agents',
+                            'bbr config',
+                            'bbr mgmt mlr listener',
                             'br state',
                             'br ifaddrs',
                             'br multiail',
@@ -518,11 +471,145 @@
                             'br prefixtable',
                             'br rdnsstable',
                             'br routers',
-                            'ba state',
-                            'ba sessions',
-                            'batracker agents',
-                            'bbr config',
-                            'bbr mgmt mlr listener',
+                            'channel',
+                            'channel manager',
+                            'channel monitor',
+                            'channel supported',
+                            'child list',
+                            'child table',
+                            'child 1',
+                            'childip',
+                            'childip max',
+                            'coaps',
+                            'commissioner id',
+                            'commissioner provisioningurl',
+                            'commissioner start',
+                            'commissioner state',
+                            'counters',
+                            'counters ip',
+                            'csl',
+                            'dataset',
+                            'dataset active',
+                            'dataset active -x',
+                            'dataset meshlocalprefix',
+                            'dataset pending',
+                            'dataset updater',
+                            'dataset updater start',
+                            'dataset securitypolicy 672 onrc',
+                            'dataset mgmtsetcommand active activetimestamp 123 securitypolicy 1 onrc',
+                            'dataset help',
+                            'discover',
+                            'dns browse',
+                            'dns config',
+                            'dns browse _airplay._tcp.default.service.arpa',
+                            'dns resolve example.com 9.9.9.9',
+                            'domainname',
+                            'dua iid',
+                            'eui64',
+                            'extaddr',
+                            'extpanid',
+                            'factoryreset!DANGER! This resets Thread!',
+                            'fem',
+                            'history ailrouters',
+                            'history dhcp6pd',
+                            'history dnssrpaddr',
+                            'history ipaddr',
+                            'history ipmaddr',
+                            'history neighbor',
+                            'history netinfo',
+                            'history omrprefix',
+                            'history onlinkprefix',
+                            'history prefix',
+                            'history query netinfo',
+                            'history route',
+                            'history router',
+                            'history rx',
+                            'history tx',
+                            'history rxtx',
+                            'ifconfig',
+                            'ifconfig up',
+                            'instanceid',
+                            'ipaddr',
+                            'ipaddr rloc',
+                            'ipaddr mleid',
+                            'ipaddr linklocal',
+                            'ipaddr add 2001::dead:beef:cafe',
+                            'ipaddr del 2001::dead:beef:cafe',
+                            'ipmaddr',
+                            'ipmaddr llatn',
+                            'joiner id',
+                            'joiner state',
+                            'joiner help',
+                            'joiner discerner',
+                            'joinerport',
+                            'keysequence counter',
+                            'keysequence guardtime',
+                            'leaderdata',
+                            'leaderweight',
+                            'leaderweight 64',
+                            'leaderweight 255',
+                            'linkmetrics',
+                            'linkmetricsmgr show',
+                            'locate',
+                            'log level',
+                            'log level 7',
+                            'mac altshortaddr',
+                            'mac retries direct',
+                            'mac retries indirect',
+                            'mac send datarequest',
+                            'mac send emptydata',
+                            'macfilter',
+                            'macfilter addr',
+                            'macfilter addr allowlist',
+                            'macfilter addr denylist',
+                            'macfilter rss',
+                            'meshdiag childip6',
+                            'meshdiag childtable',
+                            'meshdiag responsetimeout',
+                            'meshdiag routerneighbortable',
+                            'meshdiag topology',
+                            'multiradio',
+                            'multiradio neighbor list',
+                            'nat64',
+                            'nat64 state',
+                            'nat64 cidr',
+                            'nat64 mappings',
+                            'neighbor table',
+                            'neighbor conntime list',
+                            'netdata show',
+                            'netdata show local',
+                            'netdata help',
+                            'netstat',
+                            'networkdiagnostic',
+                            'networkidtimeout',
+                            'networkkey',
+                            'networkname',
+                            'onlinkprefix',
+                            'panid',
+                            'parent',
+                            'partitionid',
+                            'platform',
+                            'preferrouterid',
+                            'prefix',
+                            'prefix meshlocal',
+                            'promiscuous',
+                            'pskc',
+                            'radio',
+                            'radio stats',
+                            'rcp version',
+                            'region',
+                            'rloc16',
+                            'route',
+                            'router list',
+                            'router table',
+                            'routereligible', // Enables or disables the router role.
+                            'routerselectionjitter',
+                            'routerupgradethreshold',
+                            'scan',
+                            'scan 26',
+                            'scan energy 10',
+                            'singleton', // if node is only router on the network
+                            'sntp query', // time server
                             'srp client autostart',
                             'srp client host address',
                             'srp client host state',
@@ -532,6 +619,9 @@
                             'srp server',
                             'srp server addrmode',
                             'srp server service',
+                            'state',
+                            'state leader',  // can be offline, disabled, detached, child, router, or leader
+                            'state router',
                             'tcat devid',
                             'thread version',
                             'timeinqueue',
@@ -544,7 +634,8 @@
                             'vendor swversion',
                             'uptime',
                             'version',
-                            'version api'
+                            'version api',
+                            'wakeupchannel'
                             ];
                     // dataset get-active
                     // sudo journalctl -u otbr-agent
@@ -990,6 +1081,32 @@
 				//	this.stop_regenerating = true;
 				//});
 
+                this.view.querySelector('#extension-matter-adapter-reset-thread-button').addEventListener('click', () => {
+					if(confirm("Are you sure you want to completely reset Thread? You will have to pair all Thread devices again!")){
+			            window.API.postJson(
+							`/extensions/${this.id}/api/ajax`,
+							{'action':'reset_thread'}
+						).then((body) => { 
+							if(this.debug){
+			                    console.log("matter debug: reset_thread done. response: ", body);
+			                }
+                            this.flash_message("Thread reset requested succesfully");
+							this.nodez = {};
+							this.regenerate_items();
+                            
+                            /*
+                            this.flash_message("Rebooting...");
+                            window.API.postJson('/settings/system/actions', {
+                                action: 'restartSystem'
+                            }).catch(console.error);
+                            */
+						}).catch((err) => {
+                            this.flash_message("Communication error");
+							console.error("matter adapter: caught error calling reset_matter: ", err);
+						});
+					}
+				});
+
                 this.view.querySelector('#extension-matter-adapter-reset-matter-button').addEventListener('click', () => {
 					if(confirm("Are you sure you want to completely reset Matter? This will reboot the controller, and you will have to pair all Matter devices again!")){
 			            window.API.postJson(
@@ -997,8 +1114,9 @@
 							{'action':'reset_matter'}
 						).then((body) => { 
 							if(this.debug){
-			                    console.log("reset reset_matter done");
+			                    console.log("matter debug: reset_matter response: ", body);
 			                }
+                            this.flash_message("Matter reset requested succesfully");
 							this.nodez = {};
 							this.regenerate_items();
                             /*
@@ -1021,8 +1139,9 @@
 							{'action':'reset_customizations'}
 						).then((body) => { 
 							if(this.debug){
-			                    console.log("reset reset_customizations done");
+			                    console.log("matter debug: reset_customizations response: ", body);
 			                }
+                            this.flash_message("Customizations removed");
 							this.nodez = {};
 							this.regenerate_items();
 						}).catch((err) => {
@@ -1389,6 +1508,19 @@
 					spinner_el.classList.add('extension-matter-adapter-hidden');
 				}
 				
+                let starting_info = {
+                    'Vendor ID set': false,
+                    'Thread radio detected': false,
+                    'Thread radio starting': false,
+                    'Thread radio ready': false,
+                    'Thread network code available': false,
+                    'Thread network code loaded': false,
+                    'Thread running': false,
+                    'Matter starting': false,
+                    'Matter ready': false,
+                    'Matter running':false
+                }
+                let starting_info_html = '';
             
                 // If debug is available in the init data, set the debug value and output the init data to the console
                 if(typeof body.debug != 'undefined'){
@@ -1435,11 +1567,22 @@
 				}
 
 
-                if(typeof body.has_thread_dataset == 'boolean' && body.has_thread_dataset == false){
-                    const import_thread_dataset_hint_el = this.view.querySelector('#extension-matter-adapter-import-thread-dataset-hint');
-                    if(import_thread_dataset_hint_el){
-                        import_thread_dataset_hint_el.classList.remove('extension-matter-adapter-hidden');
+                if(typeof body.has_thread_dataset == 'boolean'){
+
+                    
+                    const import_thread_dataset_hint_el = this.view.querySelector('#extension-matter-adapter-import-thread-dataset-hint'); // hint on the main page
+                    const has_dataset_hint_el = this.view.querySelector('#extension-matter-adapter-has-dataset-hint'); // hint on the thread tab
+                    if(has_dataset_hint_el && import_thread_dataset_hint_el){
+                        if(body.has_thread_dataset == false){
+                            has_dataset_hint_el.textContent = 'No Thread network code imported or created yet';
+                            import_thread_dataset_hint_el.classList.remove('extension-matter-adapter-hidden');
+                        }
+                        else{
+                            has_dataset_hint_el.textContent = 'This controller has a Thread network code';
+                            import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
+                        }
                     }
+                    starting_info['Thread network code available'] = body.has_thread_dataset;
                 }
 
 
@@ -1453,7 +1596,6 @@
                             thread_netdata_hint_el.textContent = '';
                         }
                     }
-                    
                 }
 
 
@@ -1491,6 +1633,7 @@
                             vendor_id_hint_el.classList.add('extension-matter-adapter-hidden');
                         }
                     }
+                    starting_info['Vendor ID set'] = !body.missing_vendor_id;
                 }
 
                 
@@ -1567,17 +1710,54 @@
                 
 				
 				// MAIN POLL
-				if(typeof body.client_connected == 'boolean'){
+				if(typeof body.matter_client_connected == 'boolean'){
 					const still_starting_el = this.view.querySelector('#extension-matter-adapter-still-starting-hint');
 					if(still_starting_el){
-						if(body.client_connected == false){
+						if(body.matter_client_connected == false){
+                            this.matter_client_connected_count = 0;
 							still_starting_el.classList.remove('extension-matter-adapter-hidden');
 						}
 						else{
-							still_starting_el.classList.add('extension-matter-adapter-hidden');
+                            if(this.matter_client_connected_count < 5){
+                                this.matter_client_connected_count++;
+                                if(this.debug){
+                                    console.log("matter debug: this.matter_client_connected_count: ", this.matter_client_connected_count);
+                                }
+                            }
+                            else{
+                                still_starting_el.classList.add('extension-matter-adapter-hidden');
+                            }
 						}
 					}
+                    starting_info['Matter running'] = body.matter_client_connected;
 				}
+
+                if(typeof body.matter_server_running == 'boolean'){
+                    starting_info['Matter ready'] = body.matter_server_running;
+                }
+
+                /*
+                if(typeof body.found_thread_radio_again == 'boolean' && typeof body.found_new_thread_radio == 'boolean' && typeof body.thread_radio_serial_port == 'string'){
+                    if(body.thread_radio_serial_port != '' && (body.found_thread_radio_again == true || body.found_new_thread_radio == true)){
+                        starting_info['Thread radio detected'] = true;
+                    }
+                }
+                */
+
+                if(typeof body.found_thread_radio_again == 'boolean' && typeof body.found_new_thread_radio == 'boolean'){
+                    if(this.debug){
+                        console.log("matter debug: for starting_info: body.found_new_thread_radio: ", body.found_new_thread_radio);
+                        console.log("matter debug: for starting_info: body.found_thread_radio_again: ", body.found_thread_radio_again);
+                    }
+                    
+
+                    if(body.found_thread_radio_again == true || body.found_new_thread_radio == true){
+                        starting_info['Thread radio detected'] = true;
+                    }
+                    if(this.debug){
+                        console.log("matter debug: starting_info['Thread radio detected']: " + starting_info['Thread radio detected']);
+                    }
+                }
 				
 				const thread_details_el = this.view.querySelector('#extension-matter-adapter-thread-radio-details');
 				if(thread_details_el){
@@ -1611,7 +1791,7 @@
                             }
 						}
 					}
-					
+
 					
 					if(typeof body.thread_error == 'string' && body.thread_error.length > 1){
 						thread_details_el.innerHTML += '<span class="extension-matter-adapter-error">' + body.thread_error + '</span>';
@@ -1630,6 +1810,14 @@
                             //thread_details_el.innerHTML += '<span>Thread network not starting yet</span>';
 						}
 					}
+                    if(typeof body.thread_running == 'boolean'){
+                        starting_info['Thread running'] = body.thread_running;
+                    }
+                    if(typeof body.otbr_started == 'boolean'){
+                        starting_info['Thread radio ready'] = body.otbr_started;
+                    }
+
+                    
 					
 					if(this.debug){
 						if(typeof body.thread_radio_is_alive_seconds_ago == 'number'){
@@ -1664,6 +1852,14 @@
                     if(this.current_tab == 'advanced' && typeof body.last_received_server_info == 'object' && body.last_received_server_info != null){
                         const server_info_el = this.view.querySelector('#extension-matter-adapter-extension-server-info');
                         if(server_info_el){
+                            let matter_server_info = body.last_received_server_info;
+
+                            if(typeof body.matter_server_type == 'string'){
+                                matter_server_info['Matter server type'] = body.matter_server_type;
+                                //starting_info_el.innerHTML += '<div class="extension-matter-adapter-flex-between extension-matter-adapter-starting-checklist-item-irrelevant extension-matter-adapter-show-if-developer"><span>Matter server type</span><span>' + body.matter_server_type + '</span></div>';
+                            }
+                            
+
                             server_info_el.textContent = JSON.stringify(body.last_received_server_info,null,4).replaceAll('{','').replaceAll('}','').replaceAll('"','').replaceAll(',','');
                         }
                     }
@@ -1680,6 +1876,11 @@
 	                }
 
 				}
+                else{
+                    if(this.debug){
+                        console.log("matter debug: extension-matter-adapter-thread-radio-details element not found");
+                    }
+                }
 				
 				if(typeof body.wifi_restore_countdown == 'number'){
 					this.wifi_restore_timestamp = Date.now() + (body.wifi_restore_countdown * 1000);
@@ -1867,11 +2068,8 @@
 					if(thread_dataset_loaded_el){
 						thread_dataset_loaded_el.textContent = body.thread_dataset_loaded;
 					}
+                    starting_info['Thread network code loaded'] = body.thread_dataset_loaded;
 				}
-
-                
-
-                
 
 				if(typeof body.thread_diagnostics != 'undefined'){
                     if(this.debug){
@@ -1912,10 +2110,37 @@
                 	this.start_thread_radio_wizard_button_el.classList.remove('extension-matter-adapter-hidden');
                 }
 
+                if(typeof body.missing_vendor_id == 'boolean'){
+                    const starting_info_el = this.view.querySelector('#extension-matter-adapter-still-starting-info');
+                    if(starting_info_el){
+                        if(this.debug){
+                            console.log("matter adapter debug:  starting_info: \n", JSON.stringify(starting_info,null,2),"\n");
+                        }
+                        starting_info_el.innerHTML = '';
+                        
+                        for (const [key,value] of Object.entries(starting_info)) {
+                        
+                            const starting_item_el = document.createElement('div');
+                            starting_item_el.classList.add('extension-matter-adapter-flex-between');
+                            starting_item_el.innerHTML = '<span>' + key + '</span><span>' + value + '</span>';
 
+                            if(key.endsWith(' starting') && value == false){
+                                starting_item_el.classList.add('extension-matter-adapter-hidden');
+                                //starting_item_el.classList.add('extension-matter-adapter-starting-checklist-item-irrelevant');
+                                //starting_item_el.classList.add('extension-matter-adapter-show-if-developer');
+                            }
+                            else if(starting_info['Thread radio detected'] == false && key.startsWith('Thread ')){
+                                starting_item_el.classList.add('extension-matter-adapter-starting-checklist-item-irrelevant');
+                            }
+                            else if(value == true){
+                                starting_item_el.classList.add('extension-matter-adapter-starting-checklist-item-done');
+                            }
+                            starting_info_el.appendChild(starting_item_el);
+                        }
 
-				
-
+                    }
+                }
+                
 				
             }
             catch(err){
@@ -2847,21 +3072,19 @@
 								
 								// DELETE
 								
-		    					show_delete_button.addEventListener('click', (event) => {
-									console.warn("CLICKED");
+		    					
+                                
+
+                                // Delete cancel button
+		                        const delete_cancel_button = clone.querySelector('.extension-matter-adapter-item-delete-cancel-button');
+		    					delete_cancel_button.addEventListener('click', (event) => {
 		                            if(this.debug){
-		                                console.log("matter adapter debug: show delete overlay button clicked");
+		                                console.log("matter adapter debug: delete cancel button clicked");
 		                            }
 		    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-									if(item_el){
-										item_el.classList.add("extension-matter-adapter-delete");
-									}
-									else{
-										console.error("could not find closest parent item");
-									}
-	    						
-		    				  	});
-				    
+		    						item_el.classList.remove("extension-matter-adapter-delete");
+		                        });
+
 		                        // Delete confirm button
 		                        const delete_confirm_button = clone.querySelector('.extension-matter-adapter-item-delete-confirm-button');
 		    					delete_confirm_button.addEventListener('click', (event) => {
@@ -2869,8 +3092,9 @@
 		                                console.log("matter adapter debug: delete confirm button clicked");
 		                            }
                         
+                                    delete_cancel_button.classList.add('extension-matter-adapter-hidden');
 		                            delete_confirm_button.classList.add('extension-matter-adapter-hidden');
-                        
+                                    
 		    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
 		    						item_el.classList.add("extension-matter-adapter-delete");
 		                            item_el.querySelector('.extension-matter-adapter-overlay-delete-text').innerText = "Deleting...";
@@ -2924,15 +3148,24 @@
                         
 		    				  	});
                     
-		                        // Delete cancel button
-		                        const delete_cancel_button = clone.querySelector('.extension-matter-adapter-item-delete-cancel-button');
-		    					delete_cancel_button.addEventListener('click', (event) => {
+                                show_delete_button.addEventListener('click', (event) => {
+									console.warn("CLICKED");
 		                            if(this.debug){
-		                                console.log("matter adapter debug: delete cancel button clicked");
+		                                console.log("matter adapter debug: show delete overlay button clicked");
 		                            }
 		    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-		    						item_el.classList.remove("extension-matter-adapter-delete");
-		                        });
+									if(item_el){
+										item_el.classList.add("extension-matter-adapter-delete");
+									}
+									else{
+										console.error("could not find closest parent item");
+									}
+
+                                    delete_cancel_button.classList.remove('extension-matter-adapter-hidden');
+		                            delete_confirm_button.classList.remove('extension-matter-adapter-hidden');
+	    						
+		    				  	});
+		                        
 								
 								
 								

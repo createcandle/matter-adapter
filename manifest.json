@@ -29,6 +29,7 @@
     "default": {
       "Vendor ID":"",
 	  "Region":"EU",
+	  
 	  "Help Thread devices to connect to the internet": false,
       "Brightness transition duration":0,
 	  "Days between updating certificates":14,
@@ -37,6 +38,7 @@
 	  "Thread network name": "CandleThread",
 	  "Matter server type":"Python",
 	  "Enable Matter server dashboard": false,
+	  "Use Candle meshlocalprefix when creating a new Thread network": false,
       "Debugging": false
     },
     "schema": {
@@ -51,7 +53,7 @@
                 "EU",
                 "US"
             ],
-            "description": "How and how strongly your Thread radio is allowed to broadcast varies per region. The default setting is Europe (EU)."
+            "description": "How and how strongly your Thread radio is allowed to broadcast depends on which region you're in. The default setting is Europe (EU)."
         },
         "Help Thread devices to connect to the internet": {
             "type": "boolean",
@@ -95,6 +97,10 @@
           "type": "boolean",
           "description": "Advanced. The Matter Server comes with it's own little webserver (on port 5580) that offers details about the Matter network. This feature is disabled by default, but you can enable it here."
         },
+		"Use Candle meshlocalprefix when creating a new Thread network":{
+            "type": "boolean",
+            "description": "Advanced. Normally whenever a brand new Thread dataset is created it gets a random meshlocalprefix. If you enable this however, then the meshlocalprefix will always be set to fd00:ca4d:1e00:0::"
+		},
         "Debugging": {
           "type": "boolean",
           "description": "Advanced. Will generate details about the addon's processes in the internal log."
@@ -105,7 +111,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.6.3",
+  "version": "0.5.21",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

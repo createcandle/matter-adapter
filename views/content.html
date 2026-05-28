@@ -86,7 +86,12 @@
 								<div></div><div></div><div></div><div></div>
 							</div>
 							<p>The Matter addon is still starting...</p>
+							
+							<div id="extension-matter-adapter-still-starting-info" class="extension-matter-adapter-area"></div>
+							
 						</div>
+						
+
 
 						<div id="extension-matter-adapter-extension-cable-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
 							<img loading="lazy" src="/extensions/matter-adapter/images/interference.svg" alt="Interference">
@@ -193,15 +198,22 @@
 							<img loading="lazy" id="extension-matter-adapter-thread-mesh-illustration" src="/extensions/matter-adapter/images/thread_mesh.svg" alt="Thread mesh network illustration">
 							<p>If you have multiple Candle Controllers in your home (for example to enable voice control in different rooms), then each Candle Controller can also help expand the each of the Thread network.</p>
 							<p>To do this, all controllers on the Mesh network need to use the same 'network code'. This code contains details about the network, including the password.</p>
+							
+							<div id="extension-matter-adapter-has-dataset-hint" class="extension-matter-adapter-area"></div>
 
 							<div class="extension-matter-adapter-flex-wrap-when-narrow extension-matter-adapter-flex-between" style="margin:4rem 0 1rem 0">
 								<button id="extension-matter-adapter-get-thread-network-code-button" class="text-button">Show code</button>
 								<button id="extension-matter-adapter-enter-thread-network-code-button" class="text-button">Enter code</button>
 							</div>
-							<div class="extension-matter-adapter-flex-align-center">
-								<div id="extension-matter-adapter-thread-network-code" class="extension-matter-adapter-area"></div>
-								<span id="extension-matter-adapter-copy-thread-network-code-to-clipboard-button">⎘</span>
+
+							<div id="extension-matter-adapter-thread-network-code-container" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+								<div class="extension-matter-adapter-flex-align-center">
+									<div id="extension-matter-adapter-thread-network-code" class="extension-matter-adapter-area"></div>
+									<span id="extension-matter-adapter-copy-thread-network-code-to-clipboard-button">⎘</span>
+								</div>
+								<p id="extension-matter-adapter-thread-network-code-warning">Please keep this code safe, as anyone who has it could join your Thread network</p>
 							</div>
+							
 							
 
 
@@ -225,10 +237,14 @@
 							<!--<button id="extension-matter-adapter-refresh-paired-list-button" class="text-button extension-matter-adapter-hidden">Refresh</button>
 							<button id="extension-matter-adapter-stop-refreshing-list-button" class="text-button extension-matter-adapter-show-if-developer">Stop refreshing</button>-->
 							<div class="extension-matter-adapter-flex-between extension-matter-adapter-flex-wrap-when-narrow">
+								<button id="extension-matter-adapter-reset-thread-button" class="text-button">Reset Thread</button>
 								<button id="extension-matter-adapter-reset-matter-button" class="text-button">Reset Matter</button>
 								<button id="extension-matter-adapter-reset-customizations-button" class="text-button">Reset device customizations</button>
 							</div>
-							<p>TIP: before you reset anything: create a system backup, save your Thread 'dataset' code, and print your existing pairing codes list.</p>
+							<p class="extension-matter-adapter-area">TIP<br><br>Before you reset anything:<br>
+								- create a system backup<br>
+								- save your Thread 'dataset' code<br>
+								- print your existing pairing codes list</p>
 						</div>
 
 						<div id="extension-matter-adapter-dashboard-link-container" class="extension-matter-adapter-hidden extension-matter-adapter-hidden-on-kiosk">

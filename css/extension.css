@@ -370,6 +370,27 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 }
 
 
+
+/*  STARTING CHECKLIST  */
+
+#extension-matter-adapter-still-starting-info{
+	max-width:40rem;
+	margin:2rem auto;
+}
+
+.extension-matter-adapter-starting-checklist-item-done{
+	color:green;
+}
+.extension-matter-adapter-starting-checklist-item-irrelevant{
+	opacity: .4;
+}
+
+
+
+
+
+
+
 /*  LIST OF ITEMS */
 
 #extension-matter-adapter-paired-devices-list:not(:empty){
@@ -668,9 +689,8 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 
 /*  MAIN PAGE FOOTER BUTTONS */
 
-#extension-matter-adapter-reset-matter-button{
-    background-color:#600;
-}
+#extension-matter-adapter-reset-thread-button,
+#extension-matter-adapter-reset-matter-button,
 #extension-matter-adapter-reset-customizations-button{
 	background-color:#600;
 }
@@ -739,6 +759,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	margin-top:4rem;
 }
 
+#extension-matter-adapter-has-dataset-hint:empty,
 #extension-matter-adapter-thread-network-code:empty,
 #extension-matter-adapter-thread-network-code:empty + span{
 	display:none;
@@ -768,6 +789,20 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 #extension-matter-adapter-thread-network-code{
 	word-wrap: break-word;
 	max-width: calc(100% - 5rem);
+	margin-bottom:0;
+}
+
+#extension-matter-adapter-thread-network-code-warning{
+	color:orange; 
+	font-style: italic;
+}
+#extension-matter-adapter-thread-network-code-warning::before{
+    content: '⚠';
+    color: #e6ff00;
+    font-size: 3rem;
+    line-height: 3rem;
+    margin: 0 1.5rem 0 1rem;
+    font-style: normal;
 }
 
 #extension-matter-adapter-thread-command-select{
@@ -788,6 +823,10 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 }
 
 
+#extension-matter-adapter-has-dataset-hint{
+	font-style:italic;
+	text-align: center;
+}
 
 
 
@@ -802,7 +841,9 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	display:none;
 }
 
-
+#extension-matter-adapter-paired-devices-list-pre{
+	overflow:auto;
+}
 
 
 
@@ -1718,6 +1759,7 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 }
 
 @media screen and (max-width: 640px) {
+	#extension-matter-adapter-reset-thread-button,
 	#extension-matter-adapter-reset-matter-button{
 		margin-bottom: 2rem;
 		width:100%;

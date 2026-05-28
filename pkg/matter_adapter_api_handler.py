@@ -128,7 +128,7 @@ class MatterAPIHandler(APIHandler):
                                       'hotspot_addon_installed': self.adapter.hotspot_addon_installed,
                                       'wifi_ssid': self.adapter.wifi_ssid,
                                       'wifi_credentials_available': wifi_credentials_available,
-                                      'client_connected': self.adapter.client_connected,
+                                      'matter_client_connected': self.adapter.matter_client_connected,
                                       'nodez': self.adapter.persistent_data['nodez'],
                                       'disable_matter_dashboard':self.adapter.disable_matter_dashboard,
                                       'thread_channel':self.adapter.thread_channel,
@@ -175,6 +175,13 @@ class MatterAPIHandler(APIHandler):
                         if isinstance(self.adapter.persistent_data['thread_dataset'],str) and len(self.adapter.persistent_data['thread_dataset']) > 40:
                             has_thread_dataset = True
 
+                        missing_vendor_id = False
+                        if isinstance(self.adapter.vendor_id,str):
+                            if self.adapter.vendor_id == '':
+                                missing_vendor_id = True
+                        else:
+                            missing_vendor_id = True
+                        self.adapter.missing_vendor_id = missing_vendor_id
 
                         return APIResponse(
                           status=200,
@@ -183,7 +190,7 @@ class MatterAPIHandler(APIHandler):
                                       'debug': self.DEBUG,
                                       'certificates_updated': self.adapter.certificates_updated,
                                       'busy_updating_certificates': self.adapter.busy_updating_certificates,
-                                      'client_connected': self.adapter.client_connected,
+                                      'matter_client_connected': self.adapter.matter_client_connected,
                                       'discovered': self.adapter.discovered, # deprecated, but might be interesting to see if it's ever populated
                                       'busy_discovering': self.adapter.busy_discovering,
                                       'busy_pairing': self.adapter.busy_pairing,
@@ -191,15 +198,24 @@ class MatterAPIHandler(APIHandler):
                                       'nodez': self.adapter.persistent_data['nodez'],
                                       'found_thread_radio_again': self.adapter.found_thread_radio_again,
                                       'found_new_thread_radio': self.adapter.found_new_thread_radio,
-                                      'found_a_thread_radio': self.adapter.found_a_thread_radio_once,
+                                      'found_a_thread_radio_once': self.adapter.found_a_thread_radio_once,
                                       'thread_radio_went_missing': self.adapter.thread_radio_went_missing,
-                                      'otbr_started': self.adapter.otbr_started,
-                                      'thread_running': self.adapter.thread_running,
+                                      'matter_server_type': self.adapter.matter_server_type,
+                                      
+                                      'missing_vendor_id': missing_vendor_id,
+                                      'thread_radio_serial_port': self.adapter.persistent_data['thread_radio_serial_port'],
                                       'thread_error': self.adapter.thread_error,
                                       'thread_channel': self.adapter.thread_channel,
+                                      'should_start_otbr':self.adapter.should_start_otbr,
+                                      'otbr_started': self.adapter.otbr_started,
+                                      'should_start_thread_mesh':self.adapter.should_start_thread_mesh,
                                       'thread_dataset_loaded': self.adapter.thread_dataset_loaded,
+                                      'thread_running': self.adapter.thread_running,
+                                      'should_start_matter':self.adapter.should_start_matter,
+                                      'matter_server_running':self.adapter.matter_server_running,
+                                      'matter_client_connected': self.adapter.matter_client_connected,
+
                                       'last_found_pairing_code': self.adapter.last_found_pairing_code,
-                                      'client_connected': self.adapter.client_connected,
                                       'wifi_congestion_data': self.adapter.wifi_congestion_data,
                                       'wifi_restore_countdown': wifi_restore_countdown,
                                       'thread_radio_is_alive_seconds_ago': thread_radio_is_alive_seconds_ago,
@@ -211,7 +227,6 @@ class MatterAPIHandler(APIHandler):
                                       'noise_delta': self.adapter.noise_delta,
                                       'timeout_delta': self.adapter.timeout_delta,
                                       'thread_diagnostics': self.adapter.thread_diagnostics,
-                                      'thread_radio_serial_port': self.adapter.persistent_data['thread_radio_serial_port'],
                                       'old_pairing_codes_count': len(self.adapter.persistent_data['pairing_codes'].keys()),
                                       'last_update_check_seconds_ago': last_update_check_seconds_ago,
                                       'last_update_check_response_seconds_ago': last_update_check_response_seconds_ago,
@@ -219,7 +234,8 @@ class MatterAPIHandler(APIHandler):
                                       'thread_netdata_registered': self.adapter.thread_netdata_registered,
                                       'thread_state_info':self.adapter.thread_state_info,
                                       'thread_netdata_info':self.adapter.thread_netdata_info,
-                                      'has_thread_dataset':has_thread_dataset
+                                      'has_thread_dataset':has_thread_dataset,
+                                      
                                       })
                         )
                     
@@ -286,7 +302,7 @@ class MatterAPIHandler(APIHandler):
                                       'debug': self.DEBUG,
                                       'certificates_updated': self.adapter.certificates_updated,
                                       'busy_updating_certificates':self.adapter.busy_updating_certificates,
-                                      'client_connected': self.adapter.client_connected,
+                                      'matter_client_connected': self.adapter.matter_client_connected,
                                       'discovered': self.adapter.discovered, # deprecated, but might be interesting to see if it's ever populated
                                       'busy_discovering':self.adapter.busy_discovering,
                                       'pairing_code': code,
@@ -306,7 +322,7 @@ class MatterAPIHandler(APIHandler):
                         if self.DEBUG:
                                 print("got request to check_for_updates")
                         try:
-                            if self.adapter.client_connected and (self.adapter.last_matter_update_check_timestamp < time.time() - 300 or (self.DEBUG and self.adapter.last_matter_update_check_timestamp < time.time() - 10)):
+                            if self.adapter.matter_client_connected and (self.adapter.last_matter_update_check_timestamp < time.time() - 300 or (self.DEBUG and self.adapter.last_matter_update_check_timestamp < time.time() - 10)):
                                 self.adapter.last_matter_update_check_timestamp = int(time.time())
                                 self.adapter.check_for_node_updates()
                                 state = True
@@ -650,6 +666,22 @@ class MatterAPIHandler(APIHandler):
                           content=json.dumps({'state':True}),
                         )
                     
+                    elif action == 'reset_thread':
+                        if self.DEBUG:
+                            print("\n\nAPI: in reset_thread")
+                        
+                        #self.adapter.persistent_data['nodez'] = {}
+                        #self.adapter.get_nodes()
+                        self.adapter.reset_thread()
+                        time.sleep(1)
+                        #self.adapter.should_save = True
+                        
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':True}),
+                        )
+
                     elif action == 'reset_matter':
                         if self.DEBUG:
                             print("\n\nAPI: in reset_matter")

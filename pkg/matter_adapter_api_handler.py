@@ -190,7 +190,6 @@ class MatterAPIHandler(APIHandler):
                                       'debug': self.DEBUG,
                                       'certificates_updated': self.adapter.certificates_updated,
                                       'busy_updating_certificates': self.adapter.busy_updating_certificates,
-                                      'matter_client_connected': self.adapter.matter_client_connected,
                                       'discovered': self.adapter.discovered, # deprecated, but might be interesting to see if it's ever populated
                                       'busy_discovering': self.adapter.busy_discovering,
                                       'busy_pairing': self.adapter.busy_pairing,
@@ -208,6 +207,7 @@ class MatterAPIHandler(APIHandler):
                                       'thread_channel': self.adapter.thread_channel,
                                       'should_start_otbr':self.adapter.should_start_otbr,
                                       'otbr_started': self.adapter.otbr_started,
+                                      'should_create_thread_mesh': self.adapter.should_create_thread_mesh,
                                       'should_start_thread_mesh':self.adapter.should_start_thread_mesh,
                                       'thread_dataset_loaded': self.adapter.thread_dataset_loaded,
                                       'thread_running': self.adapter.thread_running,
@@ -488,7 +488,7 @@ class MatterAPIHandler(APIHandler):
                                             self.adapter.last_time_otbr_restarted = 0
                                             self.adapter.should_start_otbr = True
                                             self.adapter.otbr_starting_timestamp = None
-                                            self.adapter.set_thread_dataset()
+                                            self.adapter.tell_matter_about_thread_dataset()
 
 
                         except Exception as ex:
@@ -803,6 +803,12 @@ class MatterAPIHandler(APIHandler):
                             
                             self.adapter.remove_thing(device_id)
                             
+                            if device_id in self.adapter.persistent_data['nodez']:
+                                if self.DEBUG:
+                                    print("removing thing from persistent_data: ", device_id)
+                                del self.adapter.persistent_data['nodez'][device_id]
+                                self.adapter.should_save = True
+
                             # Remove Device object from the adapter
                             #old_device = self.adapter.get_device(device_id)
                             #if old_device != None:

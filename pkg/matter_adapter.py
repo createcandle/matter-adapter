@@ -8,7 +8,7 @@ Matter addon for Candle Controller.
     COMMISSION_WITH_CODE = "commission_with_code"
     COMMISSION_ON_NETWORK = "commission_on_network"
     SET_WIFI_CREDENTIALS = "set_wifi_credentials"
-    SET_THREAD_DATASET = "set_thread_dataset"
+    SET_THREAD_DATASET = "tell_matter_about_thread_dataset"
     OPEN_COMMISSIONING_WINDOW = "open_commissioning_window"
     DISCOVER = "discover"
     INTERVIEW_NODE = "interview_node"
@@ -277,6 +277,7 @@ class MatterAdapter(Adapter):
         self.last_time_otbr_started = time.time()
         self.should_start_otbr = True
         self.should_start_thread_mesh = False
+        self.should_create_thread_mesh = False
         self.otbr_started = False # This is the first stage, done by otbr-agent
 
         self.thread_set_active = False # This is the second stage, managed by ot-ctl. TODO; This variable is not really used for anything, and is just confusing now
@@ -508,7 +509,7 @@ class MatterAdapter(Adapter):
             self.persistent_data['thread_dataset'] = ''
             self.should_save = True
 
-        if 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'], str) and len(self.persistent_data['thread_dataset']) > 10:
+        if 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'], str) and len(self.persistent_data['thread_dataset']) > 40:
             self.thread_dataset = self.persistent_data['thread_dataset']
 
         if not 'thing_index' in self.persistent_data:
@@ -530,9 +531,12 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             self.s_print("PWD:" + str(pwd))
             self.s_print("initial self.thread_dataset: ", self.thread_dataset)
-            #self.s_print("\nself.enums_lookup: ", self.enums_lookup)
-            #self.s_print("\nself.events_lookup: ", self.events_lookup)
-
+            self.s_print("")
+            self.s_print("\nself.enums_lookup: ", self.enums_lookup)
+            self.s_print("")
+            self.s_print("\nself.events_lookup: ", self.events_lookup)
+            self.s_print("")
+            
         # Override vendor ID
         if len(self.vendor_id) > 2 and len(self.vendor_id) < 7:
             #if os.path.exists(self.chip_factory_ini_file_path):
@@ -1101,6 +1105,7 @@ class MatterAdapter(Adapter):
             if self.DEBUG:
                 print("find_thread_radio: OK, a radio has been found.  self.found_new_thread_radio,self.found_thread_radio_again: ", self.found_new_thread_radio, self.found_thread_radio_again)
             self.found_a_thread_radio_once = True
+            self.thread_radio_went_missing = False
             if self.otbr_started == False and self.otbr_starting_timestamp == None:
                 if self.DEBUG:
                     print("find_thread_radio: SUCCESS, setting should_start_otbr to True")
@@ -1790,7 +1795,11 @@ class MatterAdapter(Adapter):
             # TODO: is this a good idea? Ensure thread is stopped and ifconfig down called first?
             self.thread_running = False
 
-            if 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 40:
+
+            
+
+
+            if self.should_create_thread_mesh == False and 'thread_dataset' in self.persistent_data and isinstance(self.persistent_data['thread_dataset'],str) and len(self.persistent_data['thread_dataset']) > 40:
                 if self.DEBUG:
                     self.s_print("\n+\n++\n+++\nOK, there is a thread dataset in persistent data. Will attempt to load it.")
                 #dataset networkkey
@@ -1866,11 +1875,10 @@ class MatterAdapter(Adapter):
 
 
 
-            
-
+        
             else:
                 if self.DEBUG:
-                    self.s_print("\nWARNING, no thread dataset in persistent data")
+                    self.s_print("\nWARNING, no thread dataset in persistent data, or self.should_create_thread_mesh: ", self.should_create_thread_mesh)
                 dataset_loaded = self.create_new_thread_dataset()
 
 
@@ -2071,7 +2079,7 @@ class MatterAdapter(Adapter):
             if self.thread_set_active and isinstance(self.thread_dataset,str) and len(self.thread_dataset) > 40:
                 if self.matter_server_running == True and self.matter_client_connected == True:
                     # Send Thread dataset info to Matter.server if it's already running
-                    self.set_thread_dataset()
+                    self.tell_matter_about_thread_dataset()
 
                 self.s_print("\n__THREAD DETAILS__")
                 self.s_print(str(self.run_ot_ctl_command('dataset active -x')))
@@ -2462,7 +2470,7 @@ class MatterAdapter(Adapter):
                 self.set_wifi_credentials()
 
                 # Set the thread credentials
-                self.set_thread_dataset()
+                self.tell_matter_about_thread_dataset()
 
                 # Start listening
                 if self.DEBUG:
@@ -2576,15 +2584,27 @@ class MatterAdapter(Adapter):
 
                         node_id = message['message_id'].replace('remove_node_','')
                         matter_id = 'matter-' + str(node_id)
+                        if self.DEBUG:
+                            self.s_print("remove_node: matter_id: ", matter_id)
                         if matter_id in self.persistent_data['nodez']:
                             del self.persistent_data['nodez'][matter_id]
                             self.should_save = True
                             if self.DEBUG:
-                                print("remove_node: also removed thing_id from persistent_data: ", matter_id)
+                                self.s_print("remove_node: also removed thing_id from persistent_data: ", matter_id)
+
+                        obj = self.get_device(matter_id)
+                        if obj:
+                            self.handle_device_removed(obj) # Remove from device dictionary
+                            if self.DEBUG:
+                                self.s_print("remove_node success, and then also removed thing")
+                        else:
+                            if self.DEBUG:
+                                self.s_print("remove_node success, but could not find thing to remove")
                         
+
                         #self.nodes = message['result']
                         #self.parse_nodes()
-                        self.get_nodes(True)
+                        #self.get_nodes(True)
 
                     elif message['message_id'].startswith('check_node_update_'):
                         if self.DEBUG:
@@ -2667,7 +2687,7 @@ class MatterAdapter(Adapter):
 
                     else:
                         if self.DEBUG:
-                            self.s_print("interesting, an unanticipated error message. message_id: " + str(message['message_id']))
+                            self.s_print("\nERROR: interesting, an unanticipated error message. message_id: " + str(message['message_id']) + "\n")
 
 
 
@@ -2978,9 +2998,9 @@ class MatterAdapter(Adapter):
 
 
     # Pass Thread credentials to Matter
-    def set_thread_dataset(self):
+    def tell_matter_about_thread_dataset(self):
         if self.DEBUG:
-            self.s_print("in set_thread_dataset. self.thread_dataset: " + str(self.thread_dataset))
+            self.s_print("in tell_matter_about_thread_dataset. self.thread_dataset: " + str(self.thread_dataset))
         try:
             if self.matter_client_connected == False:
                 if self.DEBUG:
@@ -3008,8 +3028,8 @@ class MatterAdapter(Adapter):
                     self.s_print("SHARING WIFI CREDENTIALS")
                 """
                 thread_message = {
-                        "message_id": "set_thread_dataset",
-                        "command": "set_thread_dataset",
+                        "message_id": "tell_matter_about_thread_dataset",
+                        "command": "tell_matter_about_thread_dataset",
                         "args": {
                             "dataset": str(self.thread_dataset)
                         }
@@ -3228,7 +3248,7 @@ class MatterAdapter(Adapter):
                     if self.pairing_attempt == 0:
                         self.set_wifi_credentials()
                         self.pairing_phase = 2
-                        self.set_thread_dataset()
+                        self.tell_matter_about_thread_dataset()
                         self.pairing_phase = 4
                         self.pairing_phase_message = 'Credentials set'
 
@@ -3360,6 +3380,7 @@ class MatterAdapter(Adapter):
                         self.s_print("* self.found_thread_radio_again : ", self.found_thread_radio_again)
                         self.s_print("* self.should_start_otbr        : ", self.should_start_otbr)
                         self.s_print("* self.otbr_started             : ", self.otbr_started)
+                        self.s_print("* should_create_thread_mesh     : ", self.should_create_thread_mesh)
                         self.s_print("* self.should_start_thread_mesh : ", self.should_start_thread_mesh)
                         self.s_print("* self.thread_running           : ", self.thread_running)
                         self.s_print("* self.should_start_matter      : ", self.should_start_matter)
@@ -3710,7 +3731,7 @@ class MatterAdapter(Adapter):
                                             target_device.connected_notify(True)
 
                             if self.thread_running and self.informed_matter_server_about_thread == False:
-                                self.informed_matter_server_about_thread = self.set_thread_dataset()
+                                self.informed_matter_server_about_thread = self.tell_matter_about_thread_dataset()
                                 if self.DEBUG:
                                     self.s_print("A device re-connected -> self.informed_matter_server_about_thread: ", self.informed_matter_server_about_thread)
 
@@ -4540,7 +4561,8 @@ class MatterAdapter(Adapter):
         self.persistent_data['thread_dataset'] = ''
         os.system('rm -rf ' + str(self.data_thread_dir_path) + '/*')
         self.find_thread_radio()
-        self.should_start_thread_mesh = True
+        self.should_create_thread_mesh = True
+
         
 
 

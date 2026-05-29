@@ -36,7 +36,7 @@
 							
 							
 							<div id="extension-matter-adapter-find-thread-radio-button-container" class="extension-matter-adapter-hidden">
-								<button id="extension-matter-adapter-find-thread-radio-button" class="text-button">Add a Tread radio</button>
+								<button id="extension-matter-adapter-find-thread-radio-button" class="text-button">Add a Thread radio</button>
 							</div>
 						</div>
 
@@ -72,9 +72,13 @@
 
 
 						<div id="extension-matter-adapter-import-thread-dataset-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
-							<h3>Join an existing Thread network?</h3>
-							<p>This controller can be set to join an existing Thread network if you provide the passcode (also known as the 'Thread dataset'). Your main Candle controller can export that code for you. </p>
-							<button id="extension-matter-adapter-join-existing-network-button">Join existing network</button>
+							<h2>Start fresh or join an existing Thread network?</h2>
+							<p>This controller has not created a Thread network yet. It can join an existing Thread network, but you'll need to provide that network's passcode.</p><p>If you want to join the Thread network of another Candle controller, then view it's Matter addon page, and click on the 'Show network code' button at the bottom of the Thread tab. </p>
+							<div class="extension-matter-adapter-align-right-button-container">
+								<button id="extension-matter-adapter-new-thread-network-button" class="text-button">Create a new Network</button>
+								<button id="extension-matter-adapter-join-existing-network-button" class="text-button">Join existing network</button>
+							</div>
+							
 						</div>
 						<div id="extension-matter-adapter-missing-vendor-id-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
 							<p>Matter cannot start until you set a 'Vendor ID' on the settings page.</p>

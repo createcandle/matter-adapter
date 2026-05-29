@@ -423,6 +423,52 @@
                     });
                 }
 
+                // New thread network
+                const new_thread_network_shortcut_button_el = this.view.querySelector('#extension-matter-adapter-new-thread-network-button');
+                if(new_thread_network_shortcut_button_el){
+                    new_thread_network_shortcut_button_el.addEventListener('click', () => {
+                        new_thread_network_shortcut_button_el.classList.add('extension-matter-adapter-sweep');
+                        
+                        window.API.postJson(
+                            `/extensions/${this.id}/api/ajax`,
+                            {'action':'reset_thread'}
+                        ).then((body) => { 
+                            if(this.debug){
+                                console.log("matter adapter debug: reset_thread response: ", body);
+                            }
+                            if(typeof body.state == 'boolean'){
+                                if(body.state == true){
+                                    if(this.debug){
+                                        console.log('matter adapter debug: get_thread_network_code response: state was good');
+                                    }
+                                    this.flash_message("Creating new network...");
+                                    const still_starting_el = this.view.querySelector('#extension-matter-adapter-still-starting-hint');
+					                if(still_starting_el){
+                                        still_starting_el.classList.remove('extension-matter-adapter-hidden');
+                                    }
+                                }
+                                else{
+                                    if(this.debug){
+                                        console.error('matter adapter debug: error, save_thread_network_code failed');
+                                    }
+                                    this.flash_message("Failed to create new Thread network");
+                                }
+                            }
+                            setTimeout(() => {
+                                save_thread_network_code_button_el.classList.remove('extension-matter-adapter-sweep');
+                            },4000);
+                            
+                        }).catch((err) => {
+                            if(this.debug){
+                                console.error("matter-adapter debug: caught error creating new Thread network by calling reset_thread: ", err);
+                            }
+                            this.flash_message("Connection error, please try again");
+                            save_thread_network_code_button_el.classList.remove('extension-matter-adapter-sweep');
+                        });
+                        
+                    });
+                }
+
                 
                 const command_input_el = this.view.querySelector('#extension-matter-adapter-thread-command-input');
                 if(command_input_el){
@@ -1567,19 +1613,24 @@
 				}
 
 
-                if(typeof body.has_thread_dataset == 'boolean'){
+                if(typeof body.has_thread_dataset == 'boolean' && typeof body.should_create_thread_mesh == 'boolean' && typeof body.found_new_thread_radio == 'boolean' && typeof body.found_thread_radio_again == 'boolean'){
 
-                    
                     const import_thread_dataset_hint_el = this.view.querySelector('#extension-matter-adapter-import-thread-dataset-hint'); // hint on the main page
                     const has_dataset_hint_el = this.view.querySelector('#extension-matter-adapter-has-dataset-hint'); // hint on the thread tab
-                    if(has_dataset_hint_el && import_thread_dataset_hint_el){
-                        if(body.has_thread_dataset == false){
-                            has_dataset_hint_el.textContent = 'No Thread network code imported or created yet';
-                            import_thread_dataset_hint_el.classList.remove('extension-matter-adapter-hidden');
-                        }
-                        else{
-                            has_dataset_hint_el.textContent = 'This controller has a Thread network code';
-                            import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
+                    if(typeof body.found_new_thread_radio || body.found_thread_radio_again){
+                        if(has_dataset_hint_el && import_thread_dataset_hint_el){
+                            if(body.has_thread_dataset == false && body.should_create_thread_mesh == false){
+                                has_dataset_hint_el.textContent = 'No Thread network code created or imported yet';
+                                import_thread_dataset_hint_el.classList.remove('extension-matter-adapter-hidden');
+                            }
+                            else if(body.has_thread_dataset){
+                                has_dataset_hint_el.textContent = 'This controller has a Thread network code';
+                                import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
+                            }
+                            else if(body.hould_create_thread_mesh){
+                                has_dataset_hint_el.textContent = 'Busy creating a brand new Thread network...';
+                                import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
+                            }
                         }
                     }
                     starting_info['Thread network code available'] = body.has_thread_dataset;
@@ -1710,10 +1761,13 @@
                 
 				
 				// MAIN POLL
-				if(typeof body.matter_client_connected == 'boolean'){
+				if(typeof body.matter_client_connected == 'boolean' && typeof body.found_new_thread_radio == 'boolean' && typeof body.found_thread_radio_again == 'boolean' && typeof body.thread_running == 'boolean' ){
 					const still_starting_el = this.view.querySelector('#extension-matter-adapter-still-starting-hint');
 					if(still_starting_el){
-						if(body.matter_client_connected == false){
+                        if(this.debug){
+                            console.log("this.matter_client_connected_count: ", this.matter_client_connected_count);
+                        }
+						if(body.matter_client_connected == false || ((body.found_new_thread_radio || body.found_thread_radio_again) && body.thread_running == false)){
                             this.matter_client_connected_count = 0;
 							still_starting_el.classList.remove('extension-matter-adapter-hidden');
 						}
@@ -1731,6 +1785,10 @@
 					}
                     starting_info['Matter running'] = body.matter_client_connected;
 				}
+                if(typeof body.matter_client_connected == 'boolean'){
+                    starting_info['Matter running'] = body.matter_client_connected;
+                }
+                
 
                 if(typeof body.matter_server_running == 'boolean'){
                     starting_info['Matter ready'] = body.matter_server_running;
@@ -2092,7 +2150,7 @@
 					if(this.start_thread_radio_serial_port_el){
 						this.start_thread_radio_serial_port_el.textContent = body.thread_radio_serial_port.replaceAll('_',' ');
 					}
-					
+					/*
                     this.start_thread_radio_wizard_button_container_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-button-container');
                     if(this.start_thread_radio_wizard_button_container_el){
                         if(
@@ -2105,12 +2163,13 @@
                             this.start_thread_radio_wizard_button_container_el.classList.add('extension-matter-adapter-hidden');
                         }
                     }
+                    */
                 }
 				else if(body.thread_radio_serial_port == null && this.start_thread_radio_wizard_button_el){
                 	this.start_thread_radio_wizard_button_el.classList.remove('extension-matter-adapter-hidden');
                 }
 
-                if(typeof body.missing_vendor_id == 'boolean'){
+                if(typeof body.missing_vendor_id == 'boolean' && typeof body.should_start_otbr == 'boolean'){
                     const starting_info_el = this.view.querySelector('#extension-matter-adapter-still-starting-info');
                     if(starting_info_el){
                         if(this.debug){
@@ -3089,7 +3148,7 @@
 		                        const delete_confirm_button = clone.querySelector('.extension-matter-adapter-item-delete-confirm-button');
 		    					delete_confirm_button.addEventListener('click', (event) => {
 		                            if(this.debug){
-		                                console.log("matter adapter debug: delete confirm button clicked");
+		                                console.log("matter adapter debug: delete confirm button clicked. my_node_id: ", my_node_id);
 		                            }
                         
                                     delete_cancel_button.classList.add('extension-matter-adapter-hidden');
@@ -3149,7 +3208,6 @@
 		    				  	});
                     
                                 show_delete_button.addEventListener('click', (event) => {
-									console.warn("CLICKED");
 		                            if(this.debug){
 		                                console.log("matter adapter debug: show delete overlay button clicked");
 		                            }

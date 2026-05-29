@@ -226,7 +226,12 @@ class MatterDevice(Device):
                     'type':'integer',
                     'minimum':3000,
                     'maximum':7000}, # Color temperature (in Mireds)
+                
+                # TODO: with color, the properties are all options for the 'light' capability. Done, removed dev@type
+                # TODO: color temperature has minimum and maximum values (should use those), and both physical and 'level' (which to choose?). Done, should be overridden later
+                # https://github.com/project-chip/connectedhomeip/blob/f24ce30a0e120e7bb8649c0ed2fa4558a03b28a5/examples/all-clusters-app/ameba/main/include/ColorControlCommands.h#L302
 
+  
 
 
                 #'OccupancySensing.Attributes.Occupancy':{
@@ -273,20 +278,62 @@ class MatterDevice(Device):
                     'title':'Status',
                     'readOnly':True,
                     'type':'string'},
+
                    # 'enum':['Normal','SmokeAlarm','COAlarm','BatteryAlert','Testing','HardwareFault','EndOfService','InterconnectSmoke','InterconnectCO']},
                 'SmokeCOAlarm.Attributes.ContaminationStateEnum':{
                     'title':'Contamination state',
                     'readOnly': True,
-                    'type':'string'}
+                    'type':'string'},
                     #'enum':['Normal','Low','Warning','Critical']},
 
+                'Pm1ConcentrationMeasurement.Attributes.MeasuredValue':{
+                    'title':'PM 1 concentration',
+                    'readOnly': True,
+                    'type': 'number',
+                    },
+                'Pm25ConcentrationMeasurement.Attributes.MeasuredValue':{
+                    'title':'PM 2.5 concentration',
+                    'readOnly': True,
+                    'type': 'number',
+                    },
+                'Pm10ConcentrationMeasurement.Attributes.MeasuredValue':{
+                    'title':'PM 10 concentration',
+                    'readOnly': True,
+                    'type': 'number',
+                    },
 
 
-                # TODO: with color, the properties are all options for the 'light' capability. Done, removed dev@type
-                # TODO: color temperature has minimum and maximum values (should use those), and both physical and 'level' (which to choose?). Done, should be overridden later
-                # https://github.com/project-chip/connectedhomeip/blob/f24ce30a0e120e7bb8649c0ed2fa4558a03b28a5/examples/all-clusters-app/ameba/main/include/ColorControlCommands.h#L302
 
-            }
+
+
+
+                # Energy use
+                'ElectricalPowerMeasurement.Attributes.Voltage':{
+                    'readOnly': True,
+                    'type': 'number'},
+                'ElectricalPowerMeasurement.Attributes.Frequency':{
+                    'readOnly': True,
+                    'type': 'number'},
+                'ElectricalPowerMeasurement.Attributes.ApparentCurrent':{
+                    'readOnly': True,
+                    'type': 'number'},
+                'ElectricalPowerMeasurement.Attributes.ActiveCurrent':{
+                    'title':'Current',
+                    'readOnly': True,
+                    'type': 'number'},
+                'ElectricalPowerMeasurement.Attributes.ApparentPower':{
+                    'readOnly': True,
+                    'type': 'number'},
+                'ElectricalPowerMeasurement.Attributes.ActivePower':{ # You typically pay for active power, which is the actual power consumed by your electrical devices 
+                    'title':'Power',
+                    'readOnly': True,
+                    'type': 'number'},
+                'ElectricalPowerMeasurement.Attributes.PowerFactor':{
+                    'readOnly': True,
+                    'type': 'number'},
+
+
+           }
 
 
 
@@ -1211,10 +1258,45 @@ class MatterDevice(Device):
 
                                 # MEASUREMENT
                                 try:
+                                    
+
+                                    # self.enums_lookup also contains lookup tables for measurement units, so the entire process of adding the correct unit is now automated
+
+                                    if attribute_code.endswith('.MeasurementUnit'):
+                                        if cluster_name in self.adapter.enums_lookup:
+                                            if self.DEBUG:
+                                                print("potential measurement units for this cluster: ", cluster_name, self.adapter.enums_lookup[cluster_name])
+                                                print("- unit index: ", property_value)
+                                            if isinstance(property_value,int) and property_value >= 0 and property_value < len(self.adapter.enums_lookup[cluster_name]):
+                                                unit = self.adapter.enums_lookup[cluster_name][property_value]
+                                                if self.DEBUG:
+                                                    print("CLUSTER,UNIT: ", cluster_name, unit)
+                                                measured_value_attribute_code = str(cluster_name) + '.attributes.MeasuredValue'
+                                                if self.DEBUG:
+                                                    print("trying to find MeasuredValue: ", measured_value_attribute_code)
+                                                if measured_value_attribute_code in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
+                                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][measured_value_attribute_code]['property']['description']['unit'] = unit
+                                                    print("OK, UNIT ADDED")
+                                    
+                                    
+                                    
+                                    #CarbonDioxideConcentrationMeasurement
+
+                                    #unit_db = {
+                                    #        'Tolerance': [None,'mV','mA','mA','mA','Mw','mVAR','mVA','mV','mA','mW','mHz',None,'mA','mWh'],
+                                    #        'MeasurementUnit': ['PPM','PPB','PPT','MGM3','UGM3','NGM3','PM3','BQM3']
+                                    #    }
+
+                                    
+                                        #loop over the properties to find one we can add this unit to.
+                                        
                                     # measurement tolerance
-                                    measurement_types = [None,'mV','mA','mA','mA','Mw','mVAR','mVA','mV','mA','mW','mHz',None,'mA','mWh']
-                                    if attribute_code.endswith('.Tolerance') and isinstance(node['attributes_list'][endpoint_name][attribute_code],(int)) and node['attributes_list'][endpoint_name][attribute_code] > 0 and node['attributes_list'][endpoint_name][attribute_code] < len(measurement_types):
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['unit'] = measurement_types[node['attributes_list'][endpoint_name][attribute_code]]
+                                    #tolerance_types = [None,'mV','mA','mA','mA','Mw','mVAR','mVA','mV','mA','mW','mHz',None,'mA','mWh']
+                                    #if attribute_code.endswith('.Tolerance') and isinstance(node['attributes_list'][endpoint_name][attribute_code],(int)) and node['attributes_list'][endpoint_name][attribute_code] > 0 and node['attributes_list'][endpoint_name][attribute_code] < len(tolerance_types):
+                                    #    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['unit'] = tolerance_types[node['attributes_list'][endpoint_name][attribute_code]]
+
+                                    #elif attribute_code.endswith('.MeasurementUnit'):
+
 
                                     if attribute_code.endswith('.MeasuredValue'):
                                         if attribute_code.replace('.MeasuredValue','.MinMeasuredValue') in node['attributes_list'][endpoint_name] and \
@@ -1223,6 +1305,19 @@ class MatterDevice(Device):
                                           isinstance(node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MaxMeasuredValue')],(int,float)):
                                             self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MinMeasuredValue')]
                                             self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MaxMeasuredValue')]
+
+                                        # Air quality particle concentration unit
+                                        #if 'ConcentrationMeasurement.' in attribute_code:
+                                        #    concentration_measurement_units = ['PPM','PPB','PPT','MGM3','UGM3','NGM3','PM3','BQM3']
+                                        #    
+                                        #        if isinstance(property_value,'int') and property_value >= 0 and property_value < len(concentration_measurement_units):
+                                        #            property_value = concentration_measurement_units[property_value]
+                                                
+                                                
+
+
+
+
 
                                     # MEASUREMENT MIN-MAX
                                     if attribute_code.endswith('.RangeMin ') and \
@@ -1242,6 +1337,7 @@ class MatterDevice(Device):
                                     # ElectricalEnergyMeasurement is more about high-level electricity flowing in or out (sending solar energy back to the grid, for example)
                                     # ElectricalPowerMeasurement seems more like a simple monitoring device
 
+                                    
 
                                 except Exception as ex:
                                     if self.DEBUG:

@@ -35,6 +35,16 @@
 	font-weight:bold;
 }
 
+.extension-matter-adapter-align-right-button-container{
+	display:flex;
+	justify-content: flex-end;
+	padding:2rem 0 2rem 0;
+	
+}
+.extension-matter-adapter-align-right-button-container > button:not(:first-of-type){
+	margin-left:2rem;
+}
+
 
 #extension-matter-adapter-content-container {
 	display:flex;
@@ -137,6 +147,17 @@ body #extension-matter-adapter-view .extension-matter-adapter-tab-selected {
     color: white;
     background-color: rgba(0, 0, 0, 0.18) !important;
 }
+
+body.developer #extension-matter-adapter-still-starting-hint{
+	display:block!important;
+	background-color:#555;
+}
+
+body.developer #extension-matter-adapter-still-starting-hint p,
+body.developer #extension-matter-adapter-still-starting-hint .extension-matter-adapter-spinner{
+	display:none
+}
+
 
 #extension-matter-adapter-thread-state-info{
 	text-align:center;
@@ -385,8 +406,31 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	opacity: .4;
 }
 
+#extension-matter-adapter-import-thread-dataset-hint{
+	background: linear-gradient(337deg, rgba(0, 0, 0, .1), rgba(0, 0, 0, .3));
+	border-radius:1rem;
+}
+
+#extension-matter-adapter-import-thread-dataset-hint h2{
+    font-size: 3.3rem;
+    margin: 4rem 0;
+    max-width: 60rem;
+}
+
+#extension-matter-adapter-import-thread-dataset-hint p{
+	max-width:60rem;
+}
 
 
+
+
+
+#extension-matter-adapter-view #extension-matter-adapter-new-thread-network-button,
+#extension-matter-adapter-view #extension-matter-adapter-join-existing-network-button{
+	padding:1rem 2rem;
+	font-size:2rem;
+	border-radius:1rem;
+}
 
 
 
@@ -630,6 +674,10 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	margin-left:auto;
 }
 
+.extension-matter-adapter-item-details-property{
+	margin-bottom:1px;
+}
+
 .extension-matter-adapter-item-details-property,
 .extension-matter-adapter-item-details-received-values{
 	width:100%;
@@ -640,7 +688,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	background-color:rgba(0,0,128,.3);
 }
 .extension-matter-adapter-item-details-property + .extension-matter-adapter-item-details-received-values{
-	background-color:rgba(0,0,0,.3);
+	background-color:rgba(0,0,0,.2);
 	margin-top:0;
 }
 
@@ -1560,6 +1608,7 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 	display:none;
 }
 
+.extension-matter-adapter-sweep,
 #extension-matter-adapter-content-container.extension-matter-adapter-busy-checking-for-updates #extension-matter-adapter-check-for-updates-button,
 #extension-matter-adapter-content-container.extension-matter-adapter-busy-discovering #extension-matter-adapter-discovered-devices-list,
 .extension-matter-adapter-busy-pairing #extension-matter-adapter-show-second-page-button{
@@ -1813,9 +1862,13 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 		margin-left:2rem;
 	}
 
-  #extension-matter-adapter-thread-radio-serial-port{
-  	max-width:65%;
-  }
+	#extension-matter-adapter-thread-radio-serial-port{
+		max-width:65%;
+	}
+
+	#extension-matter-adapter-import-thread-dataset-hint{
+		padding:4rem 4rem 2rem 4rem;
+	}
 }
 
 

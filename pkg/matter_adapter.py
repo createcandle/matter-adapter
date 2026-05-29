@@ -1984,15 +1984,24 @@ class MatterAdapter(Adapter):
                         if str(self.run_ot_ctl_command('thread start')).rstrip() == 'Done':
                             self.update_thread_state_info()
                             if 'leader' in self.thread_state_info or 'router' in self.thread_state_info:
-                                self.thread_running = True
-                                self.should_start_matter = True
                                 if self.DEBUG:
                                     self.s_print("\nOK, Thread has now fully started\n")
                             else:
                                 if self.DEBUG:
                                     self.s_print("\nThread has not started properly\n")
-                                self.thread_error = 'Thread entered unexpected state: ' + str(self.thread_state_info).rstrip()
                                 
+                                self.run_ot_ctl_command('leaderweight ' + str(self.persistent_data['leaderweight']))
+                                self.run_ot_ctl_command('state leader')
+                                time.sleep(1)
+                                self.update_thread_state_info()
+                                if 'leader' in self.thread_state_info or 'router' in self.thread_state_info:
+                                    if self.DEBUG:
+                                        self.s_print("\nThread's unexpected state has been improved.  The new Thread state: ", self.thread_state_info)
+                                else:
+                                    self.thread_error = 'Thread entered unexpected state: ' + str(self.thread_state_info).rstrip()
+
+                            self.thread_running = True
+                            self.should_start_matter = True
                 else:
                     if self.DEBUG:
                         self.s_print("\nERROR, checking if thread has started fell through.  Unexpected thread_state: \n" + str(thread_state))
@@ -2148,23 +2157,23 @@ class MatterAdapter(Adapter):
                                                     self.s_print("\nERROR:start_thread_mesh: failed to set Candle dataset prefix (fd00:ca4d:1e00:0::) on new mesh dataset")
 
                                         if str(self.run_ot_ctl_command('dataset commit active')).rstrip() == 'Done':
-                                                if self.DEBUG:
-                                                    self.s_print("create_new_thread_dataset: OK, called dataset commit active on brand new thread dataset")
+                                            if self.DEBUG:
+                                                self.s_print("create_new_thread_dataset: OK, called dataset commit active on brand new thread dataset")
 
-                                                active_dataset = self.run_ot_ctl_command('dataset active -x')
-                                                if self.DEBUG:
-                                                    self.s_print("create_new_thread_dataset: dataset loaded, in theory. dataset active -x: " + str(active_dataset))
+                                            active_dataset = self.run_ot_ctl_command('dataset active -x')
+                                            if self.DEBUG:
+                                                self.s_print("create_new_thread_dataset: dataset loaded, in theory. dataset active -x: " + str(active_dataset))
 
-                                                if isinstance(active_dataset,str) and 'Done' in active_dataset and len(active_dataset) > 40:
-                                                    self.thread_dataset = str(active_dataset).replace('Done','').strip().rstrip()
-                                                    if self.DEBUG:
-                                                        self.s_print("create_new_thread_dataset: self.thread_dataset from 'dataset active -x' command: ", self.thread_dataset)
-                                                        self.s_print("\ncreate_new_thread_dataset: SAVING NEW THREAD DATASET TO PERSISTENT DATA\n")
-                                                    self.persistent_data['thread_dataset'] = self.thread_dataset
-                                                    self.save_persistent_data()
-                                                    
-                                                    dataset_loaded = True
-                                                    self.thread_dataset_loaded = True
+                                            if isinstance(active_dataset,str) and 'Done' in active_dataset and len(active_dataset) > 40:
+                                                self.thread_dataset = str(active_dataset).replace('Done','').strip().rstrip()
+                                                if self.DEBUG:
+                                                    self.s_print("create_new_thread_dataset: self.thread_dataset from 'dataset active -x' command: ", self.thread_dataset)
+                                                    self.s_print("\ncreate_new_thread_dataset: SAVING NEW THREAD DATASET TO PERSISTENT DATA\n")
+                                                self.persistent_data['thread_dataset'] = self.thread_dataset
+                                                self.save_persistent_data()
+                                                
+                                                dataset_loaded = True
+                                                self.thread_dataset_loaded = True
                                             
                                             else:
                                                 if self.DEBUG:

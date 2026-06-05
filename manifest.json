@@ -29,12 +29,11 @@
     "default": {
       "Vendor ID":"",
 	  "Region":"EU",
-	  
 	  "Help Thread devices to connect to the internet": false,
       "Brightness transition duration":0,
 	  "Days between updating certificates":14,
       "Do not use Hotspot as WiFi network for devices": false,
-	  "Thread channel":15,
+	  "Thread channel":26,
 	  "Thread network name": "CandleThread",
 	  "Matter server type":"Python",
 	  "Enable Matter server dashboard": false,

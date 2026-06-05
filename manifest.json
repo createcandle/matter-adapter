@@ -4,11 +4,13 @@
   "content_scripts": [
     {
       "css": [
-        "css/extension.css"
+        "css/extension.css",
+		"css/matter-dataviz.css"
       ],
       "js": [
         "js/extension.js",
-        "js/qrcode.js"
+        "js/qrcode.js",
+		"js/d3.min.js"
       ]
     }
   ],  
@@ -35,7 +37,8 @@
       "Do not use Hotspot as WiFi network for devices": false,
 	  "Thread channel":26,
 	  "Thread network name": "CandleThread",
-	  "Matter server type":"Python",
+	  "Default Matter fabric name": "Home",
+	  "Matter server type": "Python",
 	  "Enable Matter server dashboard": false,
 	  "Use Candle meshlocalprefix when creating a new Thread network": false,
       "Debugging": false
@@ -92,6 +95,10 @@
             ],
             "description": "Advanced. You can choose which Matter server to run, the old but stable Python version, or the new but barely tested Node JS version (which also uses more memory). The default is Python."
         },
+        "Default Matter fabric name":{
+            "type": "string",
+            "description": "Advanced. Set a custom default Matter fabric name. If left empty the default name will be 'Home'."
+        },
         "Enable Matter server dashboard": {
           "type": "boolean",
           "description": "Advanced. The Matter Server comes with it's own little webserver (on port 5580) that offers details about the Matter network. This feature is disabled by default, but you can enable it here."
@@ -110,7 +117,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.6.6",
+  "version": "0.5.21",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

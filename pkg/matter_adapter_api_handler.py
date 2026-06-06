@@ -7,7 +7,9 @@ import os
 #os.path.insert(1, dirname(os.path.dirname(os.path.abspath(__file__))))
 import sys
 # This helps the addon find python libraries it comes with, which are stored in the "lib" folder. The "package.sh" file will download Python libraries that are mentioned in requirements.txt and place them there.
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')) 
+lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
+if lib_path not in sys.path:
+	sys.path.append(lib_path)
 
 import json
 import time
@@ -144,7 +146,7 @@ class MatterAPIHandler(APIHandler):
                     # MAIN POLL
                     elif action == 'get_main_poll':
                         
-                        wifi_restore_countdown = 0;
+                        wifi_restore_countdown = 0
                         if self.adapter.turn_wifi_back_on_at != 0:
                             if self.DEBUG:
                                 print("get_main_poll: self.adapter.turn_wifi_back_on_at: ", self.adapter.turn_wifi_back_on_at)
@@ -168,7 +170,7 @@ class MatterAPIHandler(APIHandler):
                         last_update_check_seconds_ago = int(time.time()) - self.adapter.last_matter_update_check_timestamp
                         last_update_check_response_seconds_ago = int(time.time()) - self.adapter.last_matter_update_check_response_timestamp
 
-                        if self.adapter.thread_running == True:
+                        if self.adapter.thread_running == True and self.adapter.busy_pairing == False:
                             self.adapter.update_thread_state_info()
 
                         has_thread_dataset = False
@@ -182,6 +184,18 @@ class MatterAPIHandler(APIHandler):
                         else:
                             missing_vendor_id = True
                         self.adapter.missing_vendor_id = missing_vendor_id
+
+
+                        pairing_activity_seconds_ago = 0
+                        if self.adapter.last_pairing_update_time > 0:
+                            pairing_activity_seconds_ago = int(time.time()) - self.adapter.last_pairing_update_time
+                        
+                        seconds_until_starting_matter = 0
+                        if self.adapter.should_start_matter_time > 0:
+                            seconds_until_starting_matter = self.adapter.should_start_matter_time - int(time.time())
+                            if seconds_until_starting_matter < 0:
+                                seconds_until_starting_matter = 0
+                       
 
                         return APIResponse(
                           status=200,
@@ -210,16 +224,21 @@ class MatterAPIHandler(APIHandler):
                                       'should_create_thread_mesh': self.adapter.should_create_thread_mesh,
                                       'should_start_thread_mesh':self.adapter.should_start_thread_mesh,
                                       'thread_dataset_loaded': self.adapter.thread_dataset_loaded,
+                                      'help_thread_devices_to_connect_to_the_internet':self.adapter.help_thread_devices_to_connect_to_the_internet,
+                                      'thread_netdata_registered':self.adapter.thread_netdata_registered,
                                       'thread_running': self.adapter.thread_running,
+                                      'seconds_until_starting_matter':seconds_until_starting_matter,
                                       'should_start_matter':self.adapter.should_start_matter,
                                       'matter_server_running':self.adapter.matter_server_running,
                                       'matter_client_connected': self.adapter.matter_client_connected,
+                                      'matter_running':self.adapter.matter_running,
 
                                       'last_found_pairing_code': self.adapter.last_found_pairing_code,
                                       'wifi_congestion_data': self.adapter.wifi_congestion_data,
                                       'wifi_restore_countdown': wifi_restore_countdown,
                                       'thread_radio_is_alive_seconds_ago': thread_radio_is_alive_seconds_ago,
                                       'pairing_phase': self.adapter.pairing_phase,
+                                      'pairing_activity_seconds_ago': pairing_activity_seconds_ago,
                                       'pairing_attempt': self.adapter.pairing_attempt,
                                       'pairing_phase_message': self.adapter.pairing_phase_message,
                                       'extension_cable_recommended': self.adapter.extension_cable_recommended,
@@ -231,7 +250,6 @@ class MatterAPIHandler(APIHandler):
                                       'last_update_check_seconds_ago': last_update_check_seconds_ago,
                                       'last_update_check_response_seconds_ago': last_update_check_response_seconds_ago,
                                       'matter_collision_detected': self.adapter.matter_collision_detected,
-                                      'thread_netdata_registered': self.adapter.thread_netdata_registered,
                                       'thread_state_info':self.adapter.thread_state_info,
                                       'thread_netdata_info':self.adapter.thread_netdata_info,
                                       'has_thread_dataset':has_thread_dataset,
@@ -525,7 +543,51 @@ class MatterAPIHandler(APIHandler):
                           content=json.dumps({'output':output}),
                         )
 
-                    
+
+                    elif action == 'run_chip_command':
+                        output = ''
+                        try:
+                            if 'command' in request.body:
+                                if self.DEBUG:
+                                    print("debug: running CHIP TOOL command: ", str(request.body['command']))
+                                output = str(self.adapter.run_chip_tool_command(str(request.body['command'])))
+                                if self.DEBUG:
+                                    print("debug: CHIP TOOL command output: ", output)
+                                #if 'connect session failed: No such file or directory' in output:
+                                #    output = 'CHIP TOOL is not available'
+
+                        except Exception as ex:
+                            if self.DEBUG:
+                                print("caught error running CHIP TOOL command: ", ex)
+                            output = ''
+
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'output':output}),
+                        )
+
+
+                    elif action == 'import_pairing_codes':
+                        state = False
+                        try:
+                            if 'pairing_codes' in request.body:
+                                if self.DEBUG:
+                                    print("debug: importing pairing_codes: ", str(request.body['pairing_codes']))
+                                self.adapter.persistent_data['pairing_codes'] = request.body['pairing_codes']
+                                self.adapter.should_save_persistent = True
+                                state = True
+
+                        except Exception as ex:
+                            if self.DEBUG:
+                                print("caught error handling import_pairing_codes request: ", ex)
+                            
+
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':state}),
+                        )
                     
                     
                     

@@ -1,6 +1,8 @@
 import os
 import sys
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')) 
+lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
+if lib_path not in sys.path:
+	sys.path.append(lib_path)
 
 
 import re
@@ -57,7 +59,7 @@ class MatterDevice(Device):
         self._id = device_id
         self.name = device_id
         self.adapter = adapter
-        self.DEBUG = adapter.DEBUG
+        self.DEBUG = adapter.DEVICE_DEBUG
         self.title = 'Matter device'
         self.description = 'A Matter device'
         self._type = [] # holds capabilities
@@ -65,6 +67,9 @@ class MatterDevice(Device):
 
         self.attribute_code_list = []
         self.attributes = None
+
+        self.cluster_multipliers = {}
+        self.attribute_multipliers = {}
 
         self.timesync_endpoint_id = None
 
@@ -141,18 +146,14 @@ class MatterDevice(Device):
                     '@type':'OnOffProperty',
                     'dev@type':'OnOffSwitch'}, # state
 
-                'PowerSource.Attributes.BatPercentRemaining':{
-                    'title':'Battery level',
+                'BooleanState.Attributes.StateValue':{
+                    'title':'State',
                     'readOnly': True,
-                    'percent':True,
-                    'minimum':0,
-                    'maximum':1,
-                    'type':'integer'},
-                'PowerSource.Attributes.BatReplacementNeeded':{
-                    'title':'Replace battery',
-                    'readOnly': True,
-                    'type':'boolean'},
+                    'type':'boolean',
+                    '@type':'BooleanProperty',
+                    'dev@type':'BinarySensor'}, # readOnly state
 
+                
                 'Switch.Attributes.CurrentPosition':{
                     'readOnly': True,
                     'type':'integer'},
@@ -162,20 +163,27 @@ class MatterDevice(Device):
                     'readOnly': True,
                     'type':'string'},
 
-                'BooleanState.Attributes.StateValue':{
-                    'title':'State',
+
+                'PowerSource.Attributes.BatPercentRemaining':{
+                    'title':'Battery level',
                     'readOnly': True,
-                    'type':'boolean',
-                    '@type':'BooleanProperty',
-                    'dev@type':'BinarySensor'}, # readOnly state
+                    'percent':True,
+                    'minimum':0,
+                    'maximum':100,
+                    'type':'integer'},
+                'PowerSource.Attributes.BatReplacementNeeded':{
+                    'title':'Replace battery',
+                    'readOnly': True,
+                    'type':'boolean'},
+
 
                 'RelativeHumidityMeasurement.Attributes.MeasuredValue':{
                     'title':'Humidity',
                     'readOnly':True,
                     'type':'integer',
                     'percent':True,
-                    '@type':'LevelProperty',
-                    'dev@type':'MultiLevelSensor'}, # humidity
+                    '@type':'HumidityProperty',
+                    'dev@type':'HumiditySensor'}, # humidity
                 'TemperatureMeasurement.Attributes.MeasuredValue':{
                     'readOnly': True,
                     'type': 'number',
@@ -259,6 +267,11 @@ class MatterDevice(Device):
                     'unit':'s'},
 
 
+
+                'AirQuality.Attributes.AirQuality':{
+                    'readOnly': True,
+                    'type':'string'},
+
                 'SmokeCOAlarm.Attributes.AlarmStateEnum':{
                     'readOnly': True,
                     'type':'string'},
@@ -303,6 +316,20 @@ class MatterDevice(Device):
                     },
 
 
+                'CarbonDioxideConcentrationMeasurement.Attributes.MeasuredValue':{
+                    'title':'Carbon dioxide',
+                    'readOnly': True,
+                    'type': 'integer',
+                    'multipleOf':1,
+                    },
+
+                'CarbonDioxideConcentrationMeasurement.Attributes.LevelValue':{
+                    'title':'Carbon dioxide level',
+                    'readOnly': True,
+                    'type': 'string',
+                    'enum':['Unknown','Low','Medium','High','Critical'],
+                    },
+
 
 
 
@@ -310,28 +337,45 @@ class MatterDevice(Device):
                 # Energy use
                 'ElectricalPowerMeasurement.Attributes.Voltage':{
                     'readOnly': True,
-                    'type': 'number'},
+                    'type': 'number',
+                    '@type': 'VoltageProperty'},
                 'ElectricalPowerMeasurement.Attributes.Frequency':{
                     'readOnly': True,
-                    'type': 'number'},
+                    'type': 'number',
+                    '@type': 'FrequencyProperty'},
                 'ElectricalPowerMeasurement.Attributes.ApparentCurrent':{
                     'readOnly': True,
                     'type': 'number'},
                 'ElectricalPowerMeasurement.Attributes.ActiveCurrent':{
                     'title':'Current',
                     'readOnly': True,
-                    'type': 'number'},
+                    'type': 'number',
+                    '@type': 'CurrentProperty'},
                 'ElectricalPowerMeasurement.Attributes.ApparentPower':{
                     'readOnly': True,
                     'type': 'number'},
                 'ElectricalPowerMeasurement.Attributes.ActivePower':{ # You typically pay for active power, which is the actual power consumed by your electrical devices 
                     'title':'Power',
                     'readOnly': True,
-                    'type': 'number'},
+                    'type': 'number',
+                    '@type': 'InstantaneousPowerProperty',
+                    'dev@type':'EnergyMonitor'},
                 'ElectricalPowerMeasurement.Attributes.PowerFactor':{
                     'readOnly': True,
-                    'type': 'number'},
+                    'type': 'number',
+                    '@type': 'InstantaneousPowerFactorProperty'},
 
+
+
+                # PUMP
+                'PumpConfigurationandControl.atttributes.ControlModeEnum':{
+                    'readOnly': False,
+                    'type': 'string'},
+
+
+                # PumpStatusBitmap
+
+                # Dishwasher Mode
 
            }
 
@@ -451,7 +495,14 @@ class MatterDevice(Device):
                                 if self.DEBUG:
                                     print("list of devices with timeSynchronization is now: ", self.adapter.matter_devices_with_time_sync)
 
-                                self.sync_time()
+                                if str(self.id) in self.reconnected_devices:
+                                    if self.DEBUG:
+                                        print("This device seems to already be connected, so not doing time sync immediately")
+                                    self.sync_time()
+                                else:
+                                    if self.DEBUG:
+                                        print("WARNING, not initiating timesync during Thing creation, as the device doesn't seem to actually be reconnected yet")
+
 
 
 
@@ -661,7 +712,7 @@ class MatterDevice(Device):
                     # MAIN ATTRIBUTES TO PROPERTIES LOOP
 
 
-                if isinstance(self.my_pairing_code,str) and \
+                if isinstance(self.my_pairing_code,str) and self.my_pairing_code != "" and \
                   self.my_pairing_code not in self.adapter.persistent_data['pairing_codes'] and \
                   'vendor_name' in self.adapter.persistent_data['nodez'][device_id] and \
                   'product_name' in self.adapter.persistent_data['nodez'][device_id] and \
@@ -741,6 +792,102 @@ class MatterDevice(Device):
                                 print("- cluster_name: ", cluster_name)
                                 print("- attribute_name: ", attribute_name)
                                 print("- property_id: ", property_id)
+
+
+
+
+
+                            #
+                            #  HELPER FUNCION TO QUICKLY CHECK IF THE DEVICE HAS A SPECIFIC ATTRIBUTE CODE
+                            #
+                            
+                            def has_attribute_code(test_attribute_code):
+                                for test_endpoint_name in list(self.adapter.persistent_data['nodez'][device_id]['attributes'].keys()):
+                                    if test_attribute_code in self.adapter.persistent_data['nodez'][device_id]['attributes'][test_endpoint_name]:
+                                        return True
+                                return False
+
+
+                            # VALUE MULTIPLIER LOOKUP TABLE
+
+                            
+                            # Different matter clusters have different multipliers so measured values can be stored as integers. 
+                            # To get the actual values (and actual mininumm and maximum limits) we need to divide by that multiplier again.
+                            self.cluster_multipliers = {
+                                "PressureMeasurement":10,
+                                "WaterContentMeasurement":100,
+                                "TemperatureMeasurement":100,
+                                "RelativeHumidityMeasurement":100,
+                                "Illuminance Measurement":1,
+                                "Thermostat":100,
+                                #"CarbonDioxideConcentrationMeasurement":1000,
+
+
+                                #This attribute SHALL indicate the illuminance in Lux (symbol lx) as follows:
+                                #• MeasuredValue = 10,000 x log10(illuminance) + 1,
+                                #where 1 lx <= illuminance <= 3.576 Mlx, corresponding to a MeasuredValue in the range 1 to 0xFFFE.
+
+                                "Flow Measurement":10,
+                                
+                                
+                                
+                                }
+
+
+                                # CurrentHue is in the range from 0 to 254 inclusive.
+                                # CurrentSaturation is in the range from 0 to 254 inclusive.
+                                # CurrentX is in the range from 0 to 65279 inclusive
+                                # CurrentY is in the range from 0 to 65279 inclusive.
+
+
+                            #Thermostat
+                            self.attribute_multipliers = {
+                                "TemperatureDifference":100,
+                                "SignedTemperature":10,
+                                "UnsignedTemperature":10,
+                                "Voltage":1000, # millivolts
+                                "ActiveCurrent":1000,
+                                "ReactiveCurrent":1000,
+                                "ApparentCurrent":1000,
+                                "ActivePower":1000,
+                                "ReactivePower":1000,
+                                "ApparentPower":1000,
+                                "RMSVoltage":1000,
+                                "RMSCurrent":1000,
+                                "RMSPower":1000,
+                                "PowerFactor":100, # Power Factor ratio in +/- 1/100ths of a percent.
+                                "NeutralCurrent":1000,
+                                "ElectricalEnergy":1000,
+                                "ReactiveEnergy":1000,
+                                "ApparentEnergy ":1000,
+                                "BatPercentRemaining":2.54,
+
+
+                                
+                                }
+
+                            # !
+                            # MeasurementAccuracyStruct ... "and whether the measurement is directly measured or just estimated from other information." 
+
+
+
+
+
+                            # self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['multiplier'] = 
+
+
+                            """
+                            This attribute SHALL be set such that the following relationship exists:
+                            ColorTempPhysicalMinMireds <= CoupleColorTempToLevelMinMireds <= ColorTemperatureMireds
+                            Note that since this attribute is stored as a micro reciprocal degree (mired) value (i.e. color temperature
+                            in kelvins = 1,000,000 / CoupleColorTempToLevelMinMireds), the CoupleColorTempToLevelMinMireds
+                            attribute corresponds to an upper bound on the value of the color temperature
+                            Page 264 Copyright © Connectivity Standards Alliance, Inc. All rights reserved.
+                            Matter Application Cluster Specification Connectivity Standards Alliance Document 23-27350 July 16, 2025
+                            in kelvins supported by the device.
+                            """
+
+
 
 
 
@@ -871,6 +1018,7 @@ class MatterDevice(Device):
 
                                 if not 'description' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']:
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'] = {}
+                                    self.adapter.should_save = True
 
                                 if not 'dev@type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']:
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'] = []
@@ -882,6 +1030,8 @@ class MatterDevice(Device):
                                 self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['node_id'] = self.node_id
                                 self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['attribute_code'] = attribute_code
 
+
+                                
 
 
                                 if self.DEBUG:
@@ -936,9 +1086,19 @@ class MatterDevice(Device):
 
                                     # Minimum and maximum number/integer limits
                                     if 'minimum' in supported_attributes[attribute_code]:
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = supported_attributes[attribute_code]['minimum']
+                                        if attribute_name in self.attribute_multipliers:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = supported_attributes[attribute_code]['minimum'] / self.attribute_multipliers[attribute_name]
+                                        elif cluster_name in self.cluster_multipliers:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = supported_attributes[attribute_code]['minimum'] / self.cluster_multipliers[cluster_name]
+                                        else:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = supported_attributes[attribute_code]['minimum']
                                     if 'maximum' in supported_attributes[attribute_code]:
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = supported_attributes[attribute_code]['maximum']
+                                        if attribute_name in self.attribute_multipliers:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = supported_attributes[attribute_code]['maximum'] / self.attribute_multipliers[attribute_name]
+                                        elif cluster_name in self.cluster_multipliers:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = supported_attributes[attribute_code]['maximum'] / self.cluster_multipliers[cluster_name]
+                                        else:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = supported_attributes[attribute_code]['maximum']
 
 
                                 elif 'percent' in attribute_code.lower(): # This is always True the case if the attribute exists...
@@ -1105,6 +1265,11 @@ class MatterDevice(Device):
                                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]['LevelControl.Attributes.CurrentLevel']['property']['description']['title'] = 'Brightness'
                                         if not 'Light' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type']:
                                             self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('Light')
+
+
+                                        # TODO: adjust percentage based on this calculation? Or just not bother?
+                                        # Level = MinLevel + (MaxLevel - MinLevel) * (CurrentLevel - 1) / 253.
+                                        # ! Value 255 is not used.
                                     else:
                                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]['LevelControl.Attributes.CurrentLevel']['property']['description']['@type'] = 'LevelProperty'
                                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]['LevelControl.Attributes.CurrentLevel']['property']['description']['title'] = 'Level'
@@ -1114,9 +1279,19 @@ class MatterDevice(Device):
 
                                 # LEVELCONTROL MIN AND MAX LEVEL
                                 if attribute_code.endswith('.MinLevel') and isinstance(node['attributes_list'][endpoint_name][attribute_code],(int,float)):
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code]
+                                    if attribute_name in self.attribute_multipliers:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code] / self.attribute_multipliers[attribute_name]
+                                    elif cluster_name in self.cluster_multipliers:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code] / self.cluster_multipliers[cluster_name]
+                                    else:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code]
                                 elif attribute_code.endswith('.MaxLevel') and isinstance(node['attributes_list'][endpoint_name][attribute_code],(int,float)):
-                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code]
+                                    if attribute_name in self.attribute_multipliers:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code] / self.cluster_attribute[attribute_name]
+                                    elif cluster_name in self.cluster_multipliers:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code] / self.cluster_multipliers[cluster_name]
+                                    else:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code]
 
 
 
@@ -1240,8 +1415,19 @@ class MatterDevice(Device):
                                         # TODO: does this affect actual color control?
                                         if 'ColorControl.Attributes.ColorTempPhysicalMinMireds' in node['attributes_list'][endpoint_name] and 'ColorControl.Attributes.ColorTempPhysicalMaxMireds' in node['attributes_list'][endpoint_name]:
                                             if isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMinMireds'],int) and isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMaxMireds'],int):
-                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMinMireds']
-                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMaxMireds']
+                                                if attribute_name in self.attribute_multipliers:
+                                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMinMireds'] / self.attribute_multipliers[attribute_name]
+                                                elif cluster_name in self.cluster_multipliers:
+                                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMinMireds'] / self.cluster_multipliers[cluster_name]
+                                                else:
+                                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMinMireds']
+                                                
+                                                if attribute_name in self.attribute_multipliers:
+                                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMaxMireds'] / self.attribute_multipliers[attribute_name]
+                                                if cluster_name in self.cluster_multipliers:
+                                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMaxMireds'] / self.cluster_multipliers[cluster_name]
+                                                else:
+                                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name]['ColorControl.Attributes.ColorTempPhysicalMaxMireds']
 
                                         # Color temperature only
                                         if not 'ColorControl.Attributes.CurrentHue' in node['attributes_list'][endpoint_name]:
@@ -1256,10 +1442,39 @@ class MatterDevice(Device):
                                         print(traceback.format_exc())
 
 
+
+
+
+                                # LEAK
+                                # Ikea's water leak sensor registers itself as a boolean sensor. It seems the Matter spec (1.4) doesn't have a leak cluster?
+                                if attribute_code == 'BooleanState.Attributes.StateValue':
+                                    if 'product_name' in self.adapter.persistent_data['nodez'][device_id] and ' leak ' in self.adapter.persistent_data['nodez'][device_id]['product_name']:
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'] = ['LeakSensor']
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['@type'] = 'LeakProperty'
+
+
+
+
+
+
+                                # Smart power plug, or an energy monitor without a switch function
+
+                                if attribute_code == 'ElectricalPowerMeasurement.Attributes.ActivePower':
+                                    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('EnergyMonitor')
+                                    if has_attribute_code('OnOff.Attributes.OnOff'):
+                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['dev@type'].append('SmartPlug')
+                                    
+                                
+
+
+
+
+
+
+
                                 # MEASUREMENT
                                 try:
                                     
-
                                     # self.enums_lookup also contains lookup tables for measurement units, so the entire process of adding the correct unit is now automated
 
                                     if attribute_code.endswith('.MeasurementUnit'):
@@ -1276,8 +1491,12 @@ class MatterDevice(Device):
                                                     print("trying to find MeasuredValue: ", measured_value_attribute_code)
                                                 if measured_value_attribute_code in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
                                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][measured_value_attribute_code]['property']['description']['unit'] = unit
-                                                    print("OK, UNIT ADDED")
-                                    
+                                                    if self.DEBUG:
+                                                        print("OK, UNIT ADDED:  attribute_code,unit:", measured_value_attribute_code, unit)
+                                    else:
+                                        if cluster_name in self.adapter.enums_lookup:
+                                            if self.DEBUG:
+                                                print("CLUSTER,UNIT: ", cluster_name, unit)
                                     
                                     
                                     #CarbonDioxideConcentrationMeasurement
@@ -1303,8 +1522,18 @@ class MatterDevice(Device):
                                           isinstance(node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MinMeasuredValue')],(int,float)) and \
                                           attribute_code.replace('.MeasuredValue','.MaxMeasuredValue') in node['attributes_list'][endpoint_name] and \
                                           isinstance(node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MaxMeasuredValue')],(int,float)):
-                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MinMeasuredValue')]
-                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MaxMeasuredValue')]
+                                            if attribute_name in self.attribute_multipliers:
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MinMeasuredValue')] / self.attribute_multipliers[attribute_name]
+                                            elif cluster_name in self.cluster_multipliers:
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MinMeasuredValue')] / self.cluster_multipliers[cluster_name]
+                                            else:
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MinMeasuredValue')]
+                                            if attribute_name in self.attribute_multipliers:
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MaxMeasuredValue')] / self.attribute_multipliers[attribute_name]
+                                            elif cluster_name in self.cluster_multipliers:
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MaxMeasuredValue')] / self.cluster_multipliers[cluster_name]
+                                            else:
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MaxMeasuredValue')]
 
                                         # Air quality particle concentration unit
                                         #if 'ConcentrationMeasurement.' in attribute_code:
@@ -1324,8 +1553,18 @@ class MatterDevice(Device):
                                       not 'minimum' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'] and \
                                       isinstance(node['attributes_list'][endpoint_name][attribute_code],(int,float)) and \
                                       attribute_code.replace('.RangeMin','.RangeMax') in node['attributes_list'][endpoint_name][attribute_code]:
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code]
-                                        self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.RangeMin','.RangeMax')]
+                                        if attribute_name in self.attribute_multipliers:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code] / self.attribute_multipliers[attribute_name]
+                                        elif cluster_name in self.cluster_multipliers:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code] / self.cluster_multipliers[cluster_name]
+                                        else:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code]
+                                        if attribute_name in self.attribute_multipliers:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.RangeMin','.RangeMax')] / self.attribute_multipliers[attribute_name]
+                                        elif cluster_name in self.cluster_multipliers:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.RangeMin','.RangeMax')] / self.cluster_multipliers[cluster_name]
+                                        else:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['maximum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.RangeMin','.RangeMax')]
 
 
                                     if attribute_code == 'OccupancySensing.Attributes.OccupancySensorTypeEnum' and isinstance(node['attributes_list'][endpoint_name][attribute_code],int):
@@ -1383,28 +1622,60 @@ class MatterDevice(Device):
 
                                     # GET ENUM LIST FROM ENUMS_LOOKUP
 
-                                    if attribute_name in self.adapter.enums_lookup:
-                                        if attribute_code.endswith('Enum'):
+                                    if attribute_name == 'MeasurementMedium':
+                                        if not 'type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'string'
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'] = ['Air','Water','Soil']
+                                            self.adapter.should_save = True
+                                            if isinstance(property_value,int) and property_value >=0 and property_value < 3:
+                                                property_value = self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'][property_value]
+                                                if self.DEBUG:
+                                                    print("measurement medium has been set to: ", property_value)
+
+                                    elif attribute_code.endswith('Enum'):
+                                        attribute_code_sans_enum = attribute_code.removesuffix('Enum')
+                                        if attribute_code_sans_enum in self.adapter.enums_lookup:
                                             if self.DEBUG:
-                                                print("adding enum to device.  attribute_code,enum: ", attribute_code, self.adapter.enums_lookup[attribute_name])
+                                                print("adding enum to device.  attribute_code,enum: ", attribute_code, self.adapter.enums_lookup[attribute_code_sans_enum])
                                             if not 'type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']:
                                                 self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'string'
                                             if self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] == 'string':
-                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'] = self.adapter.enums_lookup[attribute_name]
-                                                if isinstance(property_value,int) and property_value >=0 and property_value < len(self.adapter.enums_lookup[attribute_name]):
-                                                    property_value = str(self.adapter.enums_lookup[attribute_name][property_value])
+                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'] = list(self.adapter.enums_lookup[attribute_name])
+                                                self.adapter.should_save = True
+                                                if isinstance(property_value,int) and property_value >=0 and property_value < len(self.adapter.enums_lookup[attribute_code_sans_enum]):
+                                                    property_value = str(self.adapter.enums_lookup[attribute_code_sans_enum][property_value])
                                                     if self.DEBUG:
                                                         print("OK, switched property value from number to string from enums_lookup: ", property_value, self.adapter.enums_lookup[attribute_name])
 
                                             else:
                                                 if self.DEBUG:
                                                     print("unexpectedly an attribute_code that ends with Enum does not have 'string' as its property type: ", attribute_code,  self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property'])
+                                        
+                                        elif cluster_name in self.adapter.enums_lookup:
+                                            if self.DEBUG:
+                                                print("adding enum to device.  cluster_name,enum: ", cluster_name, self.adapter.enums_lookup[cluster_name])
+                                            #if not 'type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']:
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'string'
+                                            #if self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] == 'string':
+                                            self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['enum'] = list(self.adapter.enums_lookup[cluster_name])
+                                            self.adapter.should_save = True
+                                            if isinstance(property_value,int) and property_value >= 0 and property_value < len(self.adapter.enums_lookup[cluster_name]):
+                                                property_value = str(self.adapter.enums_lookup[cluster_name][property_value])
+                                                if self.DEBUG:
+                                                    print("OK, switched property value from number to string from enums_lookup: ", property_value, self.adapter.enums_lookup[attribute_name])
+
+                                            #else:
+                                            #    if self.DEBUG:
+                                            #        print("unexpectedly an attribute_code that ends with Enum does not have 'string' as its property type: ", attribute_code,  self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property'])
+            
+                                        
                                         else:
                                             if self.DEBUG:
                                                 print("Interesting, there is enum for an attribute_name that does not end with Enum: ", attribute_name, self.adapter.enums_lookup[attribute_name])
 
                                     # with the enums lookup this should not be necessary anymore
                                     # TODO: Remove? or could override enums here from the supported dict, perhaps to get even nicer names
+                                    """
                                     elif attribute_code.endswith('Enum') and \
                                       attribute_code in supported_attributes and \
                                       'enum' in supported_attributes[attribute_code].keys() and \
@@ -1420,7 +1691,7 @@ class MatterDevice(Device):
                                             property_value = str(supported_attributes[attribute_code]['enum'][ int(node['attributes_list'][endpoint_name][attribute_code]) ])
                                         #if 'title' in supported_attributes[attribute_code]:
                                         #    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['title'] = str(supported_attributes[attribute_code]['title'])
-
+                                    """
 
                                     # Make enum options nicer to read
                                     if 'enum' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']:
@@ -1448,6 +1719,7 @@ class MatterDevice(Device):
                                                 print("\nERROR, did not find property_value in uncameled enum list, setting it to 'None': " + str(property_value))
                                             property_value = 'None'
 
+                                        self.adapter.should_save = True
 
 
 
@@ -1710,7 +1982,6 @@ class MatterDevice(Device):
                                     print("no websocket connection, cannot send message")
 
 
-
         except Exception as ex:
             if self.DEBUG:
                 print("debug: perform_action: caught error in perform action: ", str(ex))
@@ -1820,6 +2091,12 @@ class MatterDevice(Device):
                             if self.DEBUG:
                                 print("debug: sync_time: message sent? was_sent: ", was_sent)
 
+                            # This should always be true:
+                            if self.id in self.adapter.reconnected_devices:
+                                self.adapter.reconnected_devices[self.id]['last_time_sync_attempt_timestamp'] = int(time.time())
+                            else:
+                                if self.DEBUG:
+                                    print("Error: Device: sync_time: thing_id was not in self.adapter.reconnected_devices, cannot update last_time_sync_attempt_timestamp")
 
         except Exception as ex:
             if self.DEBUG:

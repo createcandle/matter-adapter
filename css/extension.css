@@ -226,6 +226,11 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
     display:none!important;
 }
 
+.extension-matter-adapter-faded{
+	opacity:.3;
+	pointer-events:none;
+}
+
 
 
 .extension-matter-adapter-flex-wrap-when-narrow{
@@ -395,8 +400,9 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 /*  STARTING CHECKLIST  */
 
 #extension-matter-adapter-still-starting-info{
-	max-width:40rem;
+	max-width:45rem;
 	margin:2rem auto;
+	text-align: left;
 }
 
 .extension-matter-adapter-starting-checklist-item-done{
@@ -505,11 +511,14 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
     box-sizing:border-box;
 }
 
+.extension-matter-adapter-item-title-wrapper{
+	margin-bottom:1rem;
+}
 .extension-matter-adapter-item-title{
     color:white;
     font-size:2rem;
     font-weight:bold;
-    display:block;
+    display:inline-block;
     margin-bottom:.5rem;
 }
 .extension-matter-adapter-item-description{
@@ -562,6 +571,15 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	margin-bottom:1.5rem;
 }
 
+#extension-matter-adapter-view .extension-matter-adapter-item-node-id{
+	opacity:.2;
+	position:absolute;
+    right: 14rem;
+    top: 0rem;
+	font-size:5rem;
+	pointer-events:none;
+	background-color:transparent;
+}
 
 .extension-matter-adapter-line2{
     margin-top:1rem;
@@ -584,7 +602,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
     flex-direction:row;
     justify-content:space-between;
     border-top:1px solid rgba(255,255,255,.1);
-	max-height:11rem;
+	max-height:13rem;
 }
 
 .extension-matter-adapter-item-right{
@@ -843,6 +861,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 #extension-matter-adapter-thread-network-code-warning{
 	color:orange; 
 	font-style: italic;
+	padding-right: 4rem;
 }
 #extension-matter-adapter-thread-network-code-warning::before{
     content: '⚠';
@@ -851,21 +870,42 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
     line-height: 3rem;
     margin: 0 1.5rem 0 1rem;
     font-style: normal;
+	float:left;
 }
 
-#extension-matter-adapter-thread-command-select{
+
+#extension-matter-adapter-chip-command-dec-input,
+#extension-matter-adapter-chip-command-hex-input{
+	padding:1rem;
+	flex-grow:1;
+}
+
+
+#extension-matter-adapter-chip-command-hex-output{
+	display:inline-block;
+	min-width:10rem;
+	padding:1rem;
+	margin:0.5rem 1rem;
+	background-color:rgba(0,0,0,.1);
+	border-radius:.5rem;
+}
+
+#extension-matter-adapter-thread-command-select,
+#extension-matter-adapter-chip-command-select{
 	max-width:10rem;
 	padding:1rem;
 	font-size:1.8rem;
 }
-#extension-matter-adapter-thread-command-input{
+#extension-matter-adapter-thread-command-input,
+#extension-matter-adapter-chip-command-input{
 	flex-grow: 1;
 	padding:2rem 1rem;
 	width:100%;
 	font-size:1.8rem;
 }
 
-#extension-matter-adapter-thread-command-output{
+#extension-matter-adapter-thread-command-output,
+#extension-matter-adapter-chip-command-output{
 	line-height:3rem;
 	overflow:auto;
 }
@@ -1211,18 +1251,21 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
     display:inline-block;
 }
 
-#extension-matter-adapter-busy-pairing-indicator,
-.extension-matter-adapter-busy-pairing-hint{
+
+#extension-matter-adapter-view.extension-matter-adapter-pairing-done .extension-matter-adapter-hide-while-pairing-done,
+#extension-matter-adapter-view:not(.extension-matter-adapter-pairing-done) .extension-matter-adapter-show-while-pairing-done,
+#extension-matter-adapter-view.extension-matter-adapter-busy-pairing .extension-matter-adapter-hide-while-busy-pairing,
+#extension-matter-adapter-view:not(.extension-matter-adapter-busy-pairing) .extension-matter-adapter-show-while-busy-pairing{
     display:none;
 }
-.extension-matter-adapter-busy-pairing #extension-matter-adapter-busy-pairing-indicator{
-    display:block;
-}
 
-div.extension-matter-adapter-busy-pairing #extension-matter-adapter-pairing-step-wifi,
-div.extension-matter-adapter-busy-pairing #extension-matter-adapter-pairing-start-area,
-div.extension-matter-adapter-busy-pairing #extension-matter-adapter-start-normal-pairing-button,
-div.extension-matter-adapter-busy-pairing #extension-matter-adapter-start-network-pairing-button{
+
+#extension-matter-adapter-view.extension-matter-adapter-busy-pairing #extension-matter-adapter-pairing-step-wifi,
+#extension-matter-adapter-view.extension-matter-adapter-pairing-done #extension-matter-adapter-pairing-step-wifi,
+#extension-matter-adapter-view.extension-matter-adapter-busy-pairing #extension-matter-adapter-pairing-start-area,
+#extension-matter-adapter-view.extension-matter-adapter-pairing-done #extension-matter-adapter-pairing-start-area,
+#extension-matter-adapter-view.extension-matter-adapter-busy-pairing #extension-matter-adapter-start-normal-pairing-button,
+#extension-matter-adapter-view.extension-matter-adapter-busy-pairing #extension-matter-adapter-start-network-pairing-button{
     display:none;
 }
 
@@ -1313,6 +1356,11 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
 
 /*  WIRELESS TYPE RADIO BUTTONS  */
 
+#extension-matter-adapter-view:not(.extension-matter-adapter-thread-running) .extension-matter-adapter-show-if-thread-running{
+	display:none;
+}
+
+
 .extension-matter-adapter-radio-buttons-container{
     display:flex;
     justify-content:space-around;
@@ -1324,6 +1372,8 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
     background-color:rgba(255,255,255,.1);
     box-sizing: border-box;
 }
+
+
 
 .extension-matter-adapter-radio-buttons-container label{
      min-width:30%;
@@ -1553,10 +1603,40 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 	background-position:center left 1rem;;
 	background-size: 2rem;
     padding-left: 4rem;
-    display: block;
-    margin: 2rem 2rem 0 auto;
+    /*display: block;*/
+    margin: 2rem 2rem 0 2rem;
 	width:90px;
 }
+
+#extension-matter-adapter-export-old-codes-button{
+	margin: 2rem 2rem 0 2rem;
+}
+
+#extension-matter-adapter-export-old-pairing-codes-textarea{
+	width:100%;
+	box-sizing: border-box;
+	min-height:30rem;
+	margin-bottom:1rem;
+}
+
+
+/*  PAIRING TIMEOUT  */
+
+#extension-matter-adapter-pairing-timeout-hint{
+	display:none;
+}
+
+.extension-matter-adapter-pairing-timeout #extension-matter-adapter-pairing-timeout-hint{
+	display:block;
+}
+
+.extension-matter-adapter-pairing-timeout #extension-matter-adapter-show-second-page-button{
+	border:2px solid red;
+}
+
+
+
+
 
 
 

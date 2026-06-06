@@ -1,7 +1,9 @@
 import os
 import sys
 # This helps the addon find python libraries it comes with, which are stored in the "lib" folder. The "package.sh" file will download Python libraries that are mentioned in requirements.txt and place them there.
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')) 
+lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
+if lib_path not in sys.path:
+	sys.path.append(lib_path)
 
 import json
 #import asyncio
@@ -68,6 +70,9 @@ class MatterProperty(Property):
         
         self.description = description # a dictionary that holds the details about the property type
         self.details = details
+
+        self.cluster_name = self.details['attribute_code'].split('.Attributes.')[0]
+        self.attribute_name = self.details['attribute_code'].split('.Attributes.')[1]
         
         self.value = value
         
@@ -126,7 +131,11 @@ class MatterProperty(Property):
                         print("Error / impossible: readOnly property cannot be changed")
                     return
                 
-                if 'attribute_code' in self.details:
+                if 'attribute_code' in self.details and '.Attributes.' in str(self.details['attribute_code']):
+
+                    
+
+
                     # OnOff switch
                     #if self.details['attribute_code'] == 'OnOff.Attributes.OnOff':
                     if self.details['attribute_code'].endswith('OnOff.Attributes.OnOff'):
@@ -258,6 +267,17 @@ class MatterProperty(Property):
                             print("\nERROR, set_value: unhandled attribute_code + color property capability, aborting.  attribute_code: ", self.details['attribute_code'])
                         return
                 
+                    else:
+                        if self.attribute_name in self.device.attribute_multipliers:
+                            multiplier = self.device.attribute_multipliers[self.attribute_name]
+                            value = int(value * multiplier)
+                        if self.cluster_name in self.device.cluster_multipliers and isinstance(value,(int,float)):
+                            multiplier = self.device.cluster_multipliers[self.cluster_name]
+                            value = int(value * multiplier)
+                            # TODO apply multiplier to additional commands that set numeric/integer values
+                            
+
+
                 
                 # If a matching command was found, then it can be forwarder to the Matter server
                 if command == None:
@@ -346,7 +366,7 @@ class MatterProperty(Property):
             
         
         except Exception as ex:
-            print("property: set_value error: " + str(ex))
+            print("property: set_value caught error: " + str(ex))
         
         if self.DEBUG:
             self.device.adapter.should_save = True
@@ -370,49 +390,77 @@ class MatterProperty(Property):
             print("property: update. value: " + str(value) + ', existing value: ' + str(self.value))
             print("self.details: ", self.details) 
             
-        
+
+        if 'attribute_code' in self.details and '.Attributes.' in str(self.details['attribute_code']):
+
+            # Apply multiplier
+            if self.attribute_name in self.device.attribute_multipliers and isinstance(value,(int,float)):
+                multiplier = self.device.attribute_multipliers[self.attribute_name]
+                if self.DEBUG:
+                    print("property: update: applying attribute multiplier (divide by).  multiplier, value before: ", multiplier, value)
+                value = value / multiplier
+                if self.DEBUG:
+                    print("property: update: value after applying attribute multiplier: ", value)
+            elif self.cluster_name in self.device.cluster_multipliers and isinstance(value,(int,float)):
+                multiplier = self.device.cluster_multipliers[self.cluster_name]
+                if self.DEBUG:
+                    print("property: update: applying cluster multiplier (divide by).  multiplier, value before: ", multiplier, value)
+                value = value / multiplier
+                if self.DEBUG:
+                    print("property: update: value after applying cluster multiplier: ", value)
+            else:
+                if self.DEBUG:
+                    print("property: no multiplier found for self.cluster_name,self.attribute_name: ", self.cluster_name, self.attribute_name)
+
         try:
+
+            if isinstance(value,float) and self.description['type'] == 'integer':
+                if self.DEBUG:
+                    print("property: update: forcing float to int: ", value, " -> ", int(value))
+                value = int(value)
+
             if 'attribute_code' in self.details and '.Attributes.' in str(self.details['attribute_code']):
-            
-                cluster_name = str(self.details['attribute_code'].split('.Attributes.')[0])
-                attribute_name = str(self.details['attribute_code'].split('.Attributes.')[1])
                 
-                if attribute_name == 'OnOff':
+                if self.attribute_name == 'OnOff':
                     if str(value) == 'On':
                         value = True
                     elif str(value) == 'Off':
                         value = False
                     else:
                         if self.DEBUG:
-                            print("OnOff update value: ", value)
+                            print("property: update: OnOff update value: ", value)
                         
-                elif attribute_name == 'CurrentPosition':
+                elif self.attribute_name == 'CurrentPosition':
                     if str(value) == 'On':
                         value = 1
                     elif str(value) == 'Off':
                         value = 0
                     else:
                         if self.DEBUG:
-                            print("CurrentPosition update value: ", value)
+                            print("property: update: currentPosition update value: ", value)
                         
                 if value != None: # None values are allowed and encouraged
                     
                     if self.details['attribute_code'] == 'ColorControl.Attributes.CurrentX' and (isinstance(value,int) or str(value).isdigit()):
                         if self.DEBUG:
-                            print("error: property: update: provided color was a number, but should be a hex value: ", value)
+                            print("error: property: update: TODO: provided color was a number, but should become a hex value: ", value)
                             # TODO: change this to a hex color instead of returning
                         return
             
                     # turn into enum string value
-                    if self.details['attribute_code'] in self.device.adapter.enums_lookup and isinstance(value,int) and value >= 0 and value < len(self.device.adapter.enums_lookup[ self.details['attribute_code'] ]) and 'type' in self.description and self.description['type'] == 'string':
+                    if 'enum' in self.description:
+                        value = str(self.description['enum'][value])
+                    elif self.details['attribute_code'] in self.device.adapter.enums_lookup and isinstance(value,int) and value >= 0 and value < len(self.device.adapter.enums_lookup[ self.details['attribute_code'] ]) and 'type' in self.description and self.description['type'] == 'string':
                         value = str(self.device.adapter.enums_lookup[ self.details['attribute_code'] ][value])
             
                     # Adjust from percentage back to the range that the matter device expects (likely 0-100 -> 1-254)
                     elif self.details['attribute_code'] == 'LevelControl.Attributes.CurrentLevel' and isinstance(value,(int,float)):
-                        if value < 0:
+                        if value == 255:
+                            value = None
+                        elif value < 0:
                             value = 0
                         elif value > 254:
-                            value = 254
+                            value = 25
                 
                         if 'minimum' in self.description:
                             if value < self.description['minimum']:
@@ -432,11 +480,11 @@ class MatterProperty(Property):
         
                             if value > self.description['maximum']:
                                 if self.DEBUG:
-                                    print("warning, percentage scaled value ended up bigger than the allowed maximum: ", value, self.description['maximum'] )
+                                    print("property: update: WARNING, percentage scaled value ended up bigger than the allowed maximum: ", value, self.description['maximum'] )
                                 value = self.description['maximum']
                             if value < self.description['minimum']:
                                 if self.DEBUG:
-                                    print("warning, percentage scaled value ended up smaller than the allowed minimum: ", value, self.description['minimum'] )
+                                    print("property: update: WARNING, percentage scaled value ended up smaller than the allowed minimum: ", value, self.description['minimum'] )
                                 value = self.description['minimum']
             
         except Exception as ex:

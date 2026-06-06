@@ -4,8 +4,13 @@
 import os
 import re
 import sys
+lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
+if lib_path not in sys.path:
+	sys.path.append(lib_path)
+
 import json
 import math
+import hashlib
 import subprocess
 from collections import namedtuple
 
@@ -31,7 +36,7 @@ clusters_to_ignore = [
     "Binding",
     #"AccessControl",
     #"Actions",
-    "OtaSoftwareUpdateProvider",
+    #"OtaSoftwareUpdateProvider",
     "OtaSoftwareUpdateRequestor",
     "LocalizationConfiguration",
     "TimeFormatLocalization",
@@ -556,7 +561,7 @@ def process_node(node):
 
     new_attributes={}
     
-    clusters_to_ignore = ['OtaSoftwareUpdateRequestor','AccessControl','Descriptor','IcdManagement','OperationalCredentials','WiFiNetworkDiagnostics','ThreadNetworkDiagnostics','AdministratorCommissioning','NetworkCommissioning','GeneralCommissioning','GroupKeyManagement','Identify','Groups']
+    #clusters_to_ignore = ['OtaSoftwareUpdateRequestor','AccessControl','Descriptor','IcdManagement','OperationalCredentials','WiFiNetworkDiagnostics','ThreadNetworkDiagnostics','AdministratorCommissioning','NetworkCommissioning','GeneralCommissioning','GroupKeyManagement','Identify','Groups']
 
     for attr_path, value in node["attributes"].items():
         endpoint_id, cluster_id, attr_id = attr_path.split("/")
@@ -578,7 +583,7 @@ def process_node(node):
             attribute_path = f"{ALL_CLUSTERS[cluster_id].__name__}.Attributes."
         else:
             if cluster_id not in cluster_warn:
-                print("util: process_node: nknown cluster ID: {}".format(cluster_id))
+                print("util: process_node: unknown cluster ID: {}".format(cluster_id))
                 cluster_warn.add(cluster_id)
             cluster_name = f"{cluster_id} (unknown)"
             attribute_path = f"{cluster_id}.Attributes."
@@ -695,6 +700,11 @@ def boolean_list_to_number(bools):
 
 def number_to_boolean_list(num):
     return [bool((num >> i) & 1) for i in range(8)]
+
+
+def md5_hash(text):
+    res = hashlib.md5(str(text).encode())
+    return res.hexdigest()
 
 
 

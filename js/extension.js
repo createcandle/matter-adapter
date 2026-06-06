@@ -42,6 +42,7 @@
             this.use_hotspot = false;
             this.wifi_credentials_available = false;
 			this.wifi_restore_timestamp = 0;
+            this.busy_entering_wifi_credentials = false;
             
             this.uuid == null; // used with qr scanner
             
@@ -56,6 +57,9 @@
 
             this.start_thread_radio_wizard_button_el = null;
 			this.started_thread_radio_wizard = false;
+
+            this.thread_diagnostics = {};
+            this.previous_thread_diagnostics = '{}';
 			
 			if (window.location.protocol.startsWith('https') && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && 'BarcodeDetector' in window) {
 			
@@ -166,6 +170,13 @@
                 
                 //this.view.querySelector('#extension-matter-adapter-tab-button-thread').addEventListener('click', () => {});
                 
+                this.view.querySelector('#extension-matter-adapter-tab-button-map').addEventListener('click', () => {
+                    setTimeout(() => {
+                        this.generate_map();
+                    },100);
+                    
+                });
+               
 
 
                 // Discover button
@@ -720,10 +731,142 @@
                 }
                 
 
+
+
+
+
+
+
+                //
+                //  CHIP TOOL INPUT
+                //
+
+                const chip_command_input_el = this.view.querySelector('#extension-matter-adapter-chip-command-input');
+                if(chip_command_input_el){
+
+                    const hex_output_el = this.view.querySelector('#extension-matter-adapter-chip-command-hex-output');
+                    const dec_input_el = this.view.querySelector('#extension-matter-adapter-chip-command-dec-input');
+                    const hex_input_el = this.view.querySelector('#extension-matter-adapter-chip-command-hex-input');
+                    dec_input_el.addEventListener('input', () => {
+                        try{
+                            if(dec_input_el.value){
+                                hex_output_el.textContent = '0x' + parseInt(dec_input_el.value).toString(16);
+                            }
+                            else{
+                                hex_output_el.textContent = '';
+                            }
+                        }
+                        catch(err){
+                            console.error("caught error changing dec to hex: ", err);
+                        }
+                    })
+
+                    hex_input_el.addEventListener('input', () => {
+                        try{
+                            let hex_input_value = hex_input_el.value;
+                            if(hex_input_value != ""){
+                                if(!hex_input_value.startsWith('0x')){
+                                    hex_input_value = '0x' + hex_input_value;
+                                }
+                                hex_output_el.textContent = parseInt(hex_input_value, 16);
+                            }
+                            else{
+                                hex_output_el.textContent = '';
+                            }
+                        }
+                        catch(err){
+                            console.error("caught error changing hex to dec: ", err);
+                        }
+                    })
+
+
+
+                    // onoff read on-off 0xFFFFFFFF 0xFFFF
+
+                    const chip_commands = [
+                            'basicinformation',
+                            'any read-by-id 0xFFFFFFFF 0xFFFFFFFF 50 0xFFFF',
+                            'tests',
+                            'discover',
+                            'discover commissionables',
+                            'discover commissioners',
+                            'pairing',
+                            'binding',
+                            'onoff',
+                            'onoff read',
+                            'onoff read on-off',
+                            'onoff read on-off 0xFFFFFFFF 0xFFFF',
+                            'payload parse-setup-payload MT:6FCJ142C00KA0648G00',
+                            'basicinformation read vendor-name <node_id> ',
+                            'basicinformation read product-name <node_id>',
+                            'basicinformation read software-version <node_id> <endpoint_id>',
+                            'doorlock read-by-id 0xFFFFFFFF 1 0xFFFF',
+                            'threadnetworkdiagnostics read ext-address 0x11 0x00',
+							'networkcommissioning read networks 0x12 0x00',
+							'networkcommissioning read max-networks 0x12 0x00',
+                            'pairing code 1 MT:8IXS142C00KA0648G00',
+							'pairing code-thread 0x12 hex:0e<truncated>f8 2433-073-8328 --bypass-attestation-verifier true',
+                            'pairing ble-thread 0x12 hex:<operational_dataset> <pin_code> <discriminator>',
+                            'pairing ble-thread 0x12 hex:<operational_dataset> 2433-073-8328 --bypass-attestation-verifier true',
+                            'pairing onnetwork <node_id> <pin_code>',
+							'pairing unpair 0x12',
+                            'pairing ble-thread 1 hex:0eETCETCff8 20202021 3840 --ble-adapter 0',
+                            '--ble-adapter 0',
+                            'temperaturemeasurement read measured-value <node_id> <endpoint_id> --storage-directory <directory>',
+                            'otasoftwareupdaterequestor subscribe-event state-transition 5 10 0x1234567890 0 --timeout 65535',
+                            'onoff toggle <node_id> <endpoint_id>',
+                            'levelcontrol move-to-level <level> <transition_time> <option_mask> <option_override> <node_id> <endpoint_id>',
+                            'accesscontrol write acl <acl_data> <node_id> <endpoint_id>',
+                            ];
+
+                            // https://nrfconnectdocs.nordicsemi.com/ncs/3.0.1/matter/chip_tool_guide.html
+
+                    const chip_command_select_el = this.view.querySelector('#extension-matter-adapter-chip-command-select');
+                    for(let ot = 0; ot < chip_commands.length; ot++){
+                        let option_el = document.createElement("option");
+                        option_el.textContent = chip_commands[ot];
+                        option_el.value = chip_commands[ot];
+                        chip_command_select_el.appendChild(option_el);
+                    }
+                    chip_command_select_el.addEventListener('change', () => {
+                        chip_command_input_el.value = chip_command_select_el.value;
+                    });
+
+                    const chip_output_el = this.view.querySelector('#extension-matter-adapter-chip-command-output');
+                    this.view.querySelector('#extension-matter-adapter-chip-command-send-button').addEventListener('click', (event) => {
+                        const chip_command = chip_command_input_el.value;
+                        if(this.debug){
+                            console.log("matter adapter debug: clinked on send CHIP Tool command button.   chip_command: ",  chip_command);
+                        }
+
+                        chip_output_el.innerHTML = '<div class="extension-matter-adapter-spinner"><div></div><div></div><div></div><div></div></div>';
+
+                        window.API.postJson(
+                            `/extensions/${this.id}/api/ajax`,
+                            {'action':'run_chip_command',
+                            'command': chip_command}
+                        ).then((body) => { 
+                            console.warn("\nrun_chip_command response:\n", body,"\n");
+                            if(typeof body['output'] == 'string'){
+                                chip_output_el.innerHTML = body['output']; 
+                            }
+                        })
+                        .catch((err) => {
+                            console.error("caught error sending run_chip_command: ", err);
+                            chip_output_el.innerHTML = "Caught error: " + err;
+                        });
+                        
+                    });
+                }
+
+
+
+
+
 				
                 // Commission_with_code
                 // Start pairing button press
-                this.view.querySelector('#extension-matter-adapter-start-normal-pairing-button').addEventListener('click', (event) => {
+                this.view.querySelector('#extension-matter-adapter-start-normal-pairing-button').addEventListener('click', () => {
                 	if(this.debug){
                         console.log("matter adapter debug: start commission_with_code button clicked. this.busy_pairing: ", this.busy_pairing);
                     }
@@ -733,7 +876,7 @@
                 
                 // Commission_on_network
                 // Start pairing via commission_on_network button press
-                this.view.querySelector('#extension-matter-adapter-start-network-pairing-button').addEventListener('click', (event) => {
+                this.view.querySelector('#extension-matter-adapter-start-network-pairing-button').addEventListener('click', () => {
                 	if(this.debug){
                         console.log("matter adapter debug: Start network pairing button clicked");
                     }
@@ -752,20 +895,18 @@
                     if(this.debug){
                         console.log("matter adapter debug: network pairing code: ", code);
                     }
-                    //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.add('extension-matter-adapter-hidden');
+                    //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.add('extension-matter-adapter-faded');
                     //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
                     
                     this.initial_nodez_count = this.nodez.length;
                     
 					// Inform backend
-                    this.busy_pairing = true;
+                    //this.busy_pairing = true;
 					
 					if(!this.second_page_el){
 						this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
 					}
-					if(this.second_page_el){
-                    	this.view.querySelector('#extension-matter-adapter-second-page').classList.add('extension-matter-adapter-busy-pairing');
-                    }
+                    this.view.classList.add('extension-matter-adapter-busy-pairing');
                     
 					window.API.postJson(
 						`/extensions/${this.id}/api/ajax`,
@@ -791,7 +932,7 @@
                         }
                         
 					}).catch((err) => {
-                        this.busy_pairing = false;
+                        //this.busy_pairing = false;
 						if(this.debug){
 							console.error("matter-adapter debug: error making commission_on_network pairing request: ", err);
 						}
@@ -802,11 +943,12 @@
 
                 // Reveal wifi change button
     			this.view.querySelector('#extension-matter-adapter-reveal-wifi-setup-button').addEventListener('click', () => {
+                    this.busy_entering_wifi_credentials = true;
                     this.view.querySelector('#extension-matter-adapter-current-wifi-ssid-container').classList.add('extension-matter-adapter-hidden');
                     this.view.querySelector('#extension-matter-adapter-provide-wifi-container').classList.remove('extension-matter-adapter-hidden');
     			});
                 
-				this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-camera').addEventListener('click', (event) => {
+				this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-camera').addEventListener('click', () => {
 					//event.preventDefault();
 					
 					if(this.barcode_detector_supported && window.location.protocol.startsWith('https')){
@@ -946,6 +1088,111 @@
 					
     			});
 				
+
+                // Import old pairing codes button
+                const import_pairing_codes_button_el = this.view.querySelector('#extension-matter-adapter-export-old-pairing-codes-import-button');
+                import_pairing_codes_button_el.addEventListener('click', () => {
+                    const import_textarea_el = this.view.querySelector('#extension-matter-adapter-export-old-pairing-codes-textarea');
+                    if(import_textarea_el){
+                        import_pairing_codes_button_el.classList.add('extension-matter-adapter-faded');
+                        setTimeout(() => {
+                            import_pairing_codes_button_el.classList.remove('extension-matter-adapter-faded');
+                        },5000);
+                        let json_to_import = import_textarea_el.value;
+                        try{
+                            const json = JSON.parse(json_to_import);
+                            //this.old_pairing_codes = json;
+                            //this.render_old_pairing_codes_list();
+                            //import_textarea_el.value = 'Succesfully imported the pairing codes';
+
+                            window.API.postJson(
+                                `/extensions/${this.id}/api/ajax`,
+                                {'action':'import_pairing_codes', 'pairing_codes':json}
+                            ).then((body) => { 
+                                if(this.debug){
+                                    console.log("matter debug: import_pairing_codes response: ", body);
+                                }
+                                if(typeof body['state'] == 'boolean' && body['state'] == true){
+                                    this.old_pairing_codes = json;
+                                    this.render_old_pairing_codes_list();
+                                    this.flash_message("Pairing codes successfully imported");
+                                    import_textarea_el.classList.add('extension-matter-adapter-green-bg');
+                                    setTimeout(() => {
+                                        import_textarea_el.classList.remove('extension-matter-adapter-green-bg');
+                                    },2000);
+                                }
+                                else{
+                                    this.flash_message("Failed to save pairing codes - controller error");
+                                }
+                                
+                            }).catch((err) => {
+                                this.flash_message("Failed to save pairing codes - connection error?");
+                                console.error("matter-adapter: caught error calling import_pairing_codes: ", err);
+                            });
+
+                            
+                        }
+                        catch(err){
+                            console.error("caught error importing old pairing codes JSON: ", err);
+                            this.flash_message("Failed to import old codes. Invalid JSON?");
+                        }
+                    }
+                    
+                });
+
+
+
+                // Download old pairing codes as file button
+                const download_pairing_codes_button_el = this.view.querySelector('#extension-matter-adapter-export-old-pairing-codes-download-button');
+                download_pairing_codes_button_el.addEventListener('click', () => {
+                    const download_textarea_el = this.view.querySelector('#extension-matter-adapter-export-old-pairing-codes-textarea');
+                    if(download_textarea_el){
+                        download_pairing_codes_button_el.classList.add('extension-matter-adapter-faded');
+                        setTimeout(() => {
+                            download_pairing_codes_button_el.classList.remove('extension-matter-adapter-faded');
+                        },5000);
+                        let content = download_textarea_el.value.trim();
+                        try{
+                            if (!content) {
+                                this.flash_message("Nothing to download?");
+                                return;
+                            }
+
+                            // If the textarea contents is not valid json, downloading the file will fail
+                            const json = JSON.parse(content);
+                            
+                            try {
+                                const blob = new Blob([content], { 
+                                    type: 'text/plain;charset=utf-8'
+                                });
+
+                                const url = URL.createObjectURL(blob);
+                        
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'matter_pairing_codes_backup.txt'; 
+                        
+                                document.body.appendChild(a);
+                                a.click();
+                        
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+
+                            } catch (err) {
+                                console.error('matter adapter: caught error downloading pairing codes textarea contents:', err);
+                                this.flash_message("Failed to download pairing codes. Perhaps no permission?");
+                            }
+
+                        }
+                        catch(err){
+                            this.flash_message("Failed to download pairing codes. Invalid JSON?");
+                        }
+                    }
+                    
+                });
+
+
+                
 				
 				
                 // Pairing failed, try again button
@@ -1095,11 +1342,20 @@
 					this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
 				}
 				
+
+                // cancel providing wifi credentials button
+                this.view.querySelector('#extension-matter-adapter-provide-wifi-cancel-button').addEventListener('click', () => {
+                    this.view.querySelector('#extension-matter-adapter-current-wifi-ssid-container').classList.remove('extension-matter-adapter-hidden');
+                    this.view.querySelector('#extension-matter-adapter-provide-wifi-container').classList.add('extension-matter-adapter-hidden');
+    			});
+
+                // Currently hidden button to pair a new device, and not one that's already on the network
     			this.view.querySelector('#extension-matter-adapter-pairing-network-question-normal-button').addEventListener('click', () => {
     				this.second_page_el.classList.remove('extension-matter-adapter-pairing-questioning');
                     this.second_page_el.classList.add('extension-matter-adapter-pairing-normal');
     			});
                 
+                // Currently hidden button to pair a device that's already on the network
     			this.view.querySelector('#extension-matter-adapter-pairing-network-question-network-button').addEventListener('click', () => {
     				this.second_page_el.classList.remove('extension-matter-adapter-pairing-questioning');
                     this.second_page_el.classList.add('extension-matter-adapter-pairing-network');
@@ -1110,7 +1366,9 @@
                     if(succes_el){
                         succes_el.classList.add('extension-matter-adapter-hidden');
                     }
-                    this.show_pairing_page();
+                    //this.show_pairing_page();
+                    this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-showing-second-page');
+                    this.reset_pairing();
     			});
 
                 
@@ -1214,7 +1472,18 @@
 				
 				
 				this.view.querySelector('#extension-matter-adapter-pairing-use-old-scanned-code').addEventListener('click', () => {
-					this.get_old_pairing_codes_list();
+                    
+                    const pairing_codes_list_el = this.view.querySelector('#extension-matter-adapter-pairing-old-pairing-codes-list');
+                    if(pairing_codes_list_el){
+                        if(pairing_codes_list_el.innerHTML == ''){
+                            this.get_old_pairing_codes_list();
+                        }
+                        else{
+                            pairing_codes_list_el.innerHTML = '';
+                            this.view.querySelector('#extension-matter-adapter-export-old-pairing-codes-container').classList.add('extension-matter-adapter-hidden');
+                        }
+                    }
+					
 				});
 				
 				
@@ -1320,6 +1589,7 @@
                     if(this.debug){
                         console.log("matter adapter debug: clicked on back button");
                     }
+                    this.view.classList.remove('extension-matter-adapter-pairing-done');
                     this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-showing-second-page');
                     this.reset_pairing();
     			});
@@ -1378,7 +1648,6 @@
                         this.update_seconds_until_wifi_restore();
                     }
                 }
-				
 				
 			},3000);
             
@@ -1561,11 +1830,15 @@
                     'Thread radio ready': false,
                     'Thread network code available': false,
                     'Thread network code loaded': false,
+                    'Thread told how to access the internet': false,
                     'Thread running': false,
+                    'Matter starting in': 0,
                     'Matter starting': false,
-                    'Matter ready': false,
-                    'Matter running':false
+                    'Matter server ready': false,
+                    'Matter client connected': false,
+                    'Matter running': false
                 }
+
                 let starting_info_html = '';
             
                 // If debug is available in the init data, set the debug value and output the init data to the console
@@ -1635,6 +1908,18 @@
                     }
                     starting_info['Thread network code available'] = body.has_thread_dataset;
                 }
+
+            
+                if(typeof body.help_thread_devices_to_connect_to_the_internet == 'boolean' && typeof body.thread_netdata_registered == 'boolean'){
+                    if(body.help_thread_devices_to_connect_to_the_internet == true){
+                        starting_info['Thread told how to access the internet'] = body.thread_netdata_registered;
+                    }
+                    else if(typeof starting_info['Thread told how to access the internet'] == 'boolean'){
+                        delete starting_info['Thread told how to access the internet'];
+                    }
+                    
+                }
+                
 
 
                 if(typeof body.thread_netdata_registered == 'boolean'){
@@ -1711,7 +1996,7 @@
 					this.old_pairing_codes_count = body.old_pairing_codes_count;
 				}
                 
-                if(typeof body.wifi_credentials_available == 'boolean' && typeof body.wifi_ssid == 'string'){
+                if(typeof body.wifi_credentials_available == 'boolean' && typeof body.wifi_ssid == 'string' && this.busy_entering_wifi_credentials == false){
                     if(body.wifi_credentials_available && body.wifi_ssid != ""){
 						const wifi_ssid_el = this.view.querySelector('#extension-matter-adapter-current-wifi-ssid');
 						if(wifi_ssid_el){
@@ -1783,16 +2068,23 @@
                             }
 						}
 					}
-                    starting_info['Matter running'] = body.matter_client_connected;
 				}
                 if(typeof body.matter_client_connected == 'boolean'){
-                    starting_info['Matter running'] = body.matter_client_connected;
+                    starting_info['Matter client connected'] = body.matter_client_connected;
                 }
                 
-
                 if(typeof body.matter_server_running == 'boolean'){
-                    starting_info['Matter ready'] = body.matter_server_running;
+                    starting_info['Matter server ready'] = body.matter_server_running;
                 }
+
+                if(typeof body.matter_running == 'boolean'){
+                    starting_info['Matter running'] = body.matter_running;
+                }
+
+                if(typeof body.seconds_until_starting_matter == 'number'){
+                    starting_info['Matter starting in'] = body.seconds_until_starting_matter;
+                }
+                
 
                 /*
                 if(typeof body.found_thread_radio_again == 'boolean' && typeof body.found_new_thread_radio == 'boolean' && typeof body.thread_radio_serial_port == 'string'){
@@ -1870,6 +2162,12 @@
 					}
                     if(typeof body.thread_running == 'boolean'){
                         starting_info['Thread running'] = body.thread_running;
+                        if(body.thread_running){
+                            this.view.classList.add('extension-matter-adapter-thread-running');
+                        }
+                        else{
+                            this.view.classList.remove('extension-matter-adapter-thread-running');
+                        }
                     }
                     if(typeof body.otbr_started == 'boolean'){
                         starting_info['Thread radio ready'] = body.otbr_started;
@@ -1879,10 +2177,10 @@
 					
 					if(this.debug){
 						if(typeof body.thread_radio_is_alive_seconds_ago == 'number'){
-							console.warn("matter adapter: debug: thread_radio_is_alive_seconds_ago: ", body.thread_radio_is_alive_seconds_ago);
+							console.log("matter adapter: debug: thread_radio_is_alive_seconds_ago: ", body.thread_radio_is_alive_seconds_ago);
 						}
 						else{
-							console.warn("matter adapter: debug: thread_radio_is_alive_seconds_ago was not a number: ", typeof body.thread_radio_is_alive_seconds_ago);
+							console.error("matter adapter: debug: thread_radio_is_alive_seconds_ago was not a number: ", typeof body.thread_radio_is_alive_seconds_ago);
 						}
 					}
 					
@@ -1966,6 +2264,18 @@
                     else{
                         this.view.classList.remove('extension-matter-adapter-busy-pairing');
                     }
+
+                    if(typeof body.pairing_activity_seconds_ago == 'number'){
+                        if(this.busy_pairing && body.pairing_activity_seconds_ago > 90){
+                            if(this.debug){
+                                console.warn("matter debug: pairing is taking too long, no pairing phase change in over 90 seconds: ", body.pairing_activity_seconds_ago);
+                            }
+                            this.view.classList.add('extension-matter-adapter-pairing-timeout');
+                        }
+                        else{
+                            this.view.classList.remove('extension-matter-adapter-pairing-timeout');
+                        }
+                    }
                     
                 }
 				
@@ -2002,11 +2312,14 @@
 					}
 					
 					if(body.pairing_phase_message == 'Pairing completed successfully'){
-						
+						this.view.classList.add('extension-matter-adapter-pairing-done');
+                        this.view.classList.remove('extension-matter-adapter-busy-pairing');
+                        
 						const busy_pairing_indicator_el = this.view.querySelector('#extension-matter-adapter-busy-pairing-indicator');
 						if(busy_pairing_indicator_el){
 							busy_pairing_indicator_el.classList.add('extension-matter-adapter-hidden');
 						}
+                        
 						
 						const succes_el = this.view.querySelector('#extension-matter-adapter-pairing-success-hint');
 						if(succes_el){
@@ -2030,27 +2343,30 @@
 					// PAIRING FAILED?
 	                if(typeof body.pairing_failed == 'boolean'){
 					
-						if(body.pairing_failed == true && body.pairing_attempt >= 4){
+						if(body.pairing_failed == true && body.pairing_attempt >= 5){
 
                             if(!this.second_page_el){
                                 this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
                             }
-							if(this.second_page_el){
-								if(this.second_page_el.classList.contains('extension-matter-adapter-busy-pairing')){
-		                            this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-									const pairing_failed_el = this.view.querySelector('#extension-matter-adapter-pairing-failed-hint');
-									if(pairing_failed_el){
-										pairing_failed_el.classList.remove('extension-matter-adapter-hidden');
-										pairing_failed_el.scrollIntoView({'block':'center', 'behavior':'smooth'});
-									}
-									
-								}
-							}
+                            /*
+							if(this.view.classList.contains('extension-matter-adapter-busy-pairing')){
+                                this.view.classList.remove('extension-matter-adapter-busy-pairing');
+                            }
+                            */
 						
 							if(this.busy_pairing){
 	                            if(this.debug){
 	                                console.log("matter adapter debug: MATTER PAIRING FAILED");
 	                            }
+                                this.view.classList.add('extension-matter-adapter-pairing-done');
+                                this.view.classList.remove('extension-matter-adapter-busy-pairing');
+
+                                const pairing_failed_el = this.view.querySelector('#extension-matter-adapter-pairing-failed-hint');
+                                if(pairing_failed_el){
+                                    pairing_failed_el.classList.remove('extension-matter-adapter-hidden');
+                                    pairing_failed_el.scrollIntoView({'block':'center', 'behavior':'smooth'});
+                                }
+
 	                            try{
 									if(window.matter_adapter_poll_interval){
 										clearInterval(window.matter_adapter_poll_interval);
@@ -2076,10 +2392,6 @@
                         cable_hint_el.classList.remove('extension-matter-adapter-hidden');
                     }
 				}
-				
-               
-				
-				
 				
                 
 				if(typeof body.decoded_pairing_code != 'undefined'){
@@ -2130,6 +2442,27 @@
 				}
 
 				if(typeof body.thread_diagnostics != 'undefined'){
+                    const stringified_thread_diagnostics = JSON.stringify(body.thread_diagnostics);
+                    
+                    this.thread_diagnostics = body.thread_diagnostics;
+                    if(this.previous_thread_diagnostics != stringified_thread_diagnostics){
+                        this.previous_thread_diagnostics = stringified_thread_diagnostics;
+
+                        if(stringified_thread_diagnostics.length > 10){
+                            const map_tab_button_el = this.view.querySelector('#extension-matter-adapter-tab-button-map');
+                            if(map_tab_button_el){
+                                map_tab_button_el.classList.remove('extension-matter-adapter-hidden');
+                            }
+                        }
+
+                        const map_tab_el = this.view.querySelector('#extension-matter-adapter-tab-map');
+                        if(map_tab_el){
+                            if(map_tab_el.classList.contains('extension-matter-adapter-hidden') == false){
+                                console.log("got fresh different map data. calling generate_map() again");
+                                this.generate_map(this.debug);
+                            }
+                        }
+                    }
                     if(this.debug){
                         console.log("body.thread_diagnostics: ", body.thread_diagnostics);
                     }
@@ -2173,10 +2506,14 @@
                     const starting_info_el = this.view.querySelector('#extension-matter-adapter-still-starting-info');
                     if(starting_info_el){
                         if(this.debug){
-                            console.log("matter adapter debug:  starting_info: \n", JSON.stringify(starting_info,null,2),"\n");
+                            console.log("matter debug:  starting_info: \n", JSON.stringify(starting_info,null,2),"\n");
                         }
                         starting_info_el.innerHTML = '';
                         
+                        if(this.debug){
+                            console.log("matter debug: starting_info['Matter starting in']: ", typeof starting_info['Matter starting in'], starting_info['Matter starting in']);
+                        }
+
                         for (const [key,value] of Object.entries(starting_info)) {
                         
                             const starting_item_el = document.createElement('div');
@@ -2185,8 +2522,23 @@
 
                             if(key.endsWith(' starting') && value == false){
                                 starting_item_el.classList.add('extension-matter-adapter-hidden');
-                                //starting_item_el.classList.add('extension-matter-adapter-starting-checklist-item-irrelevant');
-                                //starting_item_el.classList.add('extension-matter-adapter-show-if-developer');
+                                /*
+                                starting_item_el.classList.add('extension-matter-adapter-starting-checklist-item-irrelevant');
+                                starting_item_el.classList.add('extension-matter-adapter-show-if-developer');
+                                */
+                            }
+
+                            else if(key == 'Matter starting in'){
+                                console.warn("key = Matter starting in.  value: ", value);
+                                starting_item_el.classList.add('extension-matter-adapter-show-if-developer');
+                                starting_item_el.classList.add('extension-matter-adapter-starting-checklist-item-irrelevant');
+                                
+                                if(value == 0){
+                                    continue
+                                }
+                                else{
+                                    starting_item_el.innerHTML = '<span>' + key + '</span><span>' + value + ' seconds</span>';
+                                }
                             }
                             else if(starting_info['Thread radio detected'] == false && key.startsWith('Thread ')){
                                 starting_item_el.classList.add('extension-matter-adapter-starting-checklist-item-irrelevant');
@@ -2216,13 +2568,17 @@
                 console.log("matter adapter debug: in show_pairing_page");
             }
             
-			this.reset_pairing()
+			this.reset_pairing();
 			
 			this.generate_qr();
 			
 			if(!this.second_page_el){
 				this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
 			}
+
+            this.view.classList.remove('extension-matter-adapter-busy-pairing');
+            this.view.classList.remove('extension-matter-adapter-pairing-done');
+            
 			
             // Reset elements to start position
             
@@ -2233,7 +2589,7 @@
 			this.second_page_el.classList.remove('extension-matter-adapter-pairing-network');
             this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
 			this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-area').classList.remove('extension-matter-adapter-hidden');
-			this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.add('extension-matter-adapter-hidden');
+			//this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.add('extension-matter-adapter-hidden');
 		    this.view.querySelector('#extension-matter-adapter-pairing-step-qr').classList.remove('extension-matter-adapter-hidden');
             this.view.querySelector('#extension-matter-adapter-save-manual-input-pairing-code-button').classList.remove('extension-matter-adapter-hidden');
             this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
@@ -2291,7 +2647,6 @@
                 }
             }
 			
-			//if(this.busy_pairing == false){
 			if(this.busy_polling_counter == 0 && location.pathname == "/extensions/matter-adapter"){
                 
 				window.API.postJson(
@@ -2331,28 +2686,6 @@
                         }
 	                }
 					
-	                if(typeof body.busy_pairing == 'boolean'){
-						if(body.busy_pairing != this.busy_pairing){
-							console.warn("PAIRING STATE CHANGED from,to:", this.busy_pairing, body.busy_pairing);
-						}
-	                    this.busy_pairing = body.busy_pairing;
-						if(this.debug){
-                            console.log("matter adapter debug: pairing_poll: this.busy_pairing is now: ", this.busy_pairing);
-						}
-						if(this.second_page_el){
-		                    if(this.busy_pairing){
-		                        this.second_page_el.classList.add('extension-matter-adapter-busy-pairing');
-		                    }
-		                    else{
-		                        this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-		                    }
-						}
-						else{
-							console.error("matter adapter: could not find #extension-matter-adapter-second-page");
-						}
-	                    
-	                }
-                
 				
 	                if(typeof body.busy_updating_certificates == 'boolean'){
 						const need_certificates_update_el = this.view.querySelector('#extension-matter-adapter-certificates-need-update');
@@ -2403,11 +2736,14 @@
                 
 	                if(typeof body.nodez != 'undefined'){
 	                    if(body.nodez.length > this.initial_nodez_count){
+                            this.nodez = body.nodez;
 	                        if(this.debug){
 								console.log("matter adapter debug: THE DEVICE LIST IS LONGER NOW, PAIRING MUST HAVE SUCCEEDED");
 							}
+                            /*
 	                        this.view.querySelector('#extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
-							const succes_hint_el = this.view.querySelector('#extension-matter-adapter-pairing-success-hint');
+							this.view.classList.add('extension-matter-adapter-pairing-done');
+                            const succes_hint_el = this.view.querySelector('#extension-matter-adapter-pairing-success-hint');
 	                       	if(succes_hint_el){
 	                       		succes_hint_el.classList.remove('extension-matter-adapter-hidden');
 								succes_hint_el.scrollIntoView({'block':'center','behavior':'smooth'});
@@ -2416,10 +2752,11 @@
 							if(pairing_start_area_el){
 								pairing_start_area_el.classList.add('extension-matter-adapter-busy-pairing');
 							}
+                            */
 							
 						    
 	                    }
-	                    this.nodez = body.nodez;
+	                    
 	                    //this.regenenerate_items();
 	                }
                 
@@ -2462,22 +2799,23 @@
 	                }
                 
 	                // PAIRING FAILED?
-	                if(typeof body.pairing_failed == 'boolean'){
+	                if(typeof body.pairing_failed == 'boolean' && typeof body.busy_pairing == 'boolean'){
 						
-						if(body.pairing_failed == true){
+						if(body.pairing_failed){
 							
-							if(this.second_page_el){
-								if(this.second_page_el.classList.contains('extension-matter-adapter-busy-pairing')){
-		                            this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-									this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
-								}
-							}
-							
-							if(this.busy_pairing){
-	                            if(this.debug){
+                            if(body.busy_pairing == false && this.busy_pairing == true){
+                                this.view.classList.add('extension-matter-adapter-pairing-done');
+
+                                if(this.debug){
 	                                console.log("matter adapter debug: MATTER PAIRING FAILED");
 	                            }
 								
+                                if(this.second_page_el){
+                                    if(this.second_page_el.classList.contains('extension-matter-adapter-busy-pairing')){
+                                        this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
+                                        this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
+                                    }
+                                }
 								
 	                            try{
 									if(window.matter_adapter_poll_interval){
@@ -2489,11 +2827,34 @@
 	                			catch(e){
 	                				//console.log("no interval to clear? ", e);
 	                			}
-	                            this.busy_pairing = false;
-							}
+                            }
+
 						}
 	                    
 	                    //this.regenenerate_items();
+	                }
+
+
+                    if(typeof body.busy_pairing == 'boolean'){
+						if(body.busy_pairing != this.busy_pairing){
+							console.warn("PAIRING STATE CHANGED from,to:", this.busy_pairing, body.busy_pairing);
+						}
+	                    this.busy_pairing = body.busy_pairing;
+						if(this.debug){
+                            console.log("matter adapter debug: pairing_poll: this.busy_pairing is now: ", this.busy_pairing);
+						}
+						if(this.second_page_el){
+		                    if(this.busy_pairing){
+		                        this.view.classList.add('extension-matter-adapter-busy-pairing');
+		                    }
+		                    else{
+		                        this.view.classList.remove('extension-matter-adapter-busy-pairing');
+		                    }
+						}
+						else{
+							console.error("matter adapter: could not find #extension-matter-adapter-second-page");
+						}
+	                    
 	                }
 					
 					
@@ -2505,7 +2866,7 @@
 					if(this.debug){
                         console.error("matter adapter debug: caught pairing poll error: ", err);
 					}
-	                this.view.querySelector('#extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
+	                //this.view.querySelector('#extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-faded');
 				});
                 
 				
@@ -2551,7 +2912,7 @@
                 }
 				
 				
-                this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.remove('extension-matter-adapter-hidden');
+                //this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.remove('extension-matter-adapter-hidden');
                 this.view.querySelector('#extension-matter-adapter-pairing-step-qr').classList.add('extension-matter-adapter-hidden');
                 this.view.querySelector('#extension-matter-adapter-pairing-start-area-pairing-code').innerText = this.pairing_code;
             
@@ -2571,12 +2932,18 @@
         
 		
 		reset_pairing(){
+
+            if(this.debug){
+                console.log("matter adapter debug: in reset_pairing");
+            }
+
             this.busy_discovering = false;
             this.busy_pairing = false;
 			this.busy_polling_counter = 0;
 			this.total_busy_polling_counter = 0;
 			this.pairing_phase = 0;
 			this.pairing_attempts = 10;
+            this.busy_entering_wifi_credentials = false;
 			
 			
             try{
@@ -2598,12 +2965,6 @@
         
             this.get_init_data(); // repopulate the main page
         
-		
-    
-            if(this.debug){
-                console.log("matter adapter debug: in show_pairing_page");
-            }
-    
             if (this.current_stream) {
               this.current_stream.getTracks().forEach(track => track.stop());
               this.current_stream = null;
@@ -2620,12 +2981,14 @@
 				{'action':'reset_pairing'}
 			).then((body) => { 
 				if(this.debug){
-                    console.log("reset pairing done");
+                    console.log("matter-adapter debug: reset pairing done");
                 }
-                this.busy_pairing = false;
+                //this.busy_pairing = false;
 			}).catch((err) => {
-                this.busy_pairing = false;
-				console.error("matter-adapter: error making reset pairing request: ", err);
+                //this.busy_pairing = false;
+				if(this.debug){
+                    console.error("matter-adapter debug: caught error making reset pairing request: ", err);
+                }
 			});
 			
 			const pairing_progress_message_el = this.view.querySelector('#extension-matter-adapter-pairing-progress-message');
@@ -2637,10 +3000,9 @@
 			if(!this.second_page_el){
 				this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
 			}
-			if(this.second_page_el){
-            	this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-			}
-			
+            //this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.remove('extension-matter-adapter-hidden');
+            this.view.classList.remove('extension-matter-adapter-busy-pairing');
+            this.view.classList.remove('extension-matter-adapter-pairing-done');
 		}
 		
 		
@@ -2676,12 +3038,14 @@
 				    return;
 				}
 				
+                /*
                 if(this.debug && list.innerHTML != ''){
                     if(this.debug){
 						console.warn('matter adapter: DEBUG, so not re-rendering the nodes list');
 					}
                     return
                 }
+                */
 				
 				const original = this.view.querySelector('#extension-matter-adapter-original-item');
 			    //console.log("original: ", original);
@@ -2938,8 +3302,10 @@
 		    						var a_el = document.createElement("a");
 		    						a_el.setAttribute("href", "/things/" + thing_id);
 									
+
 	                                let title_span = document.createElement("span");
 	                                title_span.classList.add('extension-matter-adapter-item-title');
+                                    title_span.classList.add('text-button');
                             		title_span.textContent = title;
 	                                a_el.appendChild(title_span);
 	                                clone.querySelector('.extension-matter-adapter-item-title-wrapper').appendChild(a_el);
@@ -2956,6 +3322,9 @@
 							}
 								
 							
+
+                                
+                            
     						
                         
                             //var desc_span = document.createElement("span");
@@ -2966,6 +3335,13 @@
                             //clone.querySelectorAll('.extension-matter-adapter-description' )[0].appendChild(title_span);
                             //a.appendChild(desc_span);
     						try{
+                                if(typeof item_data['node_id'] != 'undefined'){
+									const node_id_el = clone.querySelector('.extension-matter-adapter-item-node-id');
+									if(node_id_el && node_id_el.textContent != item_data['node_id']){
+										node_id_el.textContent = item_data['node_id'];
+									}
+								}
+
 								if(typeof item_data['vendor_name'] == 'string'){
 									const vendor_name_el = clone.querySelector('.extension-matter-adapter-item-vendor-name');
 									if(vendor_name_el && vendor_name_el.textContent != item_data['vendor_name']){
@@ -3687,15 +4063,20 @@
             const wifi_remember = this.view.querySelector('#extension-matter-adapter-wifi-remember-checkbox').value;
             
             this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
-            
+            //this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.add('extension-matter-adapter-hidden');
+
             if(this.wifi_credentials_available == false){
                 if(wifi_ssid.length < 2){
-                    console.log("matter adapter: Wifi name is too short");
+                    if(this.debug){
+                        console.log("matter adapter debug: Wifi name is too short");
+                    }
                     this.flash_message("That wifi name is too short");
                     return;
                 }
                 if(wifi_password.length < 8){
-                    console.log("matter adapter: Wifi password is too short");
+                    if(this.debug){
+                        console.log("matter adapter debug: Wifi password is too short");
+                    }
                     this.flash_message("That wifi password is too short");
                     return;
                 }
@@ -3743,7 +4124,9 @@
                     }
 					if(typeof body.state == 'boolean'){
 						if(body.state == false){
-							this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
+                            if(this.debug){
+		                        console.error("matter adapter debug: requested the Bluetooth addon to stop scanning for a little while, but it said no?");
+							}
 						}
 						else if(body.state == true){
 							if(this.debug){
@@ -3761,18 +4144,23 @@
 			}
 			
 			const wireless_type = this.view.querySelector('input[name="extension-matter-adapter-wireless-type"]:checked').value;
-            
+            if(this.debug){
+                console.log("matter debug: wireless_type from radio buttons: ", wireless_type);
+            }
             //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.add('extension-matter-adapter-hidden');
             //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
             
             this.initial_nodez_count = this.nodez.length; // if this increases, then a new device has been paired.
 			
-            this.busy_pairing = true;
+            //this.busy_pairing = true;
 			if(!this.second_page_el){
 				this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
 			}
+            
+            this.view.classList.add('extension-matter-adapter-busy-pairing');
+
 			if(this.second_page_el){
-            	this.second_page_el.classList.add('extension-matter-adapter-busy-pairing');
+            	
 				
                 // Inform backend
                 window.API.postJson(
@@ -3791,8 +4179,8 @@
 					if(typeof body.state == 'boolean'){
 						if(body.state == false){
 							//this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.remove('extension-matter-adapter-hidden');
-							this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
-							this.busy_pairing = false;
+							this.view.classList.remove('extension-matter-adapter-busy-pairing');
+							//this.busy_pairing = false;
 							this.flash_message('Controller did not start pairing process');
 						}
 						else if(body.state == true){
@@ -3803,11 +4191,12 @@
 					}
                 
 				}).catch((err) => {
-                    this.busy_pairing = false;
+                    //this.busy_pairing = false;
 					if(this.debug){
                         console.error("matter adapter debug: error making commission_with_code pairing request: ", err);
 					}
 					this.flash_message('Failed to start the pairing process: connection error?');
+                    this.view.classList.remove('extension-matter-adapter-busy-pairing');
                     //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
 				});
 				
@@ -4524,6 +4913,34 @@
 					}
 					
 					if(old_codes_list_el.childNodes.length){
+
+                        const button_container_el = document.createElement('div');
+                        button_container_el.classList.add('extension-matter-adapter-flex-between');
+
+                        // SHOW IMPORT/EXPORT PAIRING CODES
+
+                        const export_old_codes_button_el = document.createElement('button');
+						export_old_codes_button_el.setAttribute('id','extension-matter-adapter-export-old-codes-button');
+						export_old_codes_button_el.textContent = '📖 Import/Export';
+						export_old_codes_button_el.classList.add('text-button');
+						export_old_codes_button_el.addEventListener('click', () => {
+                            const pairing_codes_export_container_el = this.view.querySelector('#extension-matter-adapter-export-old-pairing-codes-container');
+                            if(pairing_codes_export_container_el){
+                                if(pairing_codes_export_container_el.classList.contains('extension-matter-adapter-hidden')){
+                                    this.view.querySelector('#extension-matter-adapter-export-old-pairing-codes-textarea').textContent = JSON.stringify(this.old_pairing_codes,null,4);
+                                    pairing_codes_export_container_el.classList.remove('extension-matter-adapter-hidden');
+                                }
+                                else{
+                                    pairing_codes_export_container_el.classList.add('extension-matter-adapter-hidden')
+                                }
+                            }
+                        });
+
+                        button_container_el.appendChild(export_old_codes_button_el);
+
+
+
+                        // PRINT PAIRING CODES
 						const print_old_codes_button_el = document.createElement('button');
 						print_old_codes_button_el.setAttribute('id','extension-matter-adapter-print-old-codes-button');
 						print_old_codes_button_el.textContent = 'Print';
@@ -4603,7 +5020,8 @@
 							
 						});
 						
-						old_codes_list_el.appendChild(print_old_codes_button_el);
+                        button_container_el.appendChild(print_old_codes_button_el);
+						old_codes_list_el.appendChild(button_container_el);
 					}
 					
 				}
@@ -7419,10 +7837,1222 @@
 			return vendor_name;
 		}
 		
+		
+		
+		
+		
+		generate_map(this_debug){
+			
+            const map_container = this.view.querySelector('#extension-matter-adapter-viz-graph-container');
+
+            if(!map_container){
+                return
+            }
+            //map_container.innerHTML = '';
+	
+			
+            if(this_debug){
+                console.log("\n\n\n___________");
+                console.log("generate_map:  this.thread_diagnostics: \n\n", this.previous_thread_diagnostics, "\n\n");
+                console.log("generate_map:  this.all_things: ", this.all_things);
+            }
+            
+
+
+            let GRAPH_CONFIG = {
+                title: 'Thread mesh visualizer',
+                categories: {
+
+			        'Full node':  { color: '#fbbf24', dim: 'rgba(34,211,238,0.15)' },
+                    'End point': { color: '#38bdf8', dim: 'rgba(56,189,248,0.12)' },
+                    'Other':   { color: '#a78bfa', dim: 'rgba(167,139,250,0.12)' },
+
+                },
+                nodes: [],
+                links: [],
+                physics: {
+                    chargeStrength: -300,
+                    linkDistance: 120,
+                    collisionRadius: 35
+                }
+            }
+
+            let added_thread_ids = [];
+            let matter_to_thread_id_lookup = {};
+            for (const [node_id,node_details] of Object.entries(this.thread_diagnostics)) {
+                if(typeof node_details['NeighborTable'] != 'undefined' && node_details['NeighborTable'].length){
+                    const neighbour_one = node_details['NeighborTable'][0];
+                    if(this_debug){
+                        console.log("matter debug: map: neighbour_one (self): ", neighbour_one);
+                    }
+                    const my_thread_id = Object.values(neighbour_one)[0];
+                    console.log("node_id -> my_thread_id: ", node_id, my_thread_id);
+                    if(added_thread_ids.indexOf(my_thread_id) != -1){
+                        console.error("STRANGE, this thread ID was already in added_thread_ids: ", my_thread_id);
+                    }
+                    if(this_debug){
+                        console.log("matter debug: map: get_thing_title_from_thread_id:  node_id, my_thread_id: ", node_id, my_thread_id);
+                    }
+                    if(typeof matter_to_thread_id_lookup[my_thread_id] == 'undefined'){
+                        matter_to_thread_id_lookup['' + my_thread_id] = '' + node_id;
+                        matter_to_thread_id_lookup['' + node_id] = '' + my_thread_id;
+                    }
+                }
+                else{
+                    if(this_debug){
+                        console.error("matter debug: map: STRANGE, this thread_id was already in the lookup table: ", my_thread_id);
+                    }
+                }
+                
+            }
+            if(this_debug){
+                console.warn("matter debug: map: matter_to_thread_id_lookup: ", JSON.stringify(matter_to_thread_id_lookup,null,4));
+            }
+            
+                
+
+            const get_thing_data = (thing_id) => {
+                if(typeof thing_id == 'string' && thing_id.startsWith('matter-')){
+                    for(let ti = 0; ti < this.all_things.length; ti++){
+                        if(typeof this.all_things[ti]['href'] == 'string' && this.all_things[ti]['href'].endsWith('/' + thing_id )){
+                            return this.all_things[ti];
+                        }
+                    }
+                }
+                return null;
+            }
+
+            
+            const get_thing_title = (thing_id) => {
+                const thing_details = get_thing_data(thing_id);
+                if(this_debug){
+                    console.log("matter debug: map: get_thing_title:  get_thing_data returned these thing_details: ", thing_details);
+                }
+                if(thing_details){
+                    if(typeof thing_details['title'] == 'string' && thing_details['title'] != ''){
+                        return thing_details['title'];
+                    }
+                }
+                return null;
+            }
+            /*
+
+            const get_thing_title_from_thread_id = (thread_id) => {
+                for (const [node_id,node_details] of Object.entries(this.thread_diagnostics)) {
+                    if(typeof node_details['NeighborTable'] != 'undefined' && node_details['NeighborTable'].length){
+                        const neighbour_one = node_details['NeighborTable'][0];
+                        const my_thread_id = Object.values(neighbour_one)[0];
+                        console.log("get_thing_title_from_thread_id: ", )
+                    }
+                }
+            }
+            */
+
+
+            
+
+            for (const [node_id,node_details] of Object.entries(this.thread_diagnostics)) {
+                if(this_debug){
+                    console.log("matter debug: map: thread_diagnostics:  node_id,node_details: ", node_id,node_details);
+                }
+
+                let matter_id = node_id;
+                if(!matter_id.startsWith('matter-')){
+                    matter_id = 'matter-' + matter_id;
+                }
+                if(this_debug){
+                    console.log("matter debug: map: thread_diagnostics:  matter_id: ", matter_id);
+                }
+                let thing_title = matter_id;
+                let thing_description = '';
+                let thing_popularity = 45;
+                let thread_id = null;
+                let node_category = 'Other';
+
+                if(typeof matter_to_thread_id_lookup['' + node_id] == 'string'){
+                    thread_id = matter_to_thread_id_lookup['' + node_id];
+                    if(this_debug){
+                        console.log("matter debug: map: thread_diagnostics: my thread_id from lookup: ", node_id, " -> ", thread_id);
+                    }
+                }
+                else{
+                    if(this_debug){
+                        console.warn("matter debug: map: did not find node_id in matter_to_thread_id_lookup: ", node_id,  matter_to_thread_id_lookup);
+                    }
+                }
+
+                
+
+                if(typeof node_details['NeighborTable'] != 'undefined'){
+                    thing_popularity = 45 + node_details['NeighborTable'].length * 15;
+                    if(thing_popularity > 100){
+                        thing_popularity = 100;
+                    }
+                    else if(thing_popularity < 45){
+                        thing_popularity = 45;
+                    }
+                    if(this_debug){
+                        console.log("matter debug: map: - my thing_popularity: ", thing_popularity);
+                    }
+                }
+
+                let thing_details = get_thing_data(matter_id);
+                if(thing_details){
+                    if(typeof thing_details['title'] == 'string' && thing_details['title'] != ''){
+                        thing_title = thing_details['title'];
+                        if(this_debug){
+                            console.log("matter debug: map: - my title: ", thing_title);
+                        }
+                    }
+                    if(typeof thing_details['description'] == 'string' && thing_details['description'] != ''){
+                        thing_description = thing_details['description'];
+                    }
+                }
+                /*
+                if(thing_title.toLowerCase().endsWith(' light') || thing_title.toLowerCase().endsWith(' lamp') || thing_title.toLowerCase().endsWith(' bulb')){
+                    node_category = 'Light';
+                }
+                */
+
+                const my_thread_id = '' + Object.values(node_details['NeighborTable'][0])[0];
+                console.error("my_thread_id: ", typeof my_thread_id, my_thread_id);
+
+                if(added_thread_ids.indexOf(my_thread_id) == -1){
+                    added_thread_ids.push(my_thread_id);
+                    GRAPH_CONFIG['nodes'].push({ 'id':my_thread_id, 'title':thing_title, 'matter_id':matter_id, 'thread_id':thread_id, 'category':node_category, 'popularity':thing_popularity, 'desc':thing_description });
+                }
+                
+                if(typeof node_details['NeighborTable'] != 'undefined'){
+                    //let own_thread_id = null;
+                    for(let nt = 0; nt < node_details['NeighborTable'].length; nt++){
+                        const neighbour_node = node_details['NeighborTable'][nt];
+                        if(this_debug){
+                            console.log("+link: neighbour_node: ", neighbour_node);
+                        }
+                        const neighbour_thread_id = '' + Object.values(neighbour_node)[0];
+                        if(my_thread_id == neighbour_thread_id){
+                            console.log("+link: skipping own neighbour_thread_id");
+                            continue
+                        }
+                        console.error("+link: neighbour_thread_id: ", typeof neighbour_thread_id, neighbour_thread_id);
+                        
+                        if(neighbour_thread_id == null){
+                            console.error("neighbour_thread_id was null");
+                            continue
+                        }
+                        if(added_thread_ids.indexOf(neighbour_thread_id) == -1){
+                            console.log("+link: This neighbour_thread_id was not yet in added_thread_ids: ", neighbour_thread_id, "\n added_thread_ids: ", added_thread_ids);
+
+                            let thing_title = 'Unknown name';
+                            if(typeof matter_to_thread_id_lookup[neighbour_thread_id] != 'undefined'){
+                                thing_title = get_thing_title('' + neighbour_thread_id);
+                            }
+                            added_thread_ids.push(neighbour_thread_id);
+                            GRAPH_CONFIG['nodes'].push({ 'id':neighbour_thread_id, 'title':thing_title, 'category':'End point', 'popularity':30, 'desc':'Probably battery powered' });
+                        }
+
+                        if(nt == 0){
+                            //own_thread_id = neighbour_thread_id;
+                        }
+                        if(nt > 0){
+                            
+                            const neighbour_thread_lqi = '' + Object.values(neighbour_node)[5];
+                            if(this_debug){
+                                console.log("+link: neighbour_thread_lqi: ", typeof neighbour_thread_id, neighbour_thread_lqi);
+                            }
+                            GRAPH_CONFIG['links'].push({ 'source': my_thread_id, 'target': neighbour_thread_id, 'strength': neighbour_thread_lqi });
+                            
+                            
+                            
+                            /*
+                            if(typeof matter_to_thread_id_lookup['' + neighbour_thread_id] != 'undefined'){
+                                let neighbour_thing_title = null;
+                                let neighbour_matter_id = matter_to_thread_id_lookup['' + neighbour_thread_id];
+                                if(!neighbour_matter_id.startsWith('matter-')){
+                                    neighbour_matter_id = 'matter-' + neighbour_matter_id;
+                                }
+                                if(this_debug){
+                                    console.log("+link: getting thing_title based on neighbour_matter_id: ", neighbour_matter_id);
+                                }
+                                
+
+                               
+                                neighbour_thing_title = get_thing_title('' + neighbour_matter_id);
+                                if(this_debug){
+                                    console.log("+link: neighbour_thing_title: ", neighbour_thing_title);
+                                }
+                                if(typeof neighbour_thing_title == 'string'){
+                                    if(thing_title == neighbour_thing_title){
+                                        if(this_debug){
+                                            console.error("+link: skipping, neighbour_thing_title was own thing_title: ", thing_title);
+                                        }
+                                        continue
+                                    }
+                                    if(this_debug){
+                                        console.log("+link: adding link with  source,target: ", thing_title, neighbour_thing_title);
+                                    }
+                                    //GRAPH_CONFIG['links'].push({ 'source': thing_title, 'target': neighbour_thing_title, 'strength': neighbour_thread_lqi });
+                                    
+                                }
+                                else{
+                                    if(this_debug){
+                                        console.error("+link:  neighbour_thing_title was not a string: ", neighbour_thing_title);
+                                    }
+                                }
+                                
+                            }
+                            else{
+                                if(this_debug){
+                                    console.error("+link:  could not find neighbour_thread_id in lookup: ", neighbour_thread_id, matter_to_thread_id_lookup);
+                                }
+                            }
+                            */
+                        }
+                    }
+                }
+
+            }
+
+
+            
+            console.warn("\nGRAPH_CONFIG: \n", JSON.stringify(GRAPH_CONFIG,null,4));
+            
+
+
+
+            // OLD
+			const GRAPH_CONFIGX = {
+			  // Graph title
+			  title: 'Network Topology Visualizer',
+
+			  // Node categories with their colors
+			  categories: {
+			    Languages:  { color: '#22d3ee', dim: 'rgba(34,211,238,0.15)' },
+			    Frontend:   { color: '#34d399', dim: 'rgba(52,211,153,0.12)' },
+			    Backend:    { color: '#fbbf24', dim: 'rgba(251,191,36,0.12)' },
+			    Databases:  { color: '#a78bfa', dim: 'rgba(167,139,250,0.12)' },
+			    DevOps:     { color: '#fb7185', dim: 'rgba(251,113,133,0.12)' },
+			    Mobile:     { color: '#38bdf8', dim: 'rgba(56,189,248,0.12)' },
+			  },
+
+			  // Nodes in the graph
+			  nodes: [
+			    // Languages
+			    { id: 'JavaScript',  category: 'Languages', popularity: 95, desc: 'The language of the web. Runs everywhere from browsers to servers.' },
+			    { id: 'TypeScript',  category: 'Languages', popularity: 88, desc: 'Typed superset of JavaScript that compiles to plain JS.' },
+			    { id: 'Python',      category: 'Languages', popularity: 90, desc: 'Versatile language for web, data science, AI, and scripting.' },
+			    { id: 'Rust',        category: 'Languages', popularity: 55, desc: 'Systems language focused on safety, speed, and concurrency.' },
+			    { id: 'Go',          category: 'Languages', popularity: 65, desc: 'Statically typed language by Google, great for backends and CLIs.' },
+			    { id: 'Java',        category: 'Languages', popularity: 75, desc: 'Enterprise-grade, platform-independent language with huge ecosystem.' },
+			    { id: 'C#',          category: 'Languages', popularity: 60, desc: 'Microsoft language powering .NET, Unity, and enterprise systems.' },
+			    { id: 'Ruby',        category: 'Languages', popularity: 40, desc: 'Dynamic language optimized for developer happiness.' },
+			    { id: 'Swift',       category: 'Languages', popularity: 50, desc: 'Apple language for iOS, macOS, watchOS, and tvOS development.' },
+			    { id: 'Kotlin',      category: 'Languages', popularity: 52, desc: 'Modern language for Android and JVM-based development.' },
+
+			    // Frontend
+			    { id: 'React',       category: 'Frontend',  popularity: 92, desc: 'Component-based UI library by Meta for building interfaces.' },
+			    { id: 'Angular',     category: 'Frontend',  popularity: 70, desc: 'Full-featured framework by Google for enterprise web apps.' },
+			    { id: 'Vue',         category: 'Frontend',  popularity: 68, desc: 'Progressive framework for building user interfaces.' },
+			    { id: 'Svelte',      category: 'Frontend',  popularity: 48, desc: 'Compiler that generates minimal framework-less JavaScript.' },
+			    { id: 'Next.js',     category: 'Frontend',  popularity: 82, desc: 'React framework for production with SSR and static generation.' },
+			    { id: 'Nuxt',        category: 'Frontend',  popularity: 45, desc: 'Vue framework for server-side rendering and static sites.' },
+			    { id: 'Astro',       category: 'Frontend',  popularity: 42, desc: 'Content-focused framework with zero-JS output by default.' },
+			    { id: 'Tailwind',    category: 'Frontend',  popularity: 78, desc: 'Utility-first CSS framework for rapid UI development.' },
+
+			    // Backend
+			    { id: 'Node.js',     category: 'Backend',   popularity: 85, desc: 'JavaScript runtime built on V8 for server-side applications.' },
+			    { id: 'Django',      category: 'Backend',   popularity: 58, desc: 'High-level Python web framework with batteries included.' },
+			    { id: 'Flask',       category: 'Backend',   popularity: 48, desc: 'Lightweight Python micro-framework for web applications.' },
+			    { id: 'Express',     category: 'Backend',   popularity: 75, desc: 'Minimal and flexible Node.js web application framework.' },
+			    { id: 'FastAPI',     category: 'Backend',   popularity: 55, desc: 'Modern Python API framework with automatic OpenAPI docs.' },
+			    { id: 'Spring Boot', category: 'Backend',   popularity: 62, desc: 'Java framework for production-grade applications.' },
+			    { id: '.NET',        category: 'Backend',   popularity: 58, desc: 'Microsoft cross-platform framework for building modern apps.' },
+
+			    // Databases
+			    { id: 'PostgreSQL',  category: 'Databases', popularity: 80, desc: 'Advanced open-source relational database with rich features.' },
+			    { id: 'MongoDB',     category: 'Databases', popularity: 65, desc: 'Document-oriented NoSQL database for flexible schemas.' },
+			    { id: 'Redis',       category: 'Databases', popularity: 70, desc: 'In-memory data store used as cache and message broker.' },
+			    { id: 'MySQL',       category: 'Databases', popularity: 72, desc: 'Most popular open-source relational database.' },
+			    { id: 'SQLite',      category: 'Databases', popularity: 50, desc: 'Self-contained serverless SQL database engine.' },
+			    { id: 'DynamoDB',    category: 'Databases', popularity: 45, desc: 'AWS managed NoSQL database for high-performance apps.' },
+
+			    // DevOps
+			    { id: 'Docker',      category: 'DevOps',    popularity: 88, desc: 'Container platform for building, shipping, and running apps.' },
+			    { id: 'Kubernetes',  category: 'DevOps',    popularity: 75, desc: 'Container orchestration for automating deployment and scaling.' },
+			    { id: 'AWS',         category: 'DevOps',    popularity: 85, desc: 'Amazon cloud platform with 200+ services.' },
+			    { id: 'GitHub Actions', category: 'DevOps', popularity: 68, desc: 'CI/CD automation integrated with GitHub repositories.' },
+			    { id: 'Terraform',   category: 'DevOps',    popularity: 55, desc: 'Infrastructure as code for provisioning cloud resources.' },
+			    { id: 'Nginx',       category: 'DevOps',    popularity: 72, desc: 'High-performance web server, reverse proxy, and load balancer.' },
+
+			    // Mobile
+			    { id: 'React Native',    category: 'Mobile', popularity: 70, desc: 'Cross-platform mobile framework using React and JavaScript.' },
+			    { id: 'Flutter',         category: 'Mobile', popularity: 65, desc: 'Google UI toolkit for natively compiled mobile apps.' },
+			    { id: 'SwiftUI',         category: 'Mobile', popularity: 48, desc: 'Apple declarative UI framework for all Apple platforms.' },
+			    { id: 'Jetpack Compose', category: 'Mobile', popularity: 45, desc: 'Modern Android UI toolkit with Kotlin.' },
+			  ],
+
+			  // Connections between nodes
+			  links: [
+			    // Language -> Framework connections
+			    { source: 'JavaScript', target: 'React',       strength: 0.9 },
+			    { source: 'JavaScript', target: 'Angular',     strength: 0.7 },
+			    { source: 'JavaScript', target: 'Vue',         strength: 0.8 },
+			    { source: 'JavaScript', target: 'Svelte',      strength: 0.6 },
+			    { source: 'JavaScript', target: 'Node.js',     strength: 0.95 },
+			    { source: 'JavaScript', target: 'Express',     strength: 0.8 },
+			    { source: 'JavaScript', target: 'React Native', strength: 0.7 },
+
+			    { source: 'TypeScript', target: 'Angular',     strength: 0.95 },
+			    { source: 'TypeScript', target: 'React',       strength: 0.85 },
+			    { source: 'TypeScript', target: 'Next.js',     strength: 0.9 },
+			    { source: 'TypeScript', target: 'Vue',         strength: 0.6 },
+			    { source: 'TypeScript', target: 'Svelte',      strength: 0.5 },
+			    { source: 'TypeScript', target: 'Node.js',     strength: 0.8 },
+			    { source: 'TypeScript', target: 'Astro',       strength: 0.5 },
+
+			    { source: 'Python', target: 'Django',    strength: 0.9 },
+			    { source: 'Python', target: 'Flask',     strength: 0.85 },
+			    { source: 'Python', target: 'FastAPI',   strength: 0.8 },
+
+			    { source: 'Java', target: 'Spring Boot',      strength: 0.95 },
+			    { source: 'Java', target: 'Kotlin',           strength: 0.6 },
+			    { source: 'Kotlin', target: 'Spring Boot',    strength: 0.5 },
+			    { source: 'Kotlin', target: 'Jetpack Compose', strength: 0.95 },
+
+			    { source: 'C#', target: '.NET',    strength: 0.95 },
+			    { source: 'Swift', target: 'SwiftUI', strength: 0.95 },
+			    { source: 'Ruby', target: 'Node.js',  strength: 0.3 },
+
+			    // Frontend ecosystem
+			    { source: 'React', target: 'Next.js',       strength: 0.95 },
+			    { source: 'React', target: 'React Native',  strength: 0.85 },
+			    { source: 'React', target: 'Tailwind',      strength: 0.6 },
+			    { source: 'Vue', target: 'Nuxt',            strength: 0.95 },
+			    { source: 'Vue', target: 'Tailwind',        strength: 0.5 },
+			    { source: 'Svelte', target: 'Tailwind',     strength: 0.4 },
+			    { source: 'Astro', target: 'React',         strength: 0.4 },
+			    { source: 'Astro', target: 'Vue',           strength: 0.3 },
+			    { source: 'Astro', target: 'Svelte',        strength: 0.3 },
+			    { source: 'Angular', target: 'Tailwind',    strength: 0.3 },
+
+			    // Backend -> DB connections
+			    { source: 'Node.js', target: 'MongoDB',     strength: 0.7 },
+			    { source: 'Node.js', target: 'PostgreSQL',  strength: 0.65 },
+			    { source: 'Node.js', target: 'Redis',       strength: 0.6 },
+			    { source: 'Node.js', target: 'MySQL',       strength: 0.5 },
+			    { source: 'Express', target: 'Node.js',     strength: 0.9 },
+
+			    { source: 'Django', target: 'PostgreSQL',   strength: 0.85 },
+			    { source: 'Django', target: 'MySQL',        strength: 0.6 },
+			    { source: 'Django', target: 'SQLite',       strength: 0.7 },
+			    { source: 'Flask', target: 'PostgreSQL',    strength: 0.6 },
+			    { source: 'Flask', target: 'SQLite',        strength: 0.65 },
+			    { source: 'FastAPI', target: 'PostgreSQL',  strength: 0.7 },
+			    { source: 'FastAPI', target: 'MongoDB',     strength: 0.5 },
+
+			    { source: 'Spring Boot', target: 'PostgreSQL', strength: 0.75 },
+			    { source: 'Spring Boot', target: 'MySQL',      strength: 0.7 },
+			    { source: 'Spring Boot', target: 'Redis',      strength: 0.5 },
+			    { source: '.NET', target: 'PostgreSQL',    strength: 0.6 },
+			    { source: '.NET', target: 'MySQL',         strength: 0.55 },
+			    { source: '.NET', target: 'Redis',         strength: 0.45 },
+
+			    // DevOps connections
+			    { source: 'Docker', target: 'Kubernetes',    strength: 0.95 },
+			    { source: 'Docker', target: 'AWS',           strength: 0.7 },
+			    { source: 'Docker', target: 'Nginx',         strength: 0.6 },
+			    { source: 'Docker', target: 'Node.js',       strength: 0.5 },
+			    { source: 'Docker', target: 'Django',        strength: 0.4 },
+			    { source: 'Docker', target: 'Spring Boot',   strength: 0.5 },
+
+			    { source: 'Kubernetes', target: 'AWS',       strength: 0.8 },
+			    { source: 'Kubernetes', target: 'Terraform', strength: 0.7 },
+			    { source: 'Kubernetes', target: 'Nginx',     strength: 0.5 },
+
+			    { source: 'AWS', target: 'DynamoDB',          strength: 0.9 },
+			    { source: 'AWS', target: 'Terraform',         strength: 0.85 },
+			    { source: 'AWS', target: 'GitHub Actions',    strength: 0.5 },
+
+			    { source: 'GitHub Actions', target: 'Docker', strength: 0.7 },
+			    { source: 'GitHub Actions', target: 'Node.js', strength: 0.5 },
+			    { source: 'GitHub Actions', target: 'Next.js', strength: 0.4 },
+
+			    { source: 'Terraform', target: 'Nginx',     strength: 0.4 },
+
+			    // Mobile
+			    { source: 'Flutter', target: 'Kotlin',       strength: 0.3 },
+			    { source: 'Flutter', target: 'Swift',        strength: 0.3 },
+			    { source: 'React Native', target: 'Node.js', strength: 0.4 },
+
+			    // Cross-cutting
+			    { source: 'Rust', target: 'Docker',          strength: 0.3 },
+			    { source: 'Go', target: 'Docker',            strength: 0.6 },
+			    { source: 'Go', target: 'Kubernetes',        strength: 0.7 },
+			    { source: 'Go', target: 'Terraform',         strength: 0.5 },
+
+			    { source: 'Redis', target: 'Docker',         strength: 0.5 },
+			    { source: 'PostgreSQL', target: 'Docker',    strength: 0.5 },
+			    { source: 'MongoDB', target: 'Docker',       strength: 0.45 },
+
+			    { source: 'Next.js', target: 'Tailwind',    strength: 0.6 },
+			    { source: 'Nuxt', target: 'Tailwind',       strength: 0.5 },
+
+			    { source: 'Nginx', target: 'Node.js',       strength: 0.55 },
+			    { source: 'Nginx', target: 'Django',        strength: 0.5 },
+			    { source: 'Nginx', target: 'Flask',         strength: 0.45 },
+			  ],
+
+			  // Physics simulation settings
+			  physics: {
+			    chargeStrength: -300,
+			    linkDistance: 120,
+			    collisionRadius: 35
+			  }
+			};
+
+			/* ── Aliases for backward compatibility ── */
+			const CATEGORIES = GRAPH_CONFIG.categories;
+			const NODES_DATA = GRAPH_CONFIG.nodes;
+			const LINKS_DATA = GRAPH_CONFIG.links;
+
+			/* =============================================
+			   SETUP
+			============================================= */
+			const container = document.getElementById('extension-matter-adapter-viz-graph-container');
+			const tooltipEl = document.getElementById('extension-matter-adapter-viz-tooltip');
+			let W, H;
+			let showLabels = true;
+			let showParticles = false;
+			let selectedNode = null;
+			let hiddenCategories = new Set();
+			let searchTerm = '';
+
+			// Build adjacency map
+			function getAdjacency(nodes, links) {
+			  const adj = {};
+			  nodes.forEach(n => adj[n.id] = new Set());
+			  links.forEach(l => {
+			    const s = typeof l.source === 'object' ? l.source.id : l.source;
+			    const t = typeof l.target === 'object' ? l.target.id : l.target;
+			    if (adj[s]) adj[s].add(t);
+			    if (adj[t]) adj[t].add(s);
+			  });
+			  return adj;
+			}
+
+			// Deep copy data for simulation
+			function buildGraphData() {
+			  let nodes = NODES_DATA.map(n => ({...n}));
+			  let links = LINKS_DATA.map(l => ({...l}));
+
+			  // Filter by hidden categories
+			  if (hiddenCategories.size > 0) {
+			    const visibleIds = new Set(nodes.filter(n => !hiddenCategories.has(n.category)).map(n => n.id));
+			    nodes = nodes.filter(n => visibleIds.has(n.id));
+			    links = links.filter(l => visibleIds.has(l.source) && visibleIds.has(l.target));
+			  }
+
+			  // Filter by search
+			  if (searchTerm) {
+			    const q = searchTerm.toLowerCase();
+			    const matchIds = new Set(nodes.filter(n => n.id.toLowerCase().includes(q) || n.category.toLowerCase().includes(q)).map(n => n.id));
+			    // Keep matched + their direct neighbors
+			    const filtered = new Set(matchIds);
+			    links.forEach(l => {
+			      const s = typeof l.source === 'object' ? l.source.id : l.source;
+			      const t = typeof l.target === 'object' ? l.target.id : l.target;
+			      if (matchIds.has(s)) filtered.add(t);
+			      if (matchIds.has(t)) filtered.add(s);
+			    });
+			    nodes = nodes.filter(n => filtered.has(n.id));
+			    links = links.filter(l => {
+			      const s = typeof l.source === 'object' ? l.source.id : l.source;
+			      const t = typeof l.target === 'object' ? l.target.id : l.target;
+			      return filtered.has(s) && filtered.has(t);
+			    });
+			  }
+
+			  return { nodes, links };
+			}
+
+			// Node radius from popularity
+			function nodeRadius(d) {
+			  return 4 + (d.popularity / 100) * 16;
+			}
+
+			/* =============================================
+			   SVG SETUP
+			============================================= */
+			function getDimensions() {
+			  const rect = container.getBoundingClientRect();
+			  W = rect.width;
+			  H = rect.height;
+			}
+
+			getDimensions();
+            console.log("W: ", W);
+            console.log("H: ", H);
+
+            container.innerHTML = '';
+
+			const svg = d3.select('#extension-matter-adapter-viz-graph-container')
+			  .append('svg')
+			  .attr('width', '100%')
+			  .attr('height', '100%')
+			  .attr('viewBox', `0 0 ${W} ${H}`);
+
+            console.log("svg: ", svg);
+
+			// Defs for glow filters and gradients
+			const defs = svg.append('defs');
+
+			// Glow filter
+			const glowFilter = defs.append('filter')
+			  .attr('id', 'glow')
+			  .attr('x', '-50%').attr('y', '-50%')
+			  .attr('width', '200%').attr('height', '200%');
+			glowFilter.append('feGaussianBlur')
+			  .attr('stdDeviation', '3')
+			  .attr('result', 'coloredBlur');
+			const glowMerge = glowFilter.append('feMerge');
+			glowMerge.append('feMergeNode').attr('in', 'coloredBlur');
+			glowMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+			// Create node gradients for each category
+			Object.entries(CATEGORIES).forEach(([cat, info]) => {
+			  const grad = defs.append('radialGradient')
+			    .attr('id', `grad-${cat}`)
+			    .attr('cx', '35%').attr('cy', '35%');
+			  grad.append('stop').attr('offset', '0%').attr('stop-color', info.color).attr('stop-opacity', 0.9);
+			  grad.append('stop').attr('offset', '100%').attr('stop-color', d3.color(info.color).darker(1.2)).attr('stop-opacity', 0.7);
+			});
+
+			// Main group for zoom/pan
+			const g = svg.append('g').attr('class', 'extension-matter-adapter-viz-graph-group');
+
+            //console.log("Main group for zoom/pan  g: ", g);
+
+			// Layer groups
+			const linkGroup = g.append('g').attr('class', 'extension-matter-adapter-viz-links');
+			const particleGroup = g.append('g').attr('class', 'extension-matter-adapter-viz-particles');
+			const nodeGroup = g.append('g').attr('class', 'extension-matter-adapter-viz-nodes');
+			const labelGroup = g.append('g').attr('class', 'extension-matter-adapter-viz-labels');
+			const selectionGroup = g.append('g').attr('class', 'extension-matter-adapter-viz-selection');
+
+			/* =============================================
+			   ZOOM
+			============================================= */
+			const zoom = d3.zoom()
+			  .scaleExtent([0.3, 5])
+			  .on('zoom', (event) => {
+			    g.attr('transform', event.transform);
+			  });
+
+			svg.call(zoom);
+            if(this_debug){
+                console.log("matter debug: map: called zoom on svg");
+            }
+
+			// Zoom buttons
+			document.getElementById('extension-matter-adapter-viz-btn-zoom-in').addEventListener('click', () => {
+			  svg.transition().duration(400).call(zoom.scaleBy, 1.4);
+			});
+			document.getElementById('extension-matter-adapter-viz-btn-zoom-out').addEventListener('click', () => {
+			  svg.transition().duration(400).call(zoom.scaleBy, 0.7);
+			});
+			document.getElementById('extension-matter-adapter-viz-btn-zoom-reset').addEventListener('click', centerView);
+
+			function centerView() {
+			  svg.transition().duration(600).call(
+			    zoom.transform,
+			    d3.zoomIdentity.translate(W / 2, H / 2).scale(0.85).translate(-W / 2, -H / 2)
+			  );
+			}
+
+			/* =============================================
+			   SIMULATION
+			============================================= */
+			let simulation;
+			let currentNodes = [];
+			let currentLinks = [];
+			let adjacency = {};
+			let particles = [];
+			let particleTimer;
+
+			function initSimulation() {
+                
+			  const data = buildGraphData();
+              if(this_debug){
+                console.log("matter debug: map: in initSimulation.  data: ", data);
+              }
+			  currentNodes = data.nodes;
+			  currentLinks = data.links;
+			  adjacency = getAdjacency(currentNodes, currentLinks);
+
+			  // Update stats
+			  updateStats();
+
+			  // Clear previous
+			  linkGroup.selectAll('*').remove();
+			  nodeGroup.selectAll('*').remove();
+			  labelGroup.selectAll('*').remove();
+			  selectionGroup.selectAll('*').remove();
+			  particleGroup.selectAll('*').remove();
+
+			  if (simulation) simulation.stop();
+
+			  const forceStrength = parseFloat(document.getElementById('extension-matter-adapter-viz-force-strength').value);
+			  const linkDist = parseFloat(document.getElementById('extension-matter-adapter-viz-link-distance').value);
+
+			  simulation = d3.forceSimulation(currentNodes)
+			    .force('link', d3.forceLink(currentLinks).id(d => d.id).distance(linkDist).strength(l => l.strength * 0.3))
+			    .force('charge', d3.forceManyBody().strength(forceStrength).distanceMax(400))
+			    .force('center', d3.forceCenter(W / 2, H / 2))
+			    .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 4).strength(0.8))
+			    .force('x', d3.forceX(W / 2).strength(0.03))
+			    .force('y', d3.forceY(H / 2).strength(0.03))
+			    .alphaDecay(0.02)
+			    .velocityDecay(0.3);
+
+			  // Links
+			  const linkSel = linkGroup.selectAll('line')
+			    .data(currentLinks)
+			    .join('line')
+			    .attr('class', 'extension-matter-adapter-viz-link-line')
+			    .attr('stroke-width', d => 0.5 + d.strength * 2)
+			    .attr('stroke-opacity', d => 0.1 + d.strength * 0.25);
+
+			  // Nodes
+			  const nodeSel = nodeGroup.selectAll('circle')
+			    .data(currentNodes, d => d.id)
+			    .join('circle')
+			    .attr('class', 'extension-matter-adapter-viz-node-circle')
+			    .attr('r', d => nodeRadius(d))
+			    .attr('fill', d => `url(#grad-${d.category})`)
+			    .attr('stroke', d => CATEGORIES[d.category].color)
+			    .attr('stroke-width', 1.5)
+			    .attr('stroke-opacity', 0.4)
+			    .style('opacity', 0)
+			    .transition()
+			    .duration(600)
+			    .delay((d, i) => i * 8)
+			    .style('opacity', 1);
+
+			  // Re-select without transition for event handling
+			  const nodeSelStatic = nodeGroup.selectAll('circle');
+
+			  // Labels
+			  const labelSel = labelGroup.selectAll('text')
+			    .data(currentNodes, d => d.id)
+			    .join('text')
+			    .attr('class', 'extension-matter-adapter-viz-node-label-text')
+			    .attr('font-size', d => Math.max(8, Math.min(12, nodeRadius(d) * 0.8)))
+			    .attr('dy', d => nodeRadius(d) + 14)
+			    .text(d => d.title)
+			    .style('display', showLabels ? 'block' : 'none')
+			    .style('opacity', 0)
+			    .transition()
+			    .duration(600)
+			    .delay((d, i) => i * 8)
+			    .style('opacity', 1);
+
+			  const labelSelStatic = labelGroup.selectAll('text');
+              //console.log("labelSelStatic: ", labelSelStatic);
+
+			  // Drag
+			  const drag = d3.drag()
+			    .on('start', (event, d) => {
+			      if (!event.active) simulation.alphaTarget(0.3).restart();
+			      d.fx = d.x;
+			      d.fy = d.y;
+			    })
+			    .on('drag', (event, d) => {
+			      d.fx = event.x;
+			      d.fy = event.y;
+			    })
+			    .on('end', (event, d) => {
+			      if (!event.active) simulation.alphaTarget(0);
+			      d.fx = null;
+			      d.fy = null;
+			    });
+
+			  nodeSelStatic.call(drag);
+
+			  // Hover
+			  nodeSelStatic
+			    .on('mouseenter', (event, d) => {
+			      highlightConnected(d);
+			      showTooltip(event, d);
+			    })
+			    .on('mousemove', (event) => {
+			      moveTooltip(event);
+			    })
+			    .on('mouseleave', () => {
+			      unhighlight();
+			      hideTooltip();
+			    })
+			    .on('click', (event, d) => {
+			      event.stopPropagation();
+			      selectNode(d);
+			    });
+
+			  svg.on('click', () => {
+			    deselectNode();
+			  });
+
+			  // Tick
+			  simulation.on('tick', () => {
+			    linkSel
+			      .attr('x1', d => d.source.x)
+			      .attr('y1', d => d.source.y)
+			      .attr('x2', d => d.target.x)
+			      .attr('y2', d => d.target.y);
+
+			    nodeSelStatic
+			      .attr('cx', d => d.x)
+			      .attr('cy', d => d.y);
+
+			    labelSelStatic
+			      .attr('x', d => d.x)
+			      .attr('y', d => d.y);
+
+			    // Selection ring
+			    if (selectedNode) {
+			      selectionGroup.selectAll('circle')
+			        .attr('cx', selectedNode.x)
+			        .attr('cy', selectedNode.y);
+			    }
+			  });
+
+			  // Initialize particles
+			  //initParticles();
+			}
+
+			/* =============================================
+			   HIGHLIGHT
+			============================================= */
+			function highlightConnected(d) {
+			  const connectedIds = adjacency[d.id] || new Set();
+
+			  nodeGroup.selectAll('circle')
+			    .transition().duration(200)
+			    .style('opacity', n => (n.id === d.id || connectedIds.has(n.id)) ? 1 : 0.1)
+			    .attr('filter', n => n.id === d.id ? 'url(#glow)' : null);
+
+			  linkGroup.selectAll('line')
+			    .transition().duration(200)
+			    .attr('stroke-opacity', l => {
+			      const sId = l.source.id || l.source;
+			      const tId = l.target.id || l.target;
+			      return (sId === d.id || tId === d.id) ? 0.6 + l.strength * 0.4 : 0.03;
+			    })
+			    .attr('stroke', l => {
+			      const sId = l.source.id || l.source;
+			      const tId = l.target.id || l.target;
+			      return (sId === d.id || tId === d.id) ? CATEGORIES[d.category].color : 'var(--extension-matter-adapter-viz-border)';
+			    });
+
+			  labelGroup.selectAll('text')
+			    .transition().duration(200)
+			    .style('opacity', n => (n.id === d.id || connectedIds.has(n.id)) ? 1 : 0.05);
+			}
+
+			function unhighlight() {
+			  nodeGroup.selectAll('circle')
+			    .transition().duration(300)
+			    .style('opacity', 1)
+			    .attr('filter', null);
+
+			  linkGroup.selectAll('line')
+			    .transition().duration(300)
+			    .attr('stroke-opacity', d => 0.1 + d.strength * 0.25)
+			    .attr('stroke', 'var(--extension-matter-adapter-viz-border)');
+
+			  labelGroup.selectAll('text')
+			    .transition().duration(300)
+			    .style('opacity', 1);
+			}
+
+			/* =============================================
+			   SELECTION
+			============================================= */
+			function selectNode(d) {
+			  selectedNode = d;
+
+			  // Selection ring
+			  selectionGroup.selectAll('*').remove();
+			  selectionGroup.append('circle')
+			    .attr('class', 'extension-matter-adapter-viz-selection-ring animate')
+			    .attr('cx', d.x)
+			    .attr('cy', d.y)
+			    .attr('r', nodeRadius(d) + 6)
+			    .attr('stroke', CATEGORIES[d.category].color)
+			    .style('opacity', 0)
+			    .transition().duration(300)
+			    .style('opacity', 1);
+
+			  // Pulse effect on node
+			  nodeGroup.selectAll('circle')
+			    .filter(n => n.id === d.id)
+			    .transition().duration(200)
+			    .attr('r', nodeRadius(d) + 3)
+			    .transition().duration(200)
+			    .attr('r', nodeRadius(d));
+
+			  updateNodeDetail(d);
+			  announceNode(d);
+			}
+
+			function deselectNode() {
+			  selectedNode = null;
+			  selectionGroup.selectAll('*').remove();
+			  clearNodeDetail();
+			}
+
+			/* =============================================
+			   NODE DETAIL PANEL
+			============================================= */
+			function updateNodeDetail(d) {
+			  const connectedIds = adjacency[d.id] || new Set();
+			  const cat = CATEGORIES[d.category];
+			  const detailEl = document.getElementById('extension-matter-adapter-viz-node-detail-content');
+			  const badge = document.getElementById('extension-matter-adapter-viz-detail-badge');
+			  badge.textContent = d.category;
+			  badge.style.color = cat.color;
+
+			  const connectedArr = [...connectedIds];
+
+			  detailEl.innerHTML = `
+			    <div class="extension-matter-adapter-viz-node-detail">
+			      <div class="extension-matter-adapter-viz-node-detail-name" style="color:${cat.color}">${d.id}</div>
+			      <div class="extension-matter-adapter-viz-node-detail-category" style="background:${cat.dim};color:${cat.color};border:1px solid ${cat.color}30">${d.category}</div>
+			      <div class="extension-matter-adapter-viz-node-detail-desc">${d.desc}</div>
+			      <div class="extension-matter-adapter-viz-node-detail-stats">
+			        <div class="extension-matter-adapter-viz-node-detail-stat">
+			          <div class="extension-matter-adapter-viz-node-detail-stat-val" style="color:${cat.color}">${connectedArr.length}</div>
+			          <div class="extension-matter-adapter-viz-node-detail-stat-label">Connections</div>
+			        </div>
+			        <div class="extension-matter-adapter-viz-node-detail-stat">
+			          <div class="extension-matter-adapter-viz-node-detail-stat-val" style="color:${cat.color}">${d.popularity}</div>
+			          <div class="extension-matter-adapter-viz-node-detail-stat-label">Popularity</div>
+			        </div>
+			      </div>
+			      <div class="extension-matter-adapter-viz-connected-list">
+			        ${connectedArr.map(id => `<button class="extension-matter-adapter-viz-connected-tag" data-node-id="${id}">${id}</button>`).join('')}
+			      </div>
+			    </div>
+			  `;
+
+			  // Clickable connected tags
+			  detailEl.querySelectorAll('.connected-tag').forEach(btn => {
+			    btn.addEventListener('click', () => {
+			      const targetId = btn.dataset.nodeId;
+			      const targetNode = currentNodes.find(n => n.id === targetId);
+			      if (targetNode) selectNode(targetNode);
+			    });
+			  });
+			}
+
+			function clearNodeDetail() {
+			  document.getElementById('extension-matter-adapter-viz-detail-badge').textContent = '';
+			  document.getElementById('extension-matter-adapter-viz-node-detail-content').innerHTML = '<div class="extension-matter-adapter-viz-node-detail-empty">Click a node to see details</div>';
+			}
+
+			/* =============================================
+			   TOOLTIP
+			============================================= */
+			function showTooltip(event, d) {
+			  const cat = CATEGORIES[d.category];
+			  const connCount = (adjacency[d.id] || new Set()).size;
+			  document.getElementById('extension-matter-adapter-viz-tooltip-name-text').textContent = d.id;
+			  document.getElementById('extension-matter-adapter-viz-tooltip-category').textContent = d.category;
+			  document.getElementById('extension-matter-adapter-viz-tooltip-connections').textContent = connCount;
+			  document.getElementById('extension-matter-adapter-viz-tooltip-color').style.background = cat.color;
+			  tooltipEl.classList.add('visible');
+			  moveTooltip(event);
+			}
+
+			function moveTooltip(event) {
+			  const pad = 16;
+			  let x = event.clientX + pad;
+			  let y = event.clientY + pad;
+			  const tw = tooltipEl.offsetWidth;
+			  const th = tooltipEl.offsetHeight;
+			  if (x + tw > window.innerWidth - pad) x = event.clientX - tw - pad;
+			  if (y + th > window.innerHeight - pad) y = event.clientY - th - pad;
+			  tooltipEl.style.left = x + 'px';
+			  tooltipEl.style.top = y + 'px';
+			}
+
+			function hideTooltip() {
+			  tooltipEl.classList.remove('visible');
+			}
+
+			/* =============================================
+			   PARTICLES
+			============================================= */
+			let particleData = [];
+			let particleFrame;
+
+			function initParticles() {
+			  if (particleTimer) clearInterval(particleTimer);
+			  cancelAnimationFrame(particleFrame);
+			  particleData = [];
+			  particleGroup.selectAll('*').remove();
+
+			  if (!showParticles) return;
+
+			  particleTimer = setInterval(spawnParticle, 120);
+			  animateParticles();
+			}
+
+			function spawnParticle() {
+			  if (!showParticles || currentLinks.length === 0) return;
+
+			  const linkIdx = Math.floor(Math.random() * currentLinks.length);
+			  const link = currentLinks[linkIdx];
+			  if (!link.source.x || !link.target.x) return;
+
+			  particleData.push({
+			    sx: link.source.x, sy: link.source.y,
+			    tx: link.target.x, ty: link.target.y,
+			    t: 0,
+			    speed: 0.008 + Math.random() * 0.012,
+			    color: CATEGORIES[link.source.category || 'Languages']?.color || '#22d3ee',
+			    opacity: 0.3 + link.strength * 0.4,
+			  });
+
+			  // Keep max particles
+			  if (particleData.length > 80) particleData.shift();
+			}
+
+			function animateParticles() {
+			  if (!showParticles) return;
+
+			  particleData.forEach(p => { p.t += p.speed; });
+			  particleData = particleData.filter(p => p.t < 1);
+
+			  const circles = particleGroup.selectAll('circle')
+			    .data(particleData);
+
+			  circles.exit().remove();
+
+			  circles.enter()
+			    .append('circle')
+			    .attr('r', 1.5)
+			    .merge(circles)
+			    .attr('cx', p => p.sx + (p.tx - p.sx) * p.t)
+			    .attr('cy', p => p.sy + (p.ty - p.sy) * p.t)
+			    .attr('fill', p => p.color)
+			    .attr('opacity', p => p.opacity * (1 - Math.abs(p.t - 0.5) * 2));
+
+			  particleFrame = requestAnimationFrame(animateParticles);
+			}
+
+			/* =============================================
+			   STATS
+			============================================= */
+			function updateStats() {
+			  document.getElementById('extension-matter-adapter-viz-stat-nodes').textContent = currentNodes.length;
+			  document.getElementById('extension-matter-adapter-viz-stat-edges').textContent = currentLinks.length;
+			  document.getElementById('extension-matter-adapter-viz-stat-clusters').textContent =
+			    new Set(currentNodes.map(n => n.category)).size;
+
+			  const totalDegree = currentNodes.reduce((sum, n) => {
+			    return sum + (adjacency[n.id] ? adjacency[n.id].size : 0);
+			  }, 0);
+			  const avgDeg = currentNodes.length > 0 ? (totalDegree / currentNodes.length).toFixed(1) : '0';
+			  document.getElementById('extension-matter-adapter-viz-stat-degree').textContent = avgDeg;
+			}
+
+			/* =============================================
+			   LEGEND
+			============================================= */
+			function renderLegend() {
+              if(this_debug){
+                console.log("matter debug: map: in renderLegend");
+              }
+			  const legendList = document.getElementById('extension-matter-adapter-viz-legend-list');
+			  legendList.innerHTML = '';
+
+			  Object.entries(CATEGORIES).forEach(([cat, info]) => {
+			    const count = NODES_DATA.filter(n => n.category === cat).length;
+			    const btn = document.createElement('button');
+			    btn.className = 'extension-matter-adapter-viz-legend-toggle' + (hiddenCategories.has(cat) ? ' inactive' : '');
+			    btn.innerHTML = `<span class="extension-matter-adapter-viz-swatch" style="background:${info.color}"></span>${cat}<span class="extension-matter-adapter-viz-count">${count}</span>`;
+			    btn.addEventListener('click', () => {
+			      if (hiddenCategories.has(cat)) {
+			        hiddenCategories.delete(cat);
+			      } else {
+			        hiddenCategories.add(cat);
+			      }
+			      btn.classList.toggle('inactive');
+			      initSimulation();
+			    });
+			    legendList.appendChild(btn);
+			  });
+
+			  document.getElementById('extension-matter-adapter-viz-category-count').textContent = `${Object.keys(CATEGORIES).length} total`;
+			}
+
+			/* =============================================
+			   SEARCH
+			============================================= */
+			let searchDebounce;
+			document.getElementById('extension-matter-adapter-viz-search-input').addEventListener('input', (e) => {
+			  clearTimeout(searchDebounce);
+			  searchDebounce = setTimeout(() => {
+			    searchTerm = e.target.value.trim();
+			    initSimulation();
+			  }, 250);
+			});
+
+			/* =============================================
+			   TOOLBAR TOGGLES
+			============================================= */
+			document.getElementById('extension-matter-adapter-viz-btn-toggle-labels').addEventListener('click', function () {
+			  showLabels = !showLabels;
+			  this.classList.toggle('active', showLabels);
+			  labelGroup.selectAll('text')
+			    .transition().duration(300)
+			    .style('display', showLabels ? 'block' : 'none')
+			    .style('opacity', showLabels ? 1 : 0);
+			});
+
+            /*
+			document.getElementById('extension-matter-adapter-viz-btn-toggle-particles').addEventListener('click', function () {
+			  showParticles = !showParticles;
+			  this.classList.toggle('active', showParticles);
+			  if (showParticles) {
+			    initParticles();
+			  } else {
+			    if (particleTimer) clearInterval(particleTimer);
+			    cancelAnimationFrame(particleFrame);
+			    particleGroup.selectAll('*').remove();
+			    particleData = [];
+			  }
+			});
+            */
+
+			/* =============================================
+			   LAYOUT CONTROLS
+			============================================= */
+			document.getElementById('extension-matter-adapter-viz-force-strength').addEventListener('input', function () {
+			  document.getElementById('extension-matter-adapter-viz-force-val').textContent = this.value;
+			  if (simulation) {
+			    simulation.force('charge').strength(parseFloat(this.value));
+			    simulation.alpha(0.5).restart();
+			  }
+			});
+
+			document.getElementById('extension-matter-adapter-viz-link-distance').addEventListener('input', function () {
+			  document.getElementById('extension-matter-adapter-viz-distance-val').textContent = this.value;
+			  if (simulation) {
+			    simulation.force('link').distance(parseFloat(this.value));
+			    simulation.alpha(0.5).restart();
+			  }
+			});
+
+			document.getElementById('extension-matter-adapter-viz-btn-restart').addEventListener('click', () => {
+			  initSimulation();
+			});
+
+			document.getElementById('extension-matter-adapter-viz-btn-center').addEventListener('click', centerView);
+
+			/* =============================================
+			   ACCESSIBILITY
+			============================================= */
+			function announceNode(d) {
+			  const announcer = document.getElementById('extension-matter-adapter-viz-graph-announcer');
+			  const connCount = (adjacency[d.id] || new Set()).size;
+			  announcer.textContent = `Selected ${d.id}, ${d.category}, ${connCount} connections`;
+			}
+
+			/* =============================================
+			   RESIZE
+			============================================= */
+			let resizeTimeout;
+			window.addEventListener('resize', () => {
+                console.log("matter map viz: window resized");
+			  clearTimeout(resizeTimeout);
+			  resizeTimeout = setTimeout(() => {
+			    getDimensions();
+			    svg.attr('viewBox', `0 0 ${W} ${H}`);
+			    if (simulation) {
+			      simulation.force('center', d3.forceCenter(W / 2, H / 2));
+			      simulation.force('x', d3.forceX(W / 2).strength(0.03));
+			      simulation.force('y', d3.forceY(H / 2).strength(0.03));
+			      simulation.alpha(0.3).restart();
+			    }
+			  }, 200);
+			});
+
+			/* =============================================
+			   INIT
+			============================================= */
+            //console.log("calling renderLegend");
+			renderLegend();
+            //console.log("calling initSimulation");
+			initSimulation();
+            //console.log("calling centerView");
+			centerView();
+
+			/* =============================================
+			   THEME HANDLING
+			============================================= */
+			function onThemeChange(theme) {
+			  const style = getComputedStyle(document.documentElement);
+			  const border = style.getPropertyValue('--border').trim();
+
+			  // Reset any inline stroke on links back to CSS var
+			  linkGroup.selectAll('line')
+			    .attr('stroke', null);
+
+			  // If a node was highlighted, clear highlight state so colors reset via CSS
+			  unhighlight();
+			}
+
+			// Theme toggle
+            /*
+			const themeToggle = document.getElementById('extension-matter-adapter-viz-theme-toggle');
+			themeToggle.addEventListener('click', () => {
+			  const current = document.documentElement.getAttribute('extension-matter-adapter-viz-data-theme');
+			  const next = current === 'dark' ? 'light' : 'dark';
+			  document.documentElement.setAttribute('extension-matter-adapter-viz-data-theme', next);
+			  localStorage.setItem('theme', next);
+			  onThemeChange(next);
+			});
+            */
+		}
+		
+		
+		
+		
     
     }
 
 	new MatterAdapter();
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 })();
 

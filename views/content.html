@@ -19,6 +19,7 @@
 				<div class="extension-matter-adapter-tab-buttons extension-matter-adapter-flex-wrap-when-narrow">
 					<button id="extension-matter-adapter-tab-button-overview" class="extension-matter-adapter-main-tab-button extension-matter-adapter-tab-selected">Overview</button>
 					<button id="extension-matter-adapter-tab-button-thread" class="extension-matter-adapter-main-tab-button">Thread</button>
+					<button id="extension-matter-adapter-tab-button-map" class="extension-matter-adapter-main-tab-button extension-matter-adapter-hidden">Map</button>
 					<button id="extension-matter-adapter-tab-button-advanced" class="extension-matter-adapter-main-tab-button">Advanced</button>
 				</div>
 		
@@ -165,6 +166,174 @@
 						<button id="extension-matter-adapter-show-second-page-button" class="icon-button extension-matter-adapter-hidden"></button>
 
 					</div>
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					<div id="extension-matter-adapter-tab-map" class="extension-matter-adapter-tab extension-matter-adapter-hidden">
+						<div id="extension-matter-adapter-viz-container">
+							
+
+							<div class="extension-matter-adapter-viz-main-container">
+
+							  <main id="extension-matter-adapter-viz-main-content">
+
+							    <div class="extension-matter-adapter-viz-stats-grid extension-matter-adapter-viz-fade-in extension-matter-adapter-viz-fade-in-d2">
+							      <div class="extension-matter-adapter-viz-stat-card" data-accent="cyan">
+							        <div class="extension-matter-adapter-viz-stat-label">Total Nodes</div>
+							        <div class="extension-matter-adapter-viz-stat-value" id="extension-matter-adapter-viz-stat-nodes">0</div>
+							      </div>
+							      <div class="extension-matter-adapter-viz-stat-card" data-accent="emerald">
+							        <div class="extension-matter-adapter-viz-stat-label">Total Edges</div>
+							        <div class="extension-matter-adapter-viz-stat-value" id="extension-matter-adapter-viz-stat-edges">0</div>
+							      </div>
+							      <div class="extension-matter-adapter-viz-stat-card" data-accent="amber">
+							        <div class="extension-matter-adapter-viz-stat-label">Clusters</div>
+							        <div class="extension-matter-adapter-viz-stat-value" id="extension-matter-adapter-viz-stat-clusters">0</div>
+							      </div>
+							      <div class="extension-matter-adapter-viz-stat-card" data-accent="violet">
+							        <div class="extension-matter-adapter-viz-stat-label">Avg Degree</div>
+							        <div class="extension-matter-adapter-viz-stat-value" id="extension-matter-adapter-viz-stat-degree">0</div>
+							      </div>
+							    </div>
+
+							    <div class="extension-matter-adapter-viz-demo-wrapper extension-matter-adapter-viz-fade-in extension-matter-adapter-viz-fade-in-d3">
+
+							      <div class="extension-matter-adapter-viz-graph-column">
+
+							        <div class="extension-matter-adapter-viz-toolbar extension-matter-adapter-flex-between">
+							          <div class="extension-matter-adapter-viz-toolbar-group">
+							            <button class="extension-matter-adapter-viz-tool-btn" id="extension-matter-adapter-viz-btn-zoom-in" title="Zoom In">
+							              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+							              Zoom In
+							            </button>
+							            <button class="extension-matter-adapter-viz-tool-btn" id="extension-matter-adapter-viz-btn-zoom-out" title="Zoom Out">
+							              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+							              Zoom Out
+							            </button>
+							            <button class="extension-matter-adapter-viz-tool-btn" id="extension-matter-adapter-viz-btn-zoom-reset" title="Reset Zoom">
+							              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+							              Reset
+							            </button>
+							          </div>
+							          <div class="extension-matter-adapter-viz-toolbar-sep"></div>
+							          <div class="extension-matter-adapter-viz-toolbar-group">
+							            <button class="extension-matter-adapter-viz-tool-btn extension-matter-adapter-viz-active" id="extension-matter-adapter-viz-btn-toggle-labels" title="Toggle Labels">
+							              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+							              Labels
+							            </button>
+							          </div>
+							        </div>
+
+							        <div class="extension-matter-adapter-viz-graph-wrapper" id="extension-matter-adapter-viz-graph-container" role="img" aria-label="Interactive force-directed network graph visualization of a tech ecosystem. Drag nodes, zoom, and click to explore connections." style="min-width:300px;min-height:400px;">
+										<h3>Loading map...</h3>
+							        </div>
+							      </div>
+
+							      <div class="extension-matter-adapter-viz-side-panel">
+
+									<div class="extension-matter-adapter-viz-panel-card">
+							          <div class="extension-matter-adapter-viz-panel-card-header">Selected Node <span id="extension-matter-adapter-viz-detail-badge"></span></div>
+							          <div id="extension-matter-adapter-viz-node-detail-content">
+							            <div class="extension-matter-adapter-viz-node-detail-empty">Click a node to see details</div>
+							          </div>
+							        </div>
+
+							        <div class="extension-matter-adapter-viz-panel-card">
+							          <div class="extension-matter-adapter-viz-panel-card-header">Search & Filter</div>
+							          <div class="extension-matter-adapter-viz-panel-card-body">
+							            <div class="extension-matter-adapter-viz-search-wrapper">
+							              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+							              <input type="text" class="extension-matter-adapter-viz-search-input" id="extension-matter-adapter-viz-search-input" placeholder="Search nodes..." aria-label="Search nodes">
+							            </div>
+							          </div>
+							        </div>
+
+							        <div class="extension-matter-adapter-viz-panel-card">
+							          <div class="extension-matter-adapter-viz-panel-card-header">Categories <span id="extension-matter-adapter-viz-category-count"></span></div>
+							          <div class="extension-matter-adapter-viz-panel-card-body">
+							            <div class="extension-matter-adapter-viz-legend-list" id="extension-matter-adapter-viz-legend-list"></div>
+							          </div>
+							        </div>
+
+							        
+
+							        <div class="extension-matter-adapter-viz-panel-card">
+							          <div class="extension-matter-adapter-viz-panel-card-header">Layout Controls</div>
+							          <div class="extension-matter-adapter-viz-panel-card-body">
+							            <div class="extension-matter-adapter-viz-control-group">
+							              <div class="extension-matter-adapter-viz-control-label">Force Strength <span id="extension-matter-adapter-viz-force-val">-300</span></div>
+							              <input type="range" id="extension-matter-adapter-viz-force-strength" min="-800" max="-50" value="-300" step="10">
+							            </div>
+							            <div class="extension-matter-adapter-viz-control-group">
+							              <div class="extension-matter-adapter-viz-control-label">Link Distance <span id="extension-matter-adapter-viz-distance-val">80</span></div>
+							              <input type="range" id="extension-matter-adapter-viz-link-distance" min="30" max="200" value="80" step="5">
+							            </div>
+							            <div class="extension-matter-adapter-viz-control-group">
+							              <div class="extension-matter-adapter-viz-control-buttons">
+							                <button class="extension-matter-adapter-viz-ctrl-btn" id="extension-matter-adapter-viz-btn-restart">Restart Sim</button>
+							                <button class="extension-matter-adapter-viz-ctrl-btn" id="extension-matter-adapter-viz-btn-center">Center View</button>
+							              </div>
+							            </div>
+							          </div>
+							        </div>
+
+							      </div>
+							    </div>
+
+							    <div id="extension-matter-adapter-viz-graph-announcer" class="extension-matter-adapter-viz-sr-only" aria-live="polite" aria-atomic="true"></div>
+
+							  </main>
+	
+							</div>
+						</div>
+
+						<div class="extension-matter-adapter-viz-tooltip" id="extension-matter-adapter-viz-tooltip" role="tooltip" aria-hidden="true">
+						  <div class="extension-matter-adapter-viz-tooltip-name">
+						    <span class="extension-matter-adapter-viz-tooltip-color" id="extension-matter-adapter-viz-tooltip-color"></span>
+						    <span id="extension-matter-adapter-viz-tooltip-name-text"></span>
+						  </div>
+						  <div class="extension-matter-adapter-viz-tooltip-details">
+						    <span>Category <span class="extension-matter-adapter-viz-val" id="extension-matter-adapter-viz-tooltip-category"></span></span>
+						    <span>Connections <span class="extension-matter-adapter-viz-val" id="extension-matter-adapter-viz-tooltip-connections"></span></span>
+						  </div>
+						</div>
+					</div>
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
 
 
 
@@ -188,11 +357,13 @@
 						<div id="extension-matter-adapter-thread-command-input-container" class="extension-matter-adapter-area extension-matter-adapter-show-if-developer">
 							<div class="extension-matter-adapter-flex-center extension-matter-adapter-flex-wrap-when-narrow" style="width:100%">
 								<select id="extension-matter-adapter-thread-command-select"></select>
-								<input id="extension-matter-adapter-thread-command-input" value="state">
-								<button id="extension-matter-adapter-thread-command-send-button" class="text-button">Send</button>
+								<input id="extension-matter-adapter-thread-command-input" value="debug">
+								<button id="extension-matter-adapter-thread-command-send-button" class="text-button">Send to OTBR-cli</button>
 							</div>
 							<pre id="extension-matter-adapter-thread-command-output"></pre>
 						</div>
+
+						
 
 						
 
@@ -217,8 +388,6 @@
 								</div>
 								<p id="extension-matter-adapter-thread-network-code-warning">Please keep this code safe, as anyone who has it could join your Thread network</p>
 							</div>
-							
-							
 
 
 							<div id="extension-matter-adapter-enter-thread-network-code-container" class="extension-matter-adapter-area extension-matter-adapter-hidden">
@@ -236,6 +405,16 @@
 					<div id="extension-matter-adapter-tab-advanced" class="extension-matter-adapter-tab extension-matter-adapter-hidden">
 
 						<div class="extension-matter-adapter-area" style="margin:4rem 0" id="extension-matter-adapter-extension-server-info"></div>
+
+						<div id="extension-matter-adapter-chip-command-input-container" class="extension-matter-adapter-area extension-matter-adapter-show-if-developer">
+							<div class="extension-matter-adapter-flex-between"><input id="extension-matter-adapter-chip-command-dec-input" value="50"><span id="extension-matter-adapter-chip-command-hex-output"></span><input id="extension-matter-adapter-chip-command-hex-input" type="text" placeholder="0x"></div>
+							<div class="extension-matter-adapter-flex-center extension-matter-adapter-flex-wrap-when-narrow" style="width:100%">
+								<select id="extension-matter-adapter-chip-command-select"></select>
+								<input id="extension-matter-adapter-chip-command-input" value="" placeholder="CHIP Tool">
+								<button id="extension-matter-adapter-chip-command-send-button" class="text-button">Send to CHIP Tool</button>
+							</div>
+							<pre id="extension-matter-adapter-chip-command-output"></pre>
+						</div>
 
 						<div class="extension-matter-adapter-area" style="margin:4rem 0">
 							<!--<button id="extension-matter-adapter-refresh-paired-list-button" class="text-button extension-matter-adapter-hidden">Refresh</button>
@@ -256,7 +435,6 @@
 						</div>
 
 						<pre id="extension-matter-adapter-thread-map" class="extension-matter-adapter-show-if-developer"></pre>
-
 
 						<pre id="extension-matter-adapter-paired-devices-list-pre" class="extension-matter-adapter-show-if-developer"></pre>
 
@@ -300,7 +478,7 @@
 						</div>
 						-->
 
-						<div id="extension-matter-adapter-pairing-step-wifi" class="extension-matter-adapter-area">
+						<div id="extension-matter-adapter-pairing-step-wifi" class="extension-matter-adapter-area extension-matter-adapter-hide-while-busy-pairing extension-matter-adapter-hide-while-pairing-done">
 
 							<h4>WiFi credentials</h4>
 
@@ -321,6 +499,7 @@
 								<div class="extension-matter-adapter-checkbox-container">
 									<input type="checkbox" id="extension-matter-adapter-wifi-remember-checkbox" name="extension-matter-adapter-wifi-remember-checkbox" data-val="true" value="true"><label for="extension-matter-adapter-wifi-remember-checkbox">Remember</label>
 								</div>
+								<button id="extension-matter-adapter-provide-wifi-cancel-button" class="text-button" style="margin-top:2rem">Cancel</button>
 							</div>
 
 							<!--
@@ -340,7 +519,7 @@
 
 
 
-						<div id="extension-matter-adapter-pairing-step-qr" class="extension-matter-adapter-area extension-matter-adapter-printable">
+						<div id="extension-matter-adapter-pairing-step-qr" class="extension-matter-adapter-area extension-matter-adapter-printable extension-matter-adapter-hide-while-busy-pairing">
 							<div>
 								<h4>Getting the pairing code</h4>
 								<p>Your device (or its packaging) should have a Matter QR code on it.</p>
@@ -356,6 +535,28 @@
 									<div class="extension-matter-adapter-pairing-qr-choose-scanner-icon extension-matter-adapter-pairing-qr-choose-scanner-icon-phone"></div>
 								</div>
 							</div>
+
+							<div id="extension-matter-adapter-pairing-qr-area">
+
+								<div id="extension-matter-adapter-pairing-scanner-container"></div>
+
+								<div id="extension-matter-adapter-desktop-qr">
+									<p>Scan this QR code with your phone to get started:</p>
+									<div id="extension-matter-adapter-qr-code"></div>
+									<div id="extension-matter-adapter-qr-code-url-wrapper">
+										<a id="extension-matter-adapter-qr-scan-link" href="https://www.candlesmarthome.com/qr"><span id="extension-matter-adapter-short-qr-scan-url">candlesmarthome.com/qr</span></a>
+									</div>
+								</div>
+
+								<div id="extension-matter-adapter-mobile-qr">
+									<p>Open the Candle QR code scanner to find the pairing code. You will have to grant permission to use your camera.</p>
+									<div id="extension-matter-adapter-mobile-qr-button">
+										<a id="extension-matter-adapter-mobile-qr-scan-link" href="https://www.candlesmarthome.com/qr" target="_blank"><span id="extension-matter-adapter-mobile-short-qr-scan-url">candlesmarthome.com/qr</span></a>
+									</div>
+								</div>
+
+								
+							</div>
 							
 							<div id="extension-matter-adapter-pairing-use-previously-scanned-code" class="extension-matter-adapter-hidden">
 								<h4>Use last scanned code</h4>
@@ -365,6 +566,13 @@
 								<h4>Look up an old code</h4>
 							</div>
 							<div id="extension-matter-adapter-pairing-old-pairing-codes-list" class="extension-matter-adapter-area extension-matter-adapter-printable"></div>
+							<div id="extension-matter-adapter-export-old-pairing-codes-container" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+								<textarea id="extension-matter-adapter-export-old-pairing-codes-textarea"></textarea>
+								<div class="extension-matter-adapter-flex-between">
+									<button id="extension-matter-adapter-export-old-pairing-codes-import-button" class="text-button">Import</button>
+									<button id="extension-matter-adapter-export-old-pairing-codes-download-button" class="text-button">Download</button>
+								</div>
+							</div>
 							
 							<div id="extension-matter-adapter-show-manual-pairing-code-input-button">
 								<h4 id="extension-matter-adapter-show-more-pairing-options-button">Enter pairing code</h4>
@@ -407,27 +615,7 @@
 							</div>
 							// -->
 
-							<div id="extension-matter-adapter-pairing-qr-area">
-
-								<div id="extension-matter-adapter-pairing-scanner-container"></div>
-
-								<div id="extension-matter-adapter-desktop-qr">
-									<p>Scan this QR code with your phone to get started:</p>
-									<div id="extension-matter-adapter-qr-code"></div>
-									<div id="extension-matter-adapter-qr-code-url-wrapper">
-										<a id="extension-matter-adapter-qr-scan-link" href="https://www.candlesmarthome.com/qr"><span id="extension-matter-adapter-short-qr-scan-url">candlesmarthome.com/qr</span></a>
-									</div>
-								</div>
-
-								<div id="extension-matter-adapter-mobile-qr">
-									<p>Open the Candle QR code scanner to find the pairing code. You will have to grant permission to use your camera.</p>
-									<div id="extension-matter-adapter-mobile-qr-button">
-										<a id="extension-matter-adapter-mobile-qr-scan-link" href="https://www.candlesmarthome.com/qr" target="_blank"><span id="extension-matter-adapter-mobile-short-qr-scan-url">candlesmarthome.com/qr</span></a>
-									</div>
-								</div>
-
-								
-							</div>
+							
 
 
 							<!--
@@ -458,7 +646,7 @@
 						</div>
 
 
-						<div id="extension-matter-adapter-pairing-start-area" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+						<div id="extension-matter-adapter-pairing-start-area" class="extension-matter-adapter-area extension-matter-adapter-hidden extension-matter-adapter-hide-while-pairing-done">
 							<h4>Ready to pair</h4>
 							<p>Pairing code: <span id="extension-matter-adapter-pairing-start-area-pairing-code">Error!</span></p>
 
@@ -477,21 +665,24 @@
 								</div>
 							</div>
 
-							<p style="margin-top:4rem">How does this device communicate?</p>
-							<form class="extension-matter-adapter-radio-buttons-container">
-								<label>
-									<input type="radio" name="extension-matter-adapter-wireless-type" checked/>
-									<span>I don't know</span>
-								</label>
-								<label>
-									<input type="radio" name="extension-matter-adapter-wireless-type"/>
-									<span>Thread</span>
-								</label>
-								<label>
-									<input type="radio" name="extension-matter-adapter-wireless-type"/>
-									<span>WiFi</span>
-								</label>
-							</form>
+							<div id="extension-matter-adapter-wireless-type-wireless-question-container" class="extension-matter-adapter-show-if-thread-running">
+								<p style="margin-top:4rem">How does this device communicate?</p>
+								<form class="extension-matter-adapter-radio-buttons-container">
+									<label>
+										<input type="radio" name="extension-matter-adapter-wireless-type" checked value="unknown">
+										<span>I don't know</span>
+									</label>
+									<label>
+										<input type="radio" name="extension-matter-adapter-wireless-type"  value="thread">
+										<span>Thread</span>
+									</label>
+									<label>
+										<input type="radio" name="extension-matter-adapter-wireless-type"  value="wifi">
+										<span>WiFi</span>
+									</label>
+								</form>
+							</div>
+							
 
 
 
@@ -510,7 +701,7 @@
 						</div>
 
 						<div id="extension-matter-adapter-pairing-busy-step">
-							<div id="extension-matter-adapter-busy-pairing-indicator" class="extension-matter-adapter-area">
+							<div id="extension-matter-adapter-busy-pairing-indicator" class="extension-matter-adapter-area extension-matter-adapter-show-while-busy-pairing extension-matter-adapter-pairing-hide-while-pairing-done">
 								<div class="extension-matter-adapter-spinner">
 									<div></div><div></div><div></div><div></div>
 								</div>
@@ -520,7 +711,13 @@
 								<p id="extension-matter-adapter-wifi-restore-countdown" style="text-align:center"></p>
 								<button id="extension-matter-adapter-abort-pairing-button" class="text-button extension-matter-adapter-show-if-busy-pairing">Abort pairing</button>
 							</div>
-							<div id="extension-matter-adapter-pairing-failed-hint" class="extension-matter-adapter-area extension-matter-adapter-error extension-matter-adapter-hidden">
+
+							<div id="extension-matter-adapter-pairing-timeout-hint" class="extension-matter-adapter-area extension-matter-adapter-error extension-matter-adapter-pairing-hide-while-pairing-done">
+								<h4>Pairing is taking too long...</h4>
+								<p>The pairing process hasn't responded in over 90 seconds. You may want to abort the process. If this keeps happening, try rebooting the controller.</p>
+							</div>
+
+							<div id="extension-matter-adapter-pairing-failed-hint" class="extension-matter-adapter-area extension-matter-adapter-error extension-matter-adapter-hidden extension-matter-adapter-pairing-hide-while-busy-pairing extension-matter-adapter-pairing-show-while-pairing-done">
 								<h4>Pairing failed</h4>
 								<p>Try pressing the "Start pairing" button again to give it another go.</p>
 								<p>Try setting the device type to "I don't know".</p>
@@ -531,7 +728,7 @@
 									<button id="extension-matter-adapter-pairing-failed-try-again-button" class="text-button">Try again</button>
 								</div>
 							</div>
-							<div id="extension-matter-adapter-pairing-success-hint" class="extension-matter-adapter-area extension-matter-adapter-success extension-matter-adapter-hidden">
+							<div id="extension-matter-adapter-pairing-success-hint" class="extension-matter-adapter-area extension-matter-adapter-success extension-matter-adapter-hidden extension-matter-adapter-hide-while-busy-pairing extension-matter-adapter-pairing-show-while-pairing-done">
 								<h4>Pairing complete</h4>
 								<p>The next step is to accept the thing onto the Candle controller.</p>
 								<div class="extension-matter-adapter-align-right">
@@ -615,6 +812,7 @@
 		<div id="extension-matter-adapter-original-item" class="extension-matter-adapter-item">
 			<div class="extension-matter-adapter-item-header extension-matter-adapter-flex-wrap-when-narrow">
 				<div class="extension-matter-adapter-item-setter">
+					<div class="extension-matter-adapter-item-node-id extension-matter-adapter-show-if-developer"></div>
 					<div class="extension-matter-adapter-line1">
 						<div class="extension-matter-adapter-icon">
 						</div>

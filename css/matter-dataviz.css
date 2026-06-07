@@ -55,8 +55,10 @@
 }
 
 :root {
+  /*
   --extension-matter-adapter-viz-font-display: 'Outfit', sans-serif;
   --extension-matter-adapter-viz-font-mono: 'DM Mono', monospace;
+  */
   --extension-matter-adapter-viz-radius: 12px;
   --extension-matter-adapter-viz-radius-sm: 8px;
   --extension-matter-adapter-viz-radius-lg: 16px;
@@ -396,11 +398,7 @@ body{
   border-top: none;
   border-radius: 0 0 var(--extension-matter-adapter-viz-radius-lg) var(--extension-matter-adapter-viz-radius-lg);
   overflow: hidden;
-  box-shadow:
-    0 0 0 1px rgba(34, 211, 238, 0.03),
-    0 20px 60px rgba(0, 0, 0, 0.4),
-    0 0 80px rgba(34, 211, 238, 0.02);
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 16;
 }
 
 .extension-matter-adapter-viz-graph-wrapper svg {
@@ -961,3 +959,17 @@ input[type="range"] {
 }
 
 .extension-matter-adapter-viz-skip-to-content:focus { top: 12px; }
+
+
+#extension-matter-adapter-viz-graph-no-data-hint{
+  padding:2rem;
+  width:100%;
+  min-height:40rem;
+  box-sizing:border-box;
+  flex-direction:column;
+}
+#extension-matter-adapter-viz-graph-no-data-hint > p{
+  max-width:40rem;
+  text-align: center;
+  opacity:.7;
+}

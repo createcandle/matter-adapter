@@ -171,6 +171,8 @@ class MatterAPIHandler(APIHandler):
                         last_update_check_response_seconds_ago = int(time.time()) - self.adapter.last_matter_update_check_response_timestamp
 
                         if self.adapter.thread_running == True and self.adapter.busy_pairing == False:
+                            if self.DEBUG:
+                                print("api_handler: get_main_poll: calling update_thread_state_info")
                             self.adapter.update_thread_state_info()
 
                         has_thread_dataset = False
@@ -245,7 +247,6 @@ class MatterAPIHandler(APIHandler):
                                       'last_received_server_info': self.adapter.last_received_server_info,
                                       'noise_delta': self.adapter.noise_delta,
                                       'timeout_delta': self.adapter.timeout_delta,
-                                      'thread_diagnostics': self.adapter.thread_diagnostics,
                                       'old_pairing_codes_count': len(self.adapter.persistent_data['pairing_codes'].keys()),
                                       'last_update_check_seconds_ago': last_update_check_seconds_ago,
                                       'last_update_check_response_seconds_ago': last_update_check_response_seconds_ago,
@@ -253,6 +254,7 @@ class MatterAPIHandler(APIHandler):
                                       'thread_state_info':self.adapter.thread_state_info,
                                       'thread_netdata_info':self.adapter.thread_netdata_info,
                                       'has_thread_dataset':has_thread_dataset,
+                                      'reconnected_devices':self.adapter.reconnected_devices
                                       
                                       })
                         )
@@ -335,10 +337,85 @@ class MatterAPIHandler(APIHandler):
                         )
                         
                         
+
+                    elif action == 'get_map':
+                        if self.DEBUG:
+                            print("got request to get_map")
+                        state = False
+                        eid_cache = {}
+                        my_rloc16 = None
+                        my_extaddr = None
+                        my_neighbortable = []
+
+                        #self.adapter.get_diagnostics()
+                        #time.sleep(1)
+                        
+                        try:
+                            eid_cache_check = self.adapter.run_ot_ctl_command('eidcache')
+                            rloc16_check = self.adapter.run_ot_ctl_command('rloc16')
+                            extaddr_check = self.adapter.run_ot_ctl_command('extaddr')
+                            neighbortable_check = self.adapter.run_ot_ctl_command('neighbor table')
+                            if isinstance(eid_cache_check,str) and isinstance(rloc16_check,str) and isinstance(neighbortable_check,str) and isinstance(extaddr_check,str):
+                                
+                                for line in eid_cache_check.splitlines():
+                                    line_parts = line.split(' ')
+                                    if self.DEBUG:
+                                        print("get_map: eid_cache line_parts: ", line_parts)
+                                    if len(line_parts) > 2:
+                                        eid_cache[line_parts[0]] = line_parts[1]
+                                if self.DEBUG:
+                                    print("eid_cache: ", eid_cache)
+
+                                for line in neighbortable_check.splitlines():
+                                    if '0x' in line:
+                                        line_parts = line.split('|')
+                                        if self.DEBUG:
+                                            print("get_map: neighbortable line_parts: ", line_parts)
+                                        if len(line_parts) > 6:
+                                            if str(line_parts[6]).strip().isdigit():
+                                                my_neighbortable.append({"rloc16":str(line_parts[2]).strip().replace('0x',''), "lqi":int(line_parts[6].strip())})
+                                            else:
+                                                if self.DEBUG:
+                                                    print("get_map: neighbortable line_parts 6 (LQI) was not a digit: -->" + str(line_parts[6]).strip() + "<--")
+                                if self.DEBUG:
+                                    print("my_neighbortable: ", my_neighbortable)
+
+                                my_rloc16 = str(rloc16_check).replace('Done','').rstrip().strip()
+                                if self.DEBUG:
+                                    print("my_rloc16: -->" + str(my_rloc16) + "<--")
+
+                                my_extaddr = str(extaddr_check).replace('Done','').rstrip().strip()
+                                my_extaddr = int(my_extaddr, 16) # hex to dec
+                                if self.DEBUG:
+                                    print("my_extaddr: -->" + str(my_extaddr) + "<--")
+
+
+                                if my_rloc16.isdigit():
+                                    if self.DEBUG:
+                                        print("OK, my_rloc16 is a digit")
+                                    state = True
+
+                        except Exception as ex:
+                            print("caught error handling get_map request: ", ex)
+                        
+
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({
+                            'state':state,
+                            'thread_diagnostics': self.adapter.thread_diagnostics,
+                            'eid_cache':eid_cache,
+                            'my_rloc16':my_rloc16,
+                            'my_extaddr':my_extaddr,
+                            'my_neighbortable':my_neighbortable
+                          }),
+                        )
+
                     elif action == 'check_for_updates':
                         state = False
                         if self.DEBUG:
-                                print("got request to check_for_updates")
+                            print("got request to check_for_updates")
                         try:
                             if self.adapter.matter_client_connected and (self.adapter.last_matter_update_check_timestamp < time.time() - 300 or (self.DEBUG and self.adapter.last_matter_update_check_timestamp < time.time() - 10)):
                                 self.adapter.last_matter_update_check_timestamp = int(time.time())

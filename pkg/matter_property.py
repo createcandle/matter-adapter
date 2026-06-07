@@ -29,6 +29,8 @@ except Exception as ex:
 
 from .matter_util import *
 
+import traceback
+
     
 #
 # PROPERTY
@@ -367,6 +369,7 @@ class MatterProperty(Property):
         
         except Exception as ex:
             print("property: set_value caught error: " + str(ex))
+            print(traceback.format_exc())
         
         if self.DEBUG:
             self.device.adapter.should_save = True
@@ -489,6 +492,7 @@ class MatterProperty(Property):
             
         except Exception as ex:
             print("ERROR: property: update: caught error trying to wrangle value based on attribute_code: ", self.id, ex)
+            print(traceback.format_exc())
             
         
         
@@ -524,6 +528,7 @@ class MatterProperty(Property):
                         
         except Exception as ex:
             print("ERROR: property: update: caught error while trying ensure value is in correct format: ", self.id, ex)
+            print(traceback.format_exc())
         
         if self.DEBUG:
             print("PROPERTY UPDATE: FINAL VALUE: ", type(value), value)

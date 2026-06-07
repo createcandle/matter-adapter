@@ -25,6 +25,10 @@ Matter addon for Candle Controller.
     SET_DEFAULT_FABRIC_LABEL = "set_default_fabric_label"
     SET_ACL_ENTRY = "set_acl_entry"
     SET_NODE_BINDING = "set_node_binding"
+
+    discoverCommissionableNodes
+    getMatterFabrics
+    removeMatterFabric
 """
 
 
@@ -320,7 +324,7 @@ class MatterAdapter(Adapter):
         self.should_create_thread_mesh = False
         self.otbr_started = False # This is the first stage, done by otbr-agent
 
-        self.thread_set_active = False # This is the second stage, managed by ot-ctl. TODO; This variable is not really used for anything, and is just confusing now
+        self.thread_set_active = False # This is the second stage, managed by ot-ctl. TODO This variable is not really used for anything, and is just confusing now
         self.informed_matter_server_about_thread = False
         self.thread_running = False # becomes true when Thread is completely up
         self.thread_error = ''
@@ -355,11 +359,13 @@ class MatterAdapter(Adapter):
         self.commands_lookup = {} # will be filled as needed by calling get_commands_for_cluster_id(). The first key is the cluster_name
 
 
+
         self.should_start_matter_time = 0 # experiment to wait a while before starting matter, and give thread some time to set itself up first.
         self.should_start_matter = False
         self.matter_server_running = False
         self.matter_running = False
         self.default_matter_fabric_name = "Home"
+        self.matter_fabrics = None
         self.matter_stopping_timestamp = 0
         self.get_ips_interval = 600 # every 10 minutes request all the IP addresses
         self.last_get_ips_timestamp = time.time()
@@ -569,7 +575,7 @@ class MatterAdapter(Adapter):
 
         if not 'leaderweight' in self.persistent_data:
             self.persistent_data['leaderweight'] = 255
-
+            self.should_save = True
         
 
 
@@ -1443,15 +1449,16 @@ class MatterAdapter(Adapter):
                             time.sleep(1)
                             try:
                                 # Each loop parse at most 1000 OTBR stdout messages
-                                for i in range(1000):
-                                    msg = self.otbr_agent_process.stdout.readline()
-                                    decoded_message = str(msg.decode()).strip().rstrip()
-                                    # note to self: do not put a print statement here
-                                    if len(decoded_message) > 1:
-                                        self.otbr_stdout_messages.append(decoded_message)
-                                    elif decoded_message == '':
-                                        print("number of lines read from otbr_agent_process stdout: ", i)
-                                        break
+                                if self.otbr_agent_process:
+                                    for i in range(1000):
+                                        msg = self.otbr_agent_process.stdout.readline()
+                                        decoded_message = str(msg.decode()).strip().rstrip()
+                                        # note to self: do not put a print statement here
+                                        if len(decoded_message) > 1:
+                                            self.otbr_stdout_messages.append(decoded_message)
+                                        elif decoded_message == '':
+                                            print("number of lines read from otbr_agent_process stdout: ", i)
+                                            break
 
                                 if len(self.otbr_stdout_messages):
                                     self.parse_otbr_messages()
@@ -2657,20 +2664,23 @@ class MatterAdapter(Adapter):
                     self.matter_running = True
                     if 'data' in message:
                         self.last_received_server_info = message['data']
+                        #self.matter_fabrics = message['data']
                     """
                     "event": "server_info_updated",
-                        "data": {
-                            "fabric_id": 1,
-                            "compressed_fabric_id": 9642393818747714247,
-                            "schema_version": 11,
-                            "min_supported_schema_version": 9,
-                            "sdk_version": "2025.7.0",
-                            "wifi_credentials_set": true,
-                            "thread_credentials_set": false,
-                            "bluetooth_enabled": true
-                        }
+                    "data": {
+                        "fabric_id": 1,
+                        "compressed_fabric_id": 9642393818747714247,
+                        "schema_version": 11,
+                        "min_supported_schema_version": 9,
+                        "sdk_version": "2025.7.0",
+                        "wifi_credentials_set": true,
+                        "thread_credentials_set": false,
+                        "bluetooth_enabled": true
+                    }
 
                     """
+
+                    #self.get_matter_fabrics()
 
 
                 elif message['event'] == 'node_added':
@@ -2764,7 +2774,11 @@ class MatterAdapter(Adapter):
                     if self.DEBUG:
                         self.s_print("\n\nPARSING MESSAGE WITH A MESSAGE_ID\n\n")
 
-                    if message['message_id'] == "commission_with_code":
+                    if message['message_id'] == "get_matter_fabrics":
+                        if self.DEBUG:
+                            self.s_print("OK! get_matter_fabrics was succesfull:  message: ", message)
+
+                    elif message['message_id'] == "commission_with_code":
                         if self.DEBUG:
                             self.s_print("OK! Device was paired! result: ", message['result'])
                         #self.discovered = message['result']
@@ -2785,12 +2799,27 @@ class MatterAdapter(Adapter):
                     elif message['message_id'] == 'set_wifi_credentials':
                         if self.DEBUG:
                             self.s_print("OK WIFI CREDENTIALS SET")
-
-                    elif message['message_id'] == 'discover' and 'result' in message.keys():
+                    
+                    # discoverCommissionableNodes
+                    elif message['message_id'] == 'discover_commissionable_nodes':
                         if self.DEBUG:
-                            self.s_print("OK DISCOVER RESPONSE")
-                        self.discovered = message['result']
+                            self.s_print("OK DISCOVER_COMMISSIONABLE_NODES RESPONSE: ", message)
                         self.busy_discovering = False
+                        if 'result' in message.keys():
+                            self.discovered = message['result']
+
+                    #elif message['message_id'] == 'discover':
+                    #    if self.DEBUG:
+                    #        self.s_print("OK DISCOVER RESPONSE: ", message)
+                    #    self.busy_discovering = False
+                    #    if 'result' in message.keys():
+                    #        self.discovered = message['result']
+                        
+
+                    
+                    elif message['message_id'] == 'get_diagnostics':
+                        if self.DEBUG:
+                            self.s_print("get_diagnostics was successful.  message: ", message)
 
                     elif message['message_id'] == 'commission_with_code':
                         if self.DEBUG:
@@ -2802,6 +2831,25 @@ class MatterAdapter(Adapter):
                         if self.DEBUG:
                             self.s_print("\n\nNew device paired successfully\n\n")
 
+                    elif message['message_id'].startswith('get_node_ip_addresses_'):
+                        if self.DEBUG:
+                            self.s_print("\n\nreceived successful get_node_ip_addresses information\n\n")
+                            self.s_print("successful check_node_update message: ", message)
+                        if 'result' in message:
+                            node_id = str(message['message_id']).replace('get_node_ip_addresses_','')
+                            if node_id.isdigit():
+                                node_id = int(node_id)
+                                if self.DEBUG:
+                                    print("get_node_ip_addresses success:  atttempting to add/update ip_addresses for node_id: ", str(node_id))
+                                for thing_id in self.persistent_data['nodez']:
+                                    if 'node_id' in self.persistent_data['nodez'][str(thing_id)] and str(self.persistent_data['nodez'][str(thing_id)]['node_id']) == str(node_id):
+                                        if self.DEBUG:
+                                            print("get_node_ip_addresses success:  OK, adding/updating ip_addresses for thing_id", str(thing_id))
+                                        self.persistent_data['nodez'][str(thing_id)]['ip_addresses'] = message['result']
+                                        self.persistent_data['nodez'][str(thing_id)]['ip_addresses_timestamp'] = int(time.time())
+                                        break
+                        self.last_matter_ip_check_response_timestamp = int(time.time())
+                        
                     elif message['message_id'] == 'get_nodes':
                         if 'result' in message:
                             if self.DEBUG:
@@ -2840,6 +2888,14 @@ class MatterAdapter(Adapter):
                                     break
                         """
                         
+
+                    elif message['message_id'].startswith('update_node_'):
+                        if self.DEBUG:
+                            self.s_print("\n\nUPDATE NODE successful\n\n")
+                        if self.DEBUG:
+                            self.s_print("SUCCESFUL UPDATE MESSAGE: \n" + str(json.dumps(message,indent=4)))
+
+
 
                     elif message['message_id'].startswith('remove_node_'):
                         if self.DEBUG:
@@ -2884,24 +2940,6 @@ class MatterAdapter(Adapter):
                         #self.parse_nodes()
                         #self.get_nodes(True)
 
-
-                    
-
-                    elif message['message_id'].startswith('get_node_ip_addresses_'):
-                        if self.DEBUG:
-                            self.s_print("\n\nreceived successful get_node_ip_addresses information\n\n")
-                            self.s_print("successful check_node_update message: ", message)
-                        node_id = str(message['message_id']).replace('get_node_ip_addresses_','')
-                        if node_id.isdigit():
-                            node_id = int(node_id)
-                            for thing_id in self.persistent_data['nodez']:
-                                if 'node_id' in self.persistent_data['nodez'][str(thing_id)] and isinstance(self.persistent_data['nodez'][str(thing_id)]['node_id'],int) and self.persistent_data['nodez'][str(thing_id)]['node_id'] == node_id:
-                                    if self.DEBUG:
-                                        print("get_node_ip_addresses:  thing_id", str(thing_id))
-                                    self.persistent_data['nodez'][str(thing_id)]['ip_addresses'] = message
-                                    self.persistent_data['nodez'][str(thing_id)]['ip_addresses']['last_ip_check_timestamp'] = int(time.time())
-                                    break
-                        self.last_matter_ip_check_response_timestamp = int(time.time())
 
                     elif message['message_id'].startswith('check_node_update_'):
                         if self.DEBUG:
@@ -2949,6 +2987,12 @@ class MatterAdapter(Adapter):
                     #elif ('_type' in message and message['_type'].endswith("message.EventMessage")) or 'message_id' in message:
 
 
+
+
+                #
+                #  HANDLE MATTER SERVER FAILURES
+                #
+
                 # Handle error messages
                 elif (('_type' in message and message['_type'].endswith("message.ErrorResultMessage")) or 'message_id' in message) and 'error_code' in message:
                     if self.DEBUG:
@@ -2963,7 +3007,15 @@ class MatterAdapter(Adapter):
                         UNKNOWN_ERROR = 99
                     """
 
-                    if message['message_id'] == "device_command":
+                    if message['message_id'] == "get_matter_fabrics":
+                        if self.DEBUG:
+                            self.s_print("get_matter_fabrics FAILED:  message: ", message)
+
+                    elif message['message_id'] == 'get_diagnostics':
+                        if self.DEBUG:
+                            self.s_print("get_diagnostics FAILED")
+
+                    elif message['message_id'] == "device_command":
                         if self.DEBUG:
                             self.s_print("Error was from trying to change a device value")
 
@@ -2982,11 +3034,23 @@ class MatterAdapter(Adapter):
                         if self.DEBUG:
                             self.s_print("timesync_command failed: ", message)
 
+                    # discoverCommissionableNodes
+                    elif message['message_id'] == 'discover_commissionable_nodes':
+                        if self.DEBUG:
+                            self.s_print("DISCOVER_COMMISSIONABLE_NODES FAILED.  Message: ", message)
+                        self.busy_discovering = False
+
                     elif message['message_id'].startswith('check_node_update_'):
                         if self.DEBUG:
                             self.s_print("\n\nchecking node firmware update apparently failed\n\n")
                             self.s_print("failed check_node_update message: ", message)
                         self.last_matter_update_check_response_timestamp = int(time.time())
+
+                    elif message['message_id'].startswith('update_node_'):
+                        if self.DEBUG:
+                            self.s_print("\n\nUPDATE NODE FAILED\n\n")
+                        if self.DEBUG:
+                            self.s_print("FAILED UPDATE MESSAGE: \n" + str(json.dumps(message,indent=4)))
 
                     elif message['message_id'].startswith('get_node_ip_addresses_'):
                         if self.DEBUG:
@@ -3179,8 +3243,8 @@ class MatterAdapter(Adapter):
                     self.s_print("discover: Client is connected, so sending discover command to Matter server")
 
                 message = {
-                        "message_id": "discover",
-                        "command": "discover",
+                        "message_id": "discover_commissionable_nodes",
+                        "command": "discover_commissionable_nodes",
                         "args":{}
                       }
 
@@ -4898,6 +4962,10 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
             if 'available' in node and isinstance(node['available'],bool):
                 available = node['available']
 
+            is_bridge = False
+            if 'is_bridge' in node and isinstance(node['is_bridge'],bool):
+                is_bridge = node['is_bridge']
+
             
             if 'attributes' in node:
                 #if self.DEBUG:
@@ -4930,10 +4998,18 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                 #  PROCESS NODE
                 #  This util function add human-readable attribute codes
                 #
+
+                if self.DEBUG:
+                    self.s_print("parse_node: node before: \n", json.dumps(node,indent=2))
+                    print("\n\n-------------------\n\n")
+
                 process_node(node) # util function that adds human readable attributes
 
-                #if self.DEBUG:
-                #    self.s_print("parse_node: node after: \n", json.dumps(node,indent=2))
+                if self.DEBUG:
+                    self.s_print("parse_node: node after: \n", json.dumps(node,indent=2))
+
+                
+
 
             else:
                 if self.DEBUG:
@@ -4995,12 +5071,26 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                 print("\nself.node_thing_id_lookup: \n", json.dumps(self.node_thing_id_lookup,indent=2))
                 print("\nparse_node:  node_id,thing_id: \n", node_id, " --> ", thing_id, "\n")
 
+
+            if available and 'attributes' in node and 'Endpoint0' in node['attributes']:
+                print("ThreadNetworkDiagnostics:  well, attributes exists..")
+                print("node['attributes'] keys: ", node['attributes']['Endpoint0'].keys())
+            if available and 'attributes' in node and 'Endpoint0' in node['attributes'] and 'ThreadNetworkDiagnostics' in node['attributes']['Endpoint0']:
+                if self.DEBUG:
+                    print("parse_node: spotted ThreadNetworkDiagnostics, adding it to self.thread_diagnostics for thing_id: ", thing_id)
+                self.thread_diagnostics[thing_id] = node['attributes']['Endpoint0']['ThreadNetworkDiagnostics']
+                self.thread_diagnostics[thing_id]['is_bridge'] = is_bridge
+                if 'GeneralDiagnostics' in node['attributes']['Endpoint0'] and 'NetworkInterfaces' in node['attributes']['Endpoint0']['GeneralDiagnostics']:
+                    if self.DEBUG:
+                        print("parse_node: spotted GeneralDiagnostics, adding it to self.general_diagnostics for thing_id: ", thing_id)
+                    self.thread_diagnostics[thing_id]['NetworkInterfaces'] = node['attributes']['Endpoint0']['GeneralDiagnostics']['NetworkInterfaces']
             
             
             if available and thing_id not in self.reconnected_devices:
                 self.reconnected_devices[thing_id] = {'node_id': int(node_id), 'thing_id':thing_id, 'reconnected_timestamp':int(time.time()), 'available':available}
                 if self.DEBUG:
                     print("self.reconnected_devices is now: ", json.dumps(self.reconnected_devices,indent=2))
+                self.get_node_ip(node_id)
 
             if self.DEBUG:
                 self.s_print("\n\nparse_node: thing_id: " + str(thing_id))
@@ -5104,6 +5194,56 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
 
 
+    def get_matter_fabrics(self):
+        if self.DEBUG:
+            self.s_print("in get_matter_fabrics")
+
+        try:
+            if self.matter_client_connected and self.matter_running:
+
+                message = {
+                            "message_id": "get_matter_fabrics",
+                            "command": "get_matter_fabrics",
+                            "args": {}
+                        }
+
+                if self.DEBUG:
+                    self.s_print("\nget_matter_fabrics: sending message to Matter.server: \n", json.dumps(message,indent=4))
+
+                json_message = json.dumps(message)
+                self.ws.send(json_message)
+
+        except Exception as ex:
+            if self.DEBUG:
+                print("caught error in get_matter_fabrics: ", ex)
+
+
+
+    def get_diagnostics(self):
+        if self.DEBUG:
+            self.s_print("in get_diagnostics")
+
+        try:
+            if self.matter_client_connected and self.matter_running:
+
+                message = {
+                            "message_id": "get_diagnostics",
+                            "command": "diagnostics",
+                            "args": {}
+                        }
+
+                if self.DEBUG:
+                    self.s_print("\nget_diagnostics: sending message to Matter.server: \n", json.dumps(message,indent=4))
+
+                json_message = json.dumps(message)
+                self.ws.send(json_message)
+
+        except Exception as ex:
+            if self.DEBUG:
+                print("caught error in get_diagnostics: ", ex)
+
+
+
 
     #GET_NODE_IP_ADDRESSES
 
@@ -5132,18 +5272,45 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
                         json_message = json.dumps(message)
                         self.ws.send(json_message)
-                        time.sleep(1)
+                        time.sleep(0.1)
                     else:
                         if self.DEBUG:
                             self.s_print("\nERROR: get_node_ips: invalid node_id for thing_id: ", thing_id)
                 
         except Exception as ex:
-            print("caught error in get_node_ips: ", ex)
+            if self.DEBUG:
+                print("caught error in get_node_ips: ", ex)
 
 
+    def get_node_ip(self, node_id):
+        if self.DEBUG:
+            self.s_print("in get_node_ip.  node_id: ", node_id)
+        try:
+            
+            if str(node_id).isdigit() and self.matter_client_connected and self.matter_running and 'nodez' in self.persistent_data:
+                for thing_id in self.persistent_data['nodez']:
+                    if 'node_id' in self.persistent_data['nodez'][str(thing_id)] and isinstance(self.persistent_data['nodez'][str(thing_id)]['node_id'],int) and str(self.persistent_data['nodez'][str(thing_id)]['node_id']) == str(node_id):
+                        
+                        message_id = "get_node_ip_addresses_" + str(self.persistent_data['nodez'][str(thing_id)]['node_id'])
+                        
+                        message = {
+                                    "message_id": message_id,
+                                    "command": "get_node_ip_addresses",
+                                    "args": {
+                                        "node_id": int(self.persistent_data['nodez'][str(thing_id)]['node_id'])
+                                    }
+                                }
 
+                        if self.DEBUG:
+                            self.s_print("\nget_node_ip: sending message to Matter.server: \n", json.dumps(message,indent=4))
 
+                        json_message = json.dumps(message)
+                        self.ws.send(json_message)
 
+                        break
+        except Exception as ex:
+            if self.DEBUG:
+                print("caught error in get_node_ip: ", ex)
 
 
 
@@ -5186,14 +5353,14 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
     def update_node(self,node_id):
         if self.DEBUG:
-            print("in update_node:  node_id: ", node_id)
+            print("\nin UPDATE_NODE:  node_id: ", node_id, "\n")
         
         try:
             if isinstance(node_id,(str,int)):
                 if self.matter_client_connected and self.matter_running and 'nodez' in self.persistent_data:
                     message = {
                                 "message_id": "update_node_" + str(node_id),
-                                "command": "check_node_update",
+                                "command": "update_node",
                                 "args": {
                                     "node_id": int(node_id)
                                 }

@@ -581,9 +581,35 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	background-color:transparent;
 }
 
+
+.extension-matter-adapter-item:not(.extension-matter-adapter-item-reconnected){
+	opacity:.5;
+}
+
 .extension-matter-adapter-line2{
     margin-top:1rem;
     opacity:.65;
+}
+.extension-matter-adapter-line2 > div{
+	margin:1rem 0;
+}
+
+.extension-matter-adapter-item-ip-addresses > *{
+	display:inline-block;
+	margin:0 .5rem;
+}
+.extension-matter-adapter-item-ip-addresses > a{
+	color:white;
+	opacity:.7;
+}
+.extension-matter-adapter-item-ip-addresses > a:hover{
+	opacity:1;
+}
+.extension-matter-adapter-item-ip-addresses:empty{
+	display:none;
+}
+.extension-matter-adapter-item-ip-addresses:not(:empty)::before{
+    content:'IP addresses: ';
 }
 .extension-matter-adapter-item-software-version:not(:empty)::before{
     content:'Software version: ';

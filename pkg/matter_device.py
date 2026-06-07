@@ -400,6 +400,9 @@ class MatterDevice(Device):
             #clusters_to_ignore = ['OtaSoftwareUpdateRequestor','AccessControl','Descriptor','IcdManagement','OperationalCredentials','WiFiNetworkDiagnostics','ThreadNetworkDiagnostics','AdministratorCommissioning','NetworkCommissioning','GeneralCommissioning','GroupKeyManagement','Identify','Groups']
 
 
+            
+
+
 
             #
             # PREPARATION LOOP
@@ -443,6 +446,7 @@ class MatterDevice(Device):
                     for attribute_code in attribute_code_list:
                         if '.Attributes.' in str(attribute_code):
                             cluster_name = str(attribute_code.split('.Attributes.')[0])
+
                             if not cluster_name in available_clusters:
                                 available_clusters.append(cluster_name)
                                 if cluster_name in self.adapter.events_lookup:
@@ -637,6 +641,10 @@ class MatterDevice(Device):
                                         # Save software version to nodez dict
                                         if attribute_code == 'BasicInformation.Attributes.SoftwareVersionString' and isinstance(node['attributes_list'][endpoint_name][attribute_code],str):
                                             if not 'software_version' in self.adapter.persistent_data['nodez'][device_id]:
+                                                self.adapter.should_save = True
+                                            elif 'software_version' in self.adapter.persistent_data['nodez'][device_id] and str(self.adapter.persistent_data['nodez'][device_id]['software_version']) != str(node['attributes_list'][endpoint_name][attribute_code]):
+                                                if self.DEBUG:
+                                                    print("\n\nDEVICE firmware SOFTWARE VERSION HAD CHANGED!: \n", str(self.adapter.persistent_data['nodez'][device_id]['software_version']), " -> ", str(node['attributes_list'][endpoint_name][attribute_code]), "\n\n")
                                                 self.adapter.should_save = True
                                             self.adapter.persistent_data['nodez'][device_id]['software_version'] = str(node['attributes_list'][endpoint_name][attribute_code])
                                             if self.DEBUG:

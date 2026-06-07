@@ -58,8 +58,15 @@
             this.start_thread_radio_wizard_button_el = null;
 			this.started_thread_radio_wizard = false;
 
+            this.eid_cache = {};
             this.thread_diagnostics = {};
-            this.previous_thread_diagnostics = '{}';
+            this.general_diagnostics = {};
+            //this.previous_thread_diagnostics = '{}';
+            
+            this.reconnected_devices = {};
+
+            this.my_rloc16 = null;
+            this.my_extaddr = null;
 			
 			if (window.location.protocol.startsWith('https') && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && 'BarcodeDetector' in window) {
 			
@@ -171,9 +178,35 @@
                 //this.view.querySelector('#extension-matter-adapter-tab-button-thread').addEventListener('click', () => {});
                 
                 this.view.querySelector('#extension-matter-adapter-tab-button-map').addEventListener('click', () => {
-                    setTimeout(() => {
-                        this.generate_map();
-                    },100);
+                    
+                    window.API.postJson(
+    					`/extensions/${this.id}/api/ajax`,
+    					{'action':'get_map'}
+                    
+    				).then((body) => {
+                        if(this.debug){
+                            console.warn("matter debug: map: get_map response: ", body);
+                        }
+                        
+                        if(body && typeof body.state == 'boolean' && body.state == true){
+                            if(this.debug){
+                                console.log("matter debug: get_map response was OK");
+                            }
+                            this.parse_body(body);
+                            //this.generate_map();
+                        }
+                        else{
+                            if(this.debug){
+                                console.error("matter debug: get_map failed?");
+                            }
+                        }
+                    
+    				}).catch((err) => {
+    					if(this.debug){
+                            console.error("matter debug: caught error calling get_map: ", err);
+                        }
+    				});
+                    
                     
                 });
                
@@ -487,6 +520,7 @@
                     // https://openthread.io/reference/cli/concepts/netdata.md
 
                     // https://openthread.google.cn/reference/cli/commands
+                    
                     const otbr_commands = [
                             'debug',
                             'state',
@@ -498,7 +532,10 @@
                             'dataset active',
                             'dataset active -x',
                             'dataset meshlocalprefix',
+                            'extaddr',
+                            'eui64',
                             'ipaddr',
+                            'ipmaddr', // multicast addresses
                             'netdata show',
                             'netdata show local',
                             'netstat',
@@ -592,7 +629,7 @@
                             'ipaddr linklocal',
                             'ipaddr add 2001::dead:beef:cafe',
                             'ipaddr del 2001::dead:beef:cafe',
-                            'ipmaddr',
+                            'ipmaddr', // Multicast
                             'ipmaddr llatn',
                             'joiner id',
                             'joiner state',
@@ -708,7 +745,8 @@
                         command_input_el.value = thread_command_select_el.value;
                     });
 
-                    this.view.querySelector('#extension-matter-adapter-thread-command-send-button').addEventListener('click', (event) => {
+
+                    const send_cli_command = () => {
                         const command = command_input_el.value;
                         if(this.debug){
                             console.log("matter adapter debug: clinked on send OTBR command button.   command: ",  command);
@@ -726,7 +764,16 @@
                         .catch((err) => {
                             console.error("caught error sending run_otbr_command: ", err);
                         });
-                        
+                    }
+
+                    command_input_el.addEventListener('keypress', function (e) {
+                        if (e.key === 'Enter') {
+                            send_cli_command();
+                        }
+                    });
+
+                    this.view.querySelector('#extension-matter-adapter-thread-command-send-button').addEventListener('click', (event) => {
+                        send_cli_command();
                     });
                 }
                 
@@ -832,8 +879,8 @@
                         chip_command_input_el.value = chip_command_select_el.value;
                     });
 
-                    const chip_output_el = this.view.querySelector('#extension-matter-adapter-chip-command-output');
-                    this.view.querySelector('#extension-matter-adapter-chip-command-send-button').addEventListener('click', (event) => {
+
+                    const send_chip_cli_command = () => {
                         const chip_command = chip_command_input_el.value;
                         if(this.debug){
                             console.log("matter adapter debug: clinked on send CHIP Tool command button.   chip_command: ",  chip_command);
@@ -855,7 +902,17 @@
                             console.error("caught error sending run_chip_command: ", err);
                             chip_output_el.innerHTML = "Caught error: " + err;
                         });
-                        
+                    }
+
+                    chip_command_input_el.addEventListener('keypress', function (e) {
+                        if (e.key === 'Enter') {
+                            send_chip_cli_command();
+                        }
+                    });
+
+                    const chip_output_el = this.view.querySelector('#extension-matter-adapter-chip-command-output');
+                    this.view.querySelector('#extension-matter-adapter-chip-command-send-button').addEventListener('click', (event) => {
+                        send_chip_cli_command();
                     });
                 }
 
@@ -1917,7 +1974,10 @@
                     else if(typeof starting_info['Thread told how to access the internet'] == 'boolean'){
                         delete starting_info['Thread told how to access the internet'];
                     }
-                    
+                }
+                
+                if(typeof body.reconnected_devices != 'undefined'){
+                    this.reconnected_devices = body.reconnected_devices;
                 }
                 
 
@@ -2215,7 +2275,6 @@
                                 //starting_info_el.innerHTML += '<div class="extension-matter-adapter-flex-between extension-matter-adapter-starting-checklist-item-irrelevant extension-matter-adapter-show-if-developer"><span>Matter server type</span><span>' + body.matter_server_type + '</span></div>';
                             }
                             
-
                             server_info_el.textContent = JSON.stringify(body.last_received_server_info,null,4).replaceAll('{','').replaceAll('}','').replaceAll('"','').replaceAll(',','');
                         }
                     }
@@ -2441,28 +2500,44 @@
                     starting_info['Thread network code loaded'] = body.thread_dataset_loaded;
 				}
 
-				if(typeof body.thread_diagnostics != 'undefined'){
+				if(typeof body.thread_diagnostics != 'undefined' && typeof body.eid_cache != 'undefined' && typeof body.my_neighbortable != 'undefined' && typeof body.my_rloc16 == 'string' && typeof body.my_extaddr != 'undefined'){
                     const stringified_thread_diagnostics = JSON.stringify(body.thread_diagnostics);
                     
+                    this.eid_cache = body.eid_cache;
+                    this.my_neighbortable = body.my_neighbortable;
+                    this.my_rloc16 = body.my_rloc16;
+                    this.my_extaddr = body.my_extaddr;
+                    //this.general_diagnostics = body.general_diagnostics;
                     this.thread_diagnostics = body.thread_diagnostics;
-                    if(this.previous_thread_diagnostics != stringified_thread_diagnostics){
-                        this.previous_thread_diagnostics = stringified_thread_diagnostics;
+                    //if(this.previous_thread_diagnostics != stringified_thread_diagnostics){
+                    //    this.previous_thread_diagnostics = stringified_thread_diagnostics;
 
+                        
                         if(stringified_thread_diagnostics.length > 10){
-                            const map_tab_button_el = this.view.querySelector('#extension-matter-adapter-tab-button-map');
-                            if(map_tab_button_el){
-                                map_tab_button_el.classList.remove('extension-matter-adapter-hidden');
+                            this.generate_map();
+                        }
+                        else{
+                            //this.flash_message('Not enough data to generate a map yet');
+                            const viz_container_el = this.view.querySelector('#extension-matter-adapter-viz-graph-container');
+                            if(viz_container_el){
+                                viz_container_el.innerHTML = '<div id="extension-matter-adapter-viz-graph-no-data-hint" class="extension-matter-adapter-flex-center"><h3>Not enough data to generate a map yet</h3><p>After a reboot it can take a while before paired devices share network diagnostics data.</p></div>';
                             }
                         }
-
+                        
+                    
+                    
+                        /*
                         const map_tab_el = this.view.querySelector('#extension-matter-adapter-tab-map');
                         if(map_tab_el){
                             if(map_tab_el.classList.contains('extension-matter-adapter-hidden') == false){
-                                console.log("got fresh different map data. calling generate_map() again");
-                                this.generate_map(this.debug);
+                                if(this.debug){
+                                    console.log("matter debug: map: got fresh different map data. calling generate_map() again");
+                                }
+                                
                             }
                         }
-                    }
+                        */
+                    //}
                     if(this.debug){
                         console.log("body.thread_diagnostics: ", body.thread_diagnostics);
                     }
@@ -3078,7 +3153,7 @@
 				for( let thing_id in this.nodez ){
 					
     				try{
-                        let title = 'New device';
+                        let title = 'Device';
                         if(typeof this.title_lookup_table[thing_id] != 'undefined'){
                             title = this.title_lookup_table[thing_id];
                         }
@@ -3093,7 +3168,7 @@
                         if(this.debug){
                             console.log("matter adapter debug:  thing_id,item_data: ", thing_id, item_data); // device_id
                         }
-                        //console.log("item_data: ", item_data);
+
 						if(typeof item_data['node_id'] == 'undefined'){
 							if(typeof thing_id == 'string' && thing_id.indexOf('matter-') != -1){
 								item_data['node_id'] = parseInt(thing_id.replace('matter-'));
@@ -3118,7 +3193,15 @@
 							clone.setAttribute('id','extension-matter-adapter-item-' + thing_id);
 							brand_new_item = true;
 						}
-						
+
+                        try{
+                            if(typeof this.reconnected_devices[thing_id] != 'undefined'){
+                                clone.classList.add('extension-matter-adapter-item-reconnected');
+                            }
+                        }
+                        catch(err){
+                            console.error("matter: caught error checking if thing_id is in self.reconnected_devices: ", err);
+                        }
 					
     					//var clone = original.cloneNode(true);
     					//clone.removeAttribute('id');
@@ -3214,72 +3297,83 @@
 
                         // CANCEL UPDATE BUTTON
 
-                        const cancel_update_button = clone.querySelector('.extension-matter-adapter-overlay-cancel-update-button');
-                        cancel_update_button.addEventListener('click', () => {
-                            if(this.debug){
-                                console.log("matter adapter debug: cancel update button has been clicked.  my_node_id: ", my_node_id);
-                            }
-                            let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-                            item_el.classList.remove("extension-matter-adapter-update");
-                            //clone.classList.remove("extension-matter-adapter-update");
-                        });
+                        
 
                         const start_update_button = clone.querySelector('.extension-matter-adapter-overlay-start-update-button');
-                        start_update_button.dataset.node_id = item_data['node_id'];
-                        start_update_button.addEventListener('click', (event) => {
-                            if(this.debug){
-                                console.log("matter adapter debug: clicked on start update button.  my_node_id: ", my_node_id);
-                            }
-                            //console.log("- node_id:" + item_data['node_id']);
-                            //console.log("data attribute: ", event.target.dataset);
-                            //console.log("data attribute: ", event.target.dataset.node_id);
-            
-                            let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-                            item_el.classList.remove("extension-matter-adapter-update");
-                            item_el.classList.add("extension-matter-adapter-updating");
-            
-                            //setTimeout(() => hideBtn(0), 1000);
-            
-                            //setTimeout(function(){ 
-                            //	parent3.classList.remove("updating");
-                            //}, 600000); // after 10 minutes, remove updating styling no matter what
-            
-            
-                            // Disable all update buttons if one has been clicked
-                            var update_buttons = document.getElementsByClassName("extension-matter-adapter-item-update-button");
-                            for(var i = 0; i < update_buttons.length; i++)
-                            {
-                                update_buttons[i].disabled = true;
-                            }
-                            //pre.innerText = "Please wait 10 minutes before you start another update!";
-                            
-                            if(this.debug){
-                                console.warn("matter adapter debug: calling update_node with my_node_id: ", my_node_id);
-                            }
-                            
-                            
-                            // Send node_update request to backend
-                            window.API.postJson(
-                                `/extensions/${this.id}/api/ajax`,
-                                {'action':'update_node','node_id':my_node_id}
+                        if(!start_update_button.getAttribute('data-node_id')){
 
-                            ).then((body) => { 
+                            const cancel_update_button = clone.querySelector('.extension-matter-adapter-overlay-cancel-update-button');
+                            cancel_update_button.addEventListener('click', () => {
                                 if(this.debug){
-                                    console.log("matter adapter debug: update_node response.  node_id,body: ", my_node_id, body);
+                                    console.log("matter adapter debug: cancel update button has been clicked.  my_node_id: ", my_node_id);
                                 }
-                                if(typeof body['state'] == 'boolean' && body['state'] == true){
-                                    this.updating_firmware = true;
-                                    this.flash_message("Succesfully requested firmware update");
+                                let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+                                item_el.classList.remove("extension-matter-adapter-update");
+                                //clone.classList.remove("extension-matter-adapter-update");
+                            });
+
+                            start_update_button.dataset.node_id = item_data['node_id'];
+                            start_update_button.addEventListener('click', (event) => {
+                                if(this.debug){
+                                    console.log("matter adapter debug: clicked on start update button.  my_node_id: ", my_node_id);
+                                }
+                                //console.log("- node_id:" + item_data['node_id']);
+                                //console.log("data attribute: ", event.target.dataset);
+                                //console.log("data attribute: ", event.target.dataset.node_id);
+                
+                                let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+                                item_el.classList.remove("extension-matter-adapter-update");
+                                item_el.classList.add("extension-matter-adapter-updating");
+                
+                                //setTimeout(() => hideBtn(0), 1000);
+                
+                                //setTimeout(function(){ 
+                                //	parent3.classList.remove("updating");
+                                //}, 600000); // after 10 minutes, remove updating styling no matter what
+                
+                
+                                // Disable all update buttons if one has been clicked
+                                var update_buttons = document.getElementsByClassName("extension-matter-adapter-item-update-button");
+                                for(var i = 0; i < update_buttons.length; i++)
+                                {
+                                    update_buttons[i].disabled = true;
+                                }
+                                //pre.innerText = "Please wait 10 minutes before you start another update!";
+                                
+                                if(this.debug){
+                                    console.warn("matter adapter debug: calling update_node with my_node_id: ", my_node_id);
                                 }
                                 
+                                
+                                // Send node_update request to backend
+                                window.API.postJson(
+                                    `/extensions/${this.id}/api/ajax`,
+                                    {'action':'update_node','node_id':my_node_id}
 
-                            }).catch((err) => {
-                                if(this.debug){
-                                    console.error("matter adapter debug: caught error calling update_node: ", err);
-                                }
+                                ).then((body) => { 
+                                    if(this.debug){
+                                        console.log("matter adapter debug: update_node response.  node_id,body: ", my_node_id, body);
+                                    }
+                                    if(typeof body['state'] == 'boolean' && body['state'] == true){
+                                        this.updating_firmware = true;
+                                        this.flash_message("Succesfully requested firmware update");
+                                    }
+                                    
+
+                                }).catch((err) => {
+                                    if(this.debug){
+                                        console.error("matter adapter debug: caught error calling update_node: ", err);
+                                    }
+                                });
+                                
                             });
-                            
-                        });
+                        }
+                        else{
+                            if(this.debug){
+                                console.warn("matter adapter debug: almost added another click event listener to update button!");
+                            }
+                        }
+                        
 
                         
 
@@ -3373,6 +3467,33 @@
     						clone.querySelectorAll('.extension-matter-adapter-matter-id' )[0].appendChild(s);
 						    */
                             
+
+
+                            // IP addresses
+                            if(typeof item_data['ip_addresses'] != "undefined"){
+                                const ip_addresses_el = clone.querySelector('.extension-matter-adapter-item-ip-addresses');
+                                if(ip_addresses_el.innerHTML == ''){
+									if(this.debug){
+	                                    console.log("matter adapter debug: ip_addresses: ", item_data['ip_addresses']);
+	                                }
+                                    for(let ipi = 0; ipi < item_data['ip_addresses'].length; ipi++){
+                                        if(this.kiosk){
+                                            const s = document.createElement("span");
+									        s.textContent = item_data['ip_addresses'][ipi];
+                                            ip_addresses_el.appendChild(s);
+                                        }
+                                        else{
+                                            const a_el = document.createElement("a");
+                                            a_el.setAttribute('href','http://[' + item_data['ip_addresses'][ipi] + ']');
+                                            a_el.setAttribute('target','_blank');
+                                            a_el.setAttribute('rel','norefferer');
+									        a_el.textContent = item_data['ip_addresses'][ipi];
+                                            ip_addresses_el.appendChild(a_el);
+                                        }
+                                    }
+                                }
+    						}
+
                             // Add firmware version
     						if(typeof item_data['software_version'] != "undefined"){
                                 if(clone.querySelector('.extension-matter-adapter-item-software-version' ).innerHTML == ''){
@@ -3382,15 +3503,15 @@
 	                                //this.flash_message(item_data['software_version']);
 	    							const s = document.createElement("span");
 									s.textContent = item_data['software_version'];
-	    							clone.querySelector('.extension-matter-adapter-item-software-version' ).appendChild(s);
+	    							clone.querySelector('.extension-matter-adapter-item-software-version').appendChild(s);
                                 }
-								
     						}
+                            // Add hardware revision
     						if(typeof item_data['hardware_version'] != "undefined"){
     							if(clone.querySelector('.extension-matter-adapter-item-hardware-version' ).innerHTML == ''){
 									const s = document.createElement("span");
 									s.textContent = item_data['hardware_version'];                   
-	    							clone.querySelector('.extension-matter-adapter-item-hardware-version' ).appendChild(s);
+	    							clone.querySelector('.extension-matter-adapter-item-hardware-version').appendChild(s);
 								}
     						}
 						
@@ -7840,8 +7961,8 @@
 		
 		
 		
-		
-		generate_map(this_debug){
+		// eidcache
+		generate_map(){
 			
             const map_container = this.view.querySelector('#extension-matter-adapter-viz-graph-container');
 
@@ -7851,65 +7972,261 @@
             //map_container.innerHTML = '';
 	
 			
-            if(this_debug){
+            if(this.debug){
                 console.log("\n\n\n___________");
-                console.log("generate_map:  this.thread_diagnostics: \n\n", this.previous_thread_diagnostics, "\n\n");
+                console.log("generate_map:  this.general_diagnostics: \n\n", JSON.stringify(this.general_diagnostics,null,4), "\n\n");
+                console.log("generate_map:  this.thread_diagnostics: \n\n", JSON.stringify(this.thread_diagnostics,null,4), "\n\n");
                 console.log("generate_map:  this.all_things: ", this.all_things);
             }
+
+            const this_debug = this.debug;
+
+
+            const thread_id_index = 0;
+            
             
 
 
-            let GRAPH_CONFIG = {
-                title: 'Thread mesh visualizer',
-                categories: {
+/*
+__NeighborTableStruct__
 
-			        'Full node':  { color: '#fbbf24', dim: 'rgba(34,211,238,0.15)' },
-                    'End point': { color: '#38bdf8', dim: 'rgba(56,189,248,0.12)' },
-                    'Other':   { color: '#a78bfa', dim: 'rgba(167,139,250,0.12)' },
+ExtAddress: 17759xxxxx
+Age: 5
+Rloc16: 3772
+LinkFrameCounter: 54673
+MleFrameCounter: 7519
+Lqi: 3
+AverageRssi: -52
+LastRssi: -53
+FrameErrorRate: 0
+MessageErrorRate: 0
+RxOnWhenIdle: TRUE
+FullThreadDevice: TRUE
+FullNetworkData: TRUE
+IsChild: FALSE
 
-                },
-                nodes: [],
-                links: [],
-                physics: {
-                    chargeStrength: -300,
-                    linkDistance: 120,
-                    collisionRadius: 35
-                }
-            }
+# https://community.silabs.com/s/question/0D5Vm000006yjdHKAQ/how-to-map-extaddress-to-matter-node-id?language=en_US
 
-            let added_thread_ids = [];
-            let matter_to_thread_id_lookup = {};
-            for (const [node_id,node_details] of Object.entries(this.thread_diagnostics)) {
-                if(typeof node_details['NeighborTable'] != 'undefined' && node_details['NeighborTable'].length){
-                    const neighbour_one = node_details['NeighborTable'][0];
-                    if(this_debug){
-                        console.log("matter debug: map: neighbour_one (self): ", neighbour_one);
-                    }
-                    const my_thread_id = Object.values(neighbour_one)[0];
-                    console.log("node_id -> my_thread_id: ", node_id, my_thread_id);
-                    if(added_thread_ids.indexOf(my_thread_id) != -1){
-                        console.error("STRANGE, this thread ID was already in added_thread_ids: ", my_thread_id);
-                    }
-                    if(this_debug){
-                        console.log("matter debug: map: get_thing_title_from_thread_id:  node_id, my_thread_id: ", node_id, my_thread_id);
-                    }
-                    if(typeof matter_to_thread_id_lookup[my_thread_id] == 'undefined'){
-                        matter_to_thread_id_lookup['' + my_thread_id] = '' + node_id;
-                        matter_to_thread_id_lookup['' + node_id] = '' + my_thread_id;
-                    }
-                }
-                else{
-                    if(this_debug){
-                        console.error("matter debug: map: STRANGE, this thread_id was already in the lookup table: ", my_thread_id);
-                    }
-                }
-                
-            }
-            if(this_debug){
-                console.warn("matter debug: map: matter_to_thread_id_lookup: ", JSON.stringify(matter_to_thread_id_lookup,null,4));
-            }
-            
-                
+# https://github.com/SiliconLabsSoftware/matter_sdk/blob/11813660464759af3765790d21b95953e9b21797/src/app/clusters/thread-network-diagnostics-server/ThreadNetworkDiagnosticsProvider.cpp#L217
+
+
+I think issue is resolved. 
+The ExtAddress is actually matching the Thread MAC address of the node and that information can be found and matched.
+
+AI says:
+A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be derived from a device's 48-bit MAC address by inserting ff:fe in the middle of the OUI and device-specific parts.
+
+
+
+// Neighbourtable neighbourtable struct
+
+<struct name="NeighborTableStruct">
+      <field id="0" name="ExtAddress" type="uint64">
+        <mandatoryConform/>
+      </field>
+      <field id="1" name="Age" type="uint32">
+        <mandatoryConform/>
+      </field>
+      <field id="2" name="Rloc16" type="uint16">
+        <mandatoryConform/>
+      </field>
+      <field id="3" name="LinkFrameCounter" type="uint32">
+        <mandatoryConform/>
+      </field>
+      <field id="4" name="MleFrameCounter" type="uint32">
+        <mandatoryConform/>
+      </field>
+      <field id="5" name="LQI" type="uint8">
+        <mandatoryConform/>
+        <constraint>
+          <between>
+            <from value="0"/>
+            <to value="255"/>
+          </between>
+        </constraint>
+      </field>
+      <field id="6" name="AverageRssi" type="int8" default="null">
+        <quality nullable="true"/>
+        <mandatoryConform/>
+        <constraint>
+          <between>
+            <from value="-128"/>
+            <to value="0"/>
+          </between>
+        </constraint>
+      </field>
+      <field id="7" name="LastRssi" type="int8" default="null">
+        <quality nullable="true"/>
+        <mandatoryConform/>
+        <constraint>
+          <between>
+            <from value="-128"/>
+            <to value="0"/>
+          </between>
+        </constraint>
+      </field>
+      <field id="8" name="FrameErrorRate" type="uint8" default="0">
+        <mandatoryConform/>
+        <constraint>
+          <between>
+            <from value="0"/>
+            <to value="100"/>
+          </between>
+        </constraint>
+      </field>
+      <field id="9" name="MessageErrorRate" type="uint8" default="0">
+        <mandatoryConform/>
+        <constraint>
+          <between>
+            <from value="0"/>
+            <to value="100"/>
+          </between>
+        </constraint>
+      </field>
+      <field id="10" name="RxOnWhenIdle" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="11" name="FullThreadDevice" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="12" name="FullNetworkData" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="13" name="IsChild" type="bool">
+        <mandatoryConform/>
+      </field>
+    </struct>
+
+
+// RouteTable struct routetable
+
+<struct name="RouteTableStruct">
+      <field id="0" name="ExtAddress" type="uint64">
+        <mandatoryConform/>
+      </field>
+      <field id="1" name="Rloc16" type="uint16">
+        <mandatoryConform/>
+      </field>
+      <field id="2" name="RouterId" type="uint8">
+        <mandatoryConform/>
+      </field>
+      <field id="3" name="NextHop" type="uint8">
+        <mandatoryConform/>
+      </field>
+      <field id="4" name="PathCost" type="uint8">
+        <mandatoryConform/>
+      </field>
+      <field id="5" name="LQIIn" type="uint8">
+        <mandatoryConform/>
+      </field>
+      <field id="6" name="LQIOut" type="uint8">
+        <mandatoryConform/>
+      </field>
+      <field id="7" name="Age" type="uint8">
+        <mandatoryConform/>
+      </field>
+      <field id="8" name="Allocated" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="9" name="LinkEstablished" type="bool">
+        <mandatoryConform/>
+      </field>
+    </struct>
+
+
+
+
+// OperationalDatasetComponents
+
+<struct name="OperationalDatasetComponents">
+      <field id="0" name="ActiveTimestampPresent" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="1" name="PendingTimestampPresent" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="2" name="MasterKeyPresent" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="3" name="NetworkNamePresent" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="4" name="ExtendedPanIdPresent" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="5" name="MeshLocalPrefixPresent" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="6" name="DelayPresent" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="7" name="PanIdPresent" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="8" name="ChannelPresent" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="9" name="PskcPresent" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="10" name="SecurityPolicyPresent" type="bool">
+        <mandatoryConform/>
+      </field>
+      <field id="11" name="ChannelMaskPresent" type="bool">
+        <mandatoryConform/>
+      </field>
+    </struct>
+
+
+
+
+
+    
+    // NetworkInterfaces
+    "0/51/0": [
+        {
+        "0": "CandleThread",
+        "1": true,
+        "2": null,
+        "3": null,
+        "4": "2+fS",
+        "5": [],
+        "6": [
+            "/T1ZGnJ==",
+            "/dpqLBL==",
+            "/T1ZGnJ==",
+            "/oAbjnQ=="
+        ],
+        "7": 4
+        }
+    ],
+
+    
+
+    
+    
+    // ownRloc16.toString(16).toUpperCase().padStart(4, '0')
+
+    
+    
+    "General Diagnostics": [
+        "NetworkInterfaces",
+        "ActiveHardwareFaults",
+        "ActiveRadioFaults",
+        "ActiveNetworkFaults",
+        "RebootCount",
+        "UpTime",
+        "TotalOperationalHours",
+        "BootReason",
+        "DeviceLoadStatus",
+        "ClusterRevision"
+    ],
+    
+
+*/
+
+
+
 
             const get_thing_data = (thing_id) => {
                 if(typeof thing_id == 'string' && thing_id.startsWith('matter-')){
@@ -7922,7 +8239,6 @@
                 return null;
             }
 
-            
             const get_thing_title = (thing_id) => {
                 const thing_details = get_thing_data(thing_id);
                 if(this_debug){
@@ -7935,389 +8251,427 @@
                 }
                 return null;
             }
-            /*
 
-            const get_thing_title_from_thread_id = (thread_id) => {
-                for (const [node_id,node_details] of Object.entries(this.thread_diagnostics)) {
-                    if(typeof node_details['NeighborTable'] != 'undefined' && node_details['NeighborTable'].length){
-                        const neighbour_one = node_details['NeighborTable'][0];
-                        const my_thread_id = Object.values(neighbour_one)[0];
-                        console.log("get_thing_title_from_thread_id: ", )
-                    }
+            const get_thing_description = (thing_id) => {
+                if(typeof this.nodez[thing_id] != 'undefined' && typeof this.nodez[thing_id]['product_name'] == 'string'){
+                    return this.nodez[thing_id]['product_name'];
+                }
+                return null;
+            }
+
+
+            let all_neighbors = {};
+
+            let thing_id_to_short_thread_id = {};
+            let thing_id_to_thread_id = {};
+            this.extAddrToNodeId = {};  // upper48bits -> node_id
+            this.rloc16ToNodeId = {};
+            this.nodeExtAddrs = {}; // Store for display: node_id -> extAddr
+            this.bridgeHwAddrs = {}; // upper48bits -> bridge node_id (for all interfaces)
+
+
+
+            //const routing_roles = ['REED','endDevice','leader','router','sleepyEndDevice','unassigned','unspecified']
+            // const roleNames = { 2: 'Sleepy End Device', 3: 'End Device', 4: 'REED', 5: 'Router', 6: 'Leader' };
+            const routing_roles = ['Unspecified', 'Unassigned', 'SleepyEndDevice', 'EndDevice', 'Reed', 'Router', 'Leader', 'UnknownEnumValue'];
+
+            let GRAPH_CONFIG = {
+                title: 'Thread mesh visualizer',
+                categories: {
+                    'Reed': { color: '#f2f838', dim: 'rgba(56,189,248,0.12)' },
+			        'EndDevice':  { color: '#24fb32', dim: 'rgba(224, 238, 34, 0.15)' },
+                    'Leader':  { color: '#1872f9', dim: 'rgba(114, 202, 215, 0.15)' },
+                    'Router':  { color: '#39b2d7', dim: 'rgba(114, 202, 215, 0.15)' },
+                    'SleepyEndDevice':   { color: '#099759', dim: 'rgba(167,139,250,0.12)' },
+                    'Unassigned':   { color: '#e98e20', dim: 'rgba(167,139,250,0.12)' },
+                    'Unspecified':   { color: '#c10f21', dim: 'rgba(167,139,250,0.12)' },
+                },
+                nodes: [],
+                links: [],
+                physics: {
+                    chargeStrength: -300,
+                    linkDistance: 120,
+                    collisionRadius: 35
                 }
             }
-            */
+
+            let short_controller_thread_id = ('' + this.my_extaddr).slice(0, 6);
+            let actual_controller_thread_id = null;
+            let matter_to_thread_id_lookup = {};
+
+
+            const add_node = (thread_id, thing_title=null, category='Unspecified', popularity=30, description=null) => {
+                for(let n = 0; n < GRAPH_CONFIG['nodes'].length; n++){
+                    if(GRAPH_CONFIG['nodes'][n]['id'] == '' + thread_id){
+                        console.warn("add_node: that node was already known.  thread_id: ", thread_id);
+
+                        if(GRAPH_CONFIG['nodes'][n]['category'] == 'Unspecified' || GRAPH_CONFIG['nodes'][n]['category'] == 'Unassigned'){
+                            if(category != 'Unspecified' && category != 'Unassigned'){
+                                GRAPH_CONFIG['nodes'][n]['category'] = category;
+                            }
+                        }
+                        if(GRAPH_CONFIG['nodes'][n]['thing_title'] == 'Unknown name'){
+                            if(typeof thing_title == 'string' && thing_title != 'Unknown name'){
+                                GRAPH_CONFIG['nodes'][n]['thing_title'] = thing_title;
+                            }
+                            else{
+                                for (const [key, value] of Object.entries(thing_id_to_thread_id)) {
+                                    if(('' + thread_id).slice(0,6) == ('' + key).slice(0,6)){
+                                        console.warn("add_node: IMPROVE TITLE BINGO, slice match: ", thread_id, key, " -> ", value);
+                                        const improved_thing_title = get_thing_title(value);
+                                        if(improved_thing_title){
+                                            console.log("improved_thing_title: ", GRAPH_CONFIG['nodes'][n]['thing_title'], " -> ", improved_thing_title);
+                                            GRAPH_CONFIG['nodes'][n]['thing_title'] = improved_thing_title;
+                                        }
+                                    }
+                                    break
+                                }
+                            }
+                        }
+
+
+                        return
+                    }
+                }
+                if(thing_title == null){
+                    if(typeof thing_id_to_thread_id[thread_id] == 'string'){
+                        thing_title = get_thing_title(thing_id_to_thread_id[thread_id]);
+                        console.log("add_node: thing_title from get_thing_title: ", thing_title);
+                    }
+                }
+                if(thing_title == null){
+                    thing_title = 'Unknown name';
+                }
+
+                if(description == null){
+                    if(typeof thing_id_to_thread_id[thread_id] == 'string'){
+                        description = get_thing_description(thing_id_to_thread_id[thread_id]);
+                        console.log("add_node: description from get_thing_description ",description);
+                    }
+                }
+                if(description == null){
+                    description = 'A node';
+                }
+                const new_node = { 'id': '' + thread_id, 'title':thing_title, 'category':category, 'popularity':popularity, 'desc':description };
+                console.warn("\n\nADD NODE: ADDING!: ", JSON.stringify(new_node,null,4));
+                //GRAPH_CONFIG['nodes'].push({ 'id': '' + thread_id });
+                GRAPH_CONFIG['nodes'].push(new_node);
+            }
+
+            const add_node_link = (source,target,lqi=1) => {
+                for(let gl = 0; gl < GRAPH_CONFIG['links'].length; gl++){
+                    if(GRAPH_CONFIG['links'][gl]['source'] == '' + source && GRAPH_CONFIG['links'][gl]['target'] == '' + target){
+                        console.warn("add_node_link: that link was already known:  source,target: ", source,target);
+                        return
+                    }
+                }
+                GRAPH_CONFIG['links'].push({ 'source': '' + source, 'target': '' + target, 'strength': lqi });
+            }
 
 
             
+            try{
+                for (const [thing_id,node_details] of Object.entries(this.thread_diagnostics)) {
+                    
+                    if(typeof node_details['NeighborTable'] != 'undefined' && node_details['NeighborTable'].length){
 
-            for (const [node_id,node_details] of Object.entries(this.thread_diagnostics)) {
-                if(this_debug){
-                    console.log("matter debug: map: thread_diagnostics:  node_id,node_details: ", node_id,node_details);
-                }
-
-                let matter_id = node_id;
-                if(!matter_id.startsWith('matter-')){
-                    matter_id = 'matter-' + matter_id;
-                }
-                if(this_debug){
-                    console.log("matter debug: map: thread_diagnostics:  matter_id: ", matter_id);
-                }
-                let thing_title = matter_id;
-                let thing_description = '';
-                let thing_popularity = 45;
-                let thread_id = null;
-                let node_category = 'Other';
-
-                if(typeof matter_to_thread_id_lookup['' + node_id] == 'string'){
-                    thread_id = matter_to_thread_id_lookup['' + node_id];
-                    if(this_debug){
-                        console.log("matter debug: map: thread_diagnostics: my thread_id from lookup: ", node_id, " -> ", thread_id);
-                    }
-                }
-                else{
-                    if(this_debug){
-                        console.warn("matter debug: map: did not find node_id in matter_to_thread_id_lookup: ", node_id,  matter_to_thread_id_lookup);
-                    }
-                }
-
-                
-
-                if(typeof node_details['NeighborTable'] != 'undefined'){
-                    thing_popularity = 45 + node_details['NeighborTable'].length * 15;
-                    if(thing_popularity > 100){
-                        thing_popularity = 100;
-                    }
-                    else if(thing_popularity < 45){
-                        thing_popularity = 45;
-                    }
-                    if(this_debug){
-                        console.log("matter debug: map: - my thing_popularity: ", thing_popularity);
-                    }
-                }
-
-                let thing_details = get_thing_data(matter_id);
-                if(thing_details){
-                    if(typeof thing_details['title'] == 'string' && thing_details['title'] != ''){
-                        thing_title = thing_details['title'];
-                        if(this_debug){
-                            console.log("matter debug: map: - my title: ", thing_title);
-                        }
-                    }
-                    if(typeof thing_details['description'] == 'string' && thing_details['description'] != ''){
-                        thing_description = thing_details['description'];
-                    }
-                }
-                /*
-                if(thing_title.toLowerCase().endsWith(' light') || thing_title.toLowerCase().endsWith(' lamp') || thing_title.toLowerCase().endsWith(' bulb')){
-                    node_category = 'Light';
-                }
-                */
-
-                const my_thread_id = '' + Object.values(node_details['NeighborTable'][0])[0];
-                console.error("my_thread_id: ", typeof my_thread_id, my_thread_id);
-
-                if(added_thread_ids.indexOf(my_thread_id) == -1){
-                    added_thread_ids.push(my_thread_id);
-                    GRAPH_CONFIG['nodes'].push({ 'id':my_thread_id, 'title':thing_title, 'matter_id':matter_id, 'thread_id':thread_id, 'category':node_category, 'popularity':thing_popularity, 'desc':thing_description });
-                }
-                
-                if(typeof node_details['NeighborTable'] != 'undefined'){
-                    //let own_thread_id = null;
-                    for(let nt = 0; nt < node_details['NeighborTable'].length; nt++){
-                        const neighbour_node = node_details['NeighborTable'][nt];
-                        if(this_debug){
-                            console.log("+link: neighbour_node: ", neighbour_node);
-                        }
-                        const neighbour_thread_id = '' + Object.values(neighbour_node)[0];
-                        if(my_thread_id == neighbour_thread_id){
-                            console.log("+link: skipping own neighbour_thread_id");
-                            continue
-                        }
-                        console.error("+link: neighbour_thread_id: ", typeof neighbour_thread_id, neighbour_thread_id);
-                        
-                        if(neighbour_thread_id == null){
-                            console.error("neighbour_thread_id was null");
-                            continue
-                        }
-                        if(added_thread_ids.indexOf(neighbour_thread_id) == -1){
-                            console.log("+link: This neighbour_thread_id was not yet in added_thread_ids: ", neighbour_thread_id, "\n added_thread_ids: ", added_thread_ids);
-
-                            let thing_title = 'Unknown name';
-                            if(typeof matter_to_thread_id_lookup[neighbour_thread_id] != 'undefined'){
-                                thing_title = get_thing_title('' + neighbour_thread_id);
+                        for (let ntt = 0; ntt < node_details['NeighborTable'].length; ntt++){
+                            let early_neighbor_thread_id = '' + node_details['NeighborTable'][ntt][0];
+                            if(typeof all_neighbors[early_neighbor_thread_id] == 'undefined'){
+                                all_neighbors[early_neighbor_thread_id] = node_details['NeighborTable'][ntt];
+                            } 
+                            console.log("++ raw early_neighbor_thread_id: ", early_neighbor_thread_id)
+                            if(early_neighbor_thread_id.startsWith('' + short_controller_thread_id)){
+                                actual_controller_thread_id = early_neighbor_thread_id;
+                                if(this.debug){
+                                    console.error("\n\nRAW BINGO\n\n found actual_controller_thread_id?: ", actual_controller_thread_id, ", from short_controller_thread_id: ", short_controller_thread_id, ", from this.my_extaddr: ", this.my_extaddr);
+                                }
                             }
-                            added_thread_ids.push(neighbour_thread_id);
-                            GRAPH_CONFIG['nodes'].push({ 'id':neighbour_thread_id, 'title':thing_title, 'category':'End point', 'popularity':30, 'desc':'Probably battery powered' });
                         }
 
-                        if(nt == 0){
-                            //own_thread_id = neighbour_thread_id;
+                        if(typeof this.general_diagnostics[thing_id] != 'undefined'){
+                            console.log("OK, thing_id is also in this.general_diagnostics: ", this.general_diagnostics[thing_id]);
                         }
-                        if(nt > 0){
-                            
-                            const neighbour_thread_lqi = '' + Object.values(neighbour_node)[5];
-                            if(this_debug){
-                                console.log("+link: neighbour_thread_lqi: ", typeof neighbour_thread_id, neighbour_thread_lqi);
-                            }
-                            GRAPH_CONFIG['links'].push({ 'source': my_thread_id, 'target': neighbour_thread_id, 'strength': neighbour_thread_lqi });
-                            
-                            
-                            
-                            /*
-                            if(typeof matter_to_thread_id_lookup['' + neighbour_thread_id] != 'undefined'){
-                                let neighbour_thing_title = null;
-                                let neighbour_matter_id = matter_to_thread_id_lookup['' + neighbour_thread_id];
-                                if(!neighbour_matter_id.startsWith('matter-')){
-                                    neighbour_matter_id = 'matter-' + neighbour_matter_id;
-                                }
-                                if(this_debug){
-                                    console.log("+link: getting thing_title based on neighbour_matter_id: ", neighbour_matter_id);
-                                }
-                                
 
-                               
-                                neighbour_thing_title = get_thing_title('' + neighbour_matter_id);
-                                if(this_debug){
-                                    console.log("+link: neighbour_thing_title: ", neighbour_thing_title);
-                                }
-                                if(typeof neighbour_thing_title == 'string'){
-                                    if(thing_title == neighbour_thing_title){
-                                        if(this_debug){
-                                            console.error("+link: skipping, neighbour_thing_title was own thing_title: ", thing_title);
+                        if(typeof node_details['NetworkInterfaces'] != 'undefined'){
+                            console.log("NICE, NetworkInterfaces is available in ThreadDiagnostics: ", node_details['NetworkInterfaces']);
+
+                            const networkInterfaces = node_details['NetworkInterfaces'] || [];
+                            if (Array.isArray(networkInterfaces)) {
+                                // Find Thread interface (type 7 field = 4) or use first with hardware address
+                                const threadIface = networkInterfaces.find(i => i['7'] === 4) || networkInterfaces[0];
+                                if (threadIface) {
+                                    const hwAddrB64 = threadIface['4']; // HardwareAddress is field 4, base64 encoded
+                                    if (hwAddrB64) {
+                                        // Decode base64 to get bytes, then convert to BigInt
+                                        try {
+                                            const bytes = atob(hwAddrB64);
+                                            let extAddrInt = BigInt(0);
+                                            for (let i = 0; i < bytes.length; i++) {
+                                                extAddrInt = (extAddrInt << 8n) | BigInt(bytes.charCodeAt(i));
+                                            }
+                                            console.log("initial extAddrInt: ", extAddrInt.toString());
+                                            let short_ext_addr = extAddrInt.toString().slice(0,6);
+                                            thing_id_to_short_thread_id[thing_id] = '' + short_ext_addr;//extAddrInt.toString();
+                                            //thing_id_to_thread_id[extAddrInt.toString()] = thing_id;
+
+                                            // Use upper 48 bits for matching (JSON precision loses lower 16 bits)
+                                            const upper48 = (extAddrInt >> 16n).toString();
+                                            this.extAddrToNodeId[upper48] = thing_id;
+                                            this.nodeExtAddrs[thing_id] = {
+                                                full: extAddrInt.toString(),
+                                                upper48: upper48,
+                                                hex: extAddrInt.toString(16).toUpperCase().padStart(16, '0')
+                                            };
+                                        } catch (e) {
+                                            console.warn('Failed to decode hardware address for thing_id', thing_id, e);
                                         }
-                                        continue
-                                    }
-                                    if(this_debug){
-                                        console.log("+link: adding link with  source,target: ", thing_title, neighbour_thing_title);
-                                    }
-                                    //GRAPH_CONFIG['links'].push({ 'source': thing_title, 'target': neighbour_thing_title, 'strength': neighbour_thread_lqi });
-                                    
-                                }
-                                else{
-                                    if(this_debug){
-                                        console.error("+link:  neighbour_thing_title was not a string: ", neighbour_thing_title);
                                     }
                                 }
+
+                                // For bridges, store ALL hardware addresses so we can match TBR
+                                // The TBR might use a different interface than the primary Thread one
                                 
+                                if (node_details.is_bridge) {
+                                    networkInterfaces.forEach(iface => {
+                                        const hwAddrB64 = iface['4'];
+                                        if (hwAddrB64) {
+                                            try {
+                                                const bytes = atob(hwAddrB64);
+                                                let extAddrInt = BigInt(0);
+                                                for (let i = 0; i < bytes.length; i++) {
+                                                    extAddrInt = (extAddrInt << 8n) | BigInt(bytes.charCodeAt(i));
+                                                }
+                                                const upper48 = (extAddrInt >> 16n).toString();
+                                                this.bridgeHwAddrs[upper48] = node.node_id;
+                                            } catch (e) {}
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    if(typeof node_details['RouteTable'] != 'undefined' && node_details['RouteTable'].length){
+                        
+                        // Also build RLOC16 map from route table for routers
+                        const routeTable = node_details['RouteTable'] || [];
+                        if (Array.isArray(routeTable)) {
+                            console.log("routeTable: ", routeTable);
+                            console.log("routeTable[0]['2']: ", routeTable[0]['2']);
+
+                            const selfEntry = routeTable.find(r => r['2'] === r['3'] && r['8'] === true);
+                            console.log("routeTable -> selfEntry: ", selfEntry);
+                            if (selfEntry && selfEntry['1'] !== undefined) {
+                                this.rloc16ToNodeId[selfEntry['1']] = thing_id;
+                            }
+                        }
+
+                    }
+
+                }
+                if(this_debug){
+                    console.warn("matter debug: map: matter_to_thread_id_lookup: ", JSON.stringify(matter_to_thread_id_lookup,null,4));
+                }
+
+                console.warn(" >> all_neighbors: ", all_neighbors);
+                console.log(" >> actual_controller_thread_id: ", actual_controller_thread_id);
+                console.log(" >> thing_id_to_thread_id: ", thing_id_to_thread_id);
+                console.log(" >> this.extAddrToNodeId: ",  this.extAddrToNodeId);
+                console.log(" >> this.rloc16ToNodeId: ",  this.rloc16ToNodeId);
+                console.log(" >> this.nodeExtAddrs: ",  this.nodeExtAddrs);
+                console.log(" >> this.bridgeHwAddrs: ",  this.bridgeHwAddrs);
+
+                /*
+                this.extAddrToNodeId = {};  // upper48bits -> node_id
+                this.rloc16ToNodeId = {};
+                this.nodeExtAddrs = {}; // Store for display: node_id -> extAddr
+                this.bridgeHwAddrs = {}; // upper48bits -> bridge node_id (for all interfaces)
+                */
+                
+                
+                if(actual_controller_thread_id){
+                    add_node(actual_controller_thread_id,'Candle controller','Leader',100,'This Candle controller');
+                }
+
+
+                //create thing_id_to_thread_id lookup table
+                for (const [thing_id,node_details] of Object.entries(this.thread_diagnostics)) {
+                    if(typeof node_details['NeighborTable'] != 'undefined'){
+                        for(let nt = 0; nt < node_details['NeighborTable'].length; nt++){
+                            for (const [thing_id,short_thread_id] of Object.entries(thing_id_to_short_thread_id)) {
+                                //console.log("short_thread_id: ", typeof short_thread_id, short_thread_id, " =?= ", typeof node_details.NeighborTable[nt]['0'], node_details.NeighborTable[nt]['0']);
+                                if(('' + node_details.NeighborTable[nt]['0']).startsWith('' +  short_thread_id)){
+                                    thing_id_to_thread_id[thing_id] = '' + node_details['NeighborTable'][nt][0];
+                                    thing_id_to_thread_id[ '' + node_details['NeighborTable'][nt][0] ] = thing_id;
+                                    //if(this_debug){
+                                        //console.log("matter debug: map: thing_id_to_thread_id is now:\n", JSON.stringify(thing_id_to_thread_id,null,2));
+                                    //}
+                                }
+                            }
+                        }
+                    }
+                }
+                console.warn("\n\nfinal thing_id_to_thread_id: \n\n", JSON.stringify(thing_id_to_thread_id,null,2), "\n\n");
+                
+                // Create all_neighbors
+                // & early add_node
+                for (const [thing_id,node_details] of Object.entries(this.thread_diagnostics)) {
+                    if(typeof thing_id_to_thread_id[thing_id] == 'string'){
+                        const my_thread_id = thing_id_to_thread_id[thing_id];
+                        
+                        let node_category = 'Unspecified';
+                        if(typeof node_details['RoutingRole'] == 'integer'){
+                            node_category = routing_roles[node_details['RoutingRole']];
+                            if(this_debug){
+                                console.log("matter debug: map:  node_category,thing_id: ", node_category,thing_id);
+                            }
+                        }
+
+                        if(typeof all_neighbors[my_thread_id] != 'undefined'){
+                            if(typeof all_neighbors[my_thread_id]['RoutingRole'] == 'undefined'){
+                                if(this_debug){
+                                    console.log("matter debug: map: saving RoutingRole to all_neighbors for  thing_id,my_thread_id:", thing_id, my_thread_id);
+                                }
+                                all_neighbors[my_thread_id]['RoutingRole'] = node_details['RoutingRole'];
+                                all_neighbors[my_thread_id]['node_category'] = node_category;
+                            }
+                        }
+
+                        let thing_popularity = 30;
+                        if(typeof node_details['NeighborTable'] != 'undefined'){
+                            thing_popularity = 30 + node_details['NeighborTable'].length * 15;
+                            if(thing_popularity > 100){
+                                thing_popularity = 100;
+                            }
+                            else if(thing_popularity < 30){
+                                thing_popularity = 30;
+                            }
+                        }
+                        add_node(my_thread_id,null,node_category,thing_popularity);
+                    }
+                }
+
+
+
+                for (const [thing_id,node_details] of Object.entries(this.thread_diagnostics)) {
+                    if(this_debug){
+                        console.log("matter debug: map: thread_diagnostics:  thing_id,node_details: ", thing_id,node_details);
+                    }
+                    
+                    const my_addresses = this.nodeExtAddrs[thing_id];
+
+                    if(this_debug){
+                        console.log("matter debug: map: thing_id and addresses: ", thing_id, my_addresses);
+                    }
+                    
+
+                    let thing_title = thing_id;
+                    let thing_description = '';
+                    let thing_popularity = 45;
+                    let my_thread_id = null;
+                    let thread_id = null;
+                    let node_category = 'Unspecified';
+
+                    if(typeof node_details['RoutingRole'] == 'integer'){
+                        node_category = routing_roles[node_details['RoutingRole']];
+                    }
+
+                    if(typeof thing_id_to_thread_id[thing_id] != 'undefined'){
+                        my_thread_id = thing_id_to_thread_id[thing_id];
+                        if(typeof all_neighbors[my_thread_id] != 'undefined'){
+                            if(typeof all_neighbors[my_thread_id]['RoutingRole'] == 'undefined'){
+                                console.log("saving RoutingRole to all_neighbors");
+                                all_neighbors[my_thread_id]['RoutingRole'] = node_details['RoutingRole'];
+                            }
+                        }
+                        add_node(my_thread_id,null,node_category);
+                    }
+                    else{
+                        if(this_debug){
+                            console.warn("matter debug: map: thing_id was not in thing_id_to_thread_id: ", thing_id, thing_id_to_thread_id);
+                        }
+                        //continue
+                    }
+
+                    //my_thread_id = '' + Object.values(node_details['NeighborTable'][0])[thread_id_index];
+                    //my_thread_id = (BigInt(my_thread_id) >> 16n).toString();
+                    if(this_debug){
+                        console.log("my_thread_id: ", my_thread_id);
+                    }
+                    
+                    
+                    //const rloc16Raw = Object.values(node_details['NeighborTable'][0])[2];
+                    //let my_rloc16 = rloc16Raw?.toString(16).toUpperCase().padStart(4, '0') || '?';
+                    //console.log("my_rloc16: ", my_rloc16);
+
+                    if(typeof node_details['NeighborTable'] != 'undefined'){
+                        for(let nt = 0; nt < node_details['NeighborTable'].length; nt++){
+
+                            const neighbor_node = node_details['NeighborTable'][nt];
+                            if(this_debug){
+                                console.log("+link: neighbor_node: ", neighbor_node);
+                            }
+                            
+                            let neighbor_thread_id = '' + Object.values(neighbor_node)[thread_id_index];
+                            console.log("++ raw neighbor_thread_id: ", neighbor_thread_id);
+                            //neighbor_thread_id = (BigInt(neighbor_thread_id) >> 16n).toString();
+                            //console.log("++ neighbor_thread_id: ", neighbor_thread_id)
+
+                            let neigbor_lqi = node_details['NeighborTable'][nt]['5'];
+                            if(this_debug){
+                                console.log("matter debug: map: neigbor_lqi: ", neigbor_lqi);
+                            }
+
+                            const rloc16Raw = Object.values(node_details['NeighborTable'][0])[2];
+                            //console.log("++ rloc16Raw: ", rloc16Raw);
+                            let neighbor_fancy_rloc16 = rloc16Raw?.toString(16).toUpperCase().padStart(4, '0') || '?';
+                            if(this_debug){
+                                console.log("matter debug: map: ++ neighbor_fancy_rloc16: ", neighbor_fancy_rloc16);
+                            }
+                            
+                            if(actual_controller_thread_id){
+                                for(let mnt = 0; mnt < this.my_neighbortable.length; mnt++){
+                                    if(this.my_neighbortable[mnt]['rloc16'] == neighbor_fancy_rloc16){
+                                        if(this_debug){
+                                            console.log("matter debug: map: found a neighbor that is connected to the main controller.   neighbor_fancy_rloc16: ", neighbor_fancy_rloc16);
+                                        }
+                                        add_node_link('' + actual_controller_thread_id, '' + neighbor_thread_id, this.my_neighbortable[mnt]['lqi']);
+                                    }
+                                }
+                            }
+
+                            if(neighbor_thread_id){
+                                //add_node(neighbor_thread_id,null,neighbor_node_category);
+                                add_node(neighbor_thread_id);
+                            }
+                            
+                            if(my_thread_id && my_thread_id != neighbor_thread_id){
+                                if(this_debug){
+                                    console.log("matter debug: map: linking neighbor with node for thread_id was in the thing_id_to_thread_id lookup:  my_thread_id,neighbor_thread_id: ", my_thread_id,neighbor_thread_id );
+                                }
+                                add_node_link('' + my_thread_id, '' + neighbor_thread_id, neigbor_lqi);
                             }
                             else{
                                 if(this_debug){
-                                    console.error("+link:  could not find neighbour_thread_id in lookup: ", neighbour_thread_id, matter_to_thread_id_lookup);
+                                    console.log("matter debug: map: not linking neighbor.  my_thread_id,neighbor_thread_id: ", my_thread_id,neighbor_thread_id);
                                 }
                             }
-                            */
                         }
                     }
                 }
-
             }
-
-
+            catch(err){
+                console.error("matter: caught error in generate_map: ", err);
+            }
             
             console.warn("\nGRAPH_CONFIG: \n", JSON.stringify(GRAPH_CONFIG,null,4));
             
 
-
-
-            // OLD
-			const GRAPH_CONFIGX = {
-			  // Graph title
-			  title: 'Network Topology Visualizer',
-
-			  // Node categories with their colors
-			  categories: {
-			    Languages:  { color: '#22d3ee', dim: 'rgba(34,211,238,0.15)' },
-			    Frontend:   { color: '#34d399', dim: 'rgba(52,211,153,0.12)' },
-			    Backend:    { color: '#fbbf24', dim: 'rgba(251,191,36,0.12)' },
-			    Databases:  { color: '#a78bfa', dim: 'rgba(167,139,250,0.12)' },
-			    DevOps:     { color: '#fb7185', dim: 'rgba(251,113,133,0.12)' },
-			    Mobile:     { color: '#38bdf8', dim: 'rgba(56,189,248,0.12)' },
-			  },
-
-			  // Nodes in the graph
-			  nodes: [
-			    // Languages
-			    { id: 'JavaScript',  category: 'Languages', popularity: 95, desc: 'The language of the web. Runs everywhere from browsers to servers.' },
-			    { id: 'TypeScript',  category: 'Languages', popularity: 88, desc: 'Typed superset of JavaScript that compiles to plain JS.' },
-			    { id: 'Python',      category: 'Languages', popularity: 90, desc: 'Versatile language for web, data science, AI, and scripting.' },
-			    { id: 'Rust',        category: 'Languages', popularity: 55, desc: 'Systems language focused on safety, speed, and concurrency.' },
-			    { id: 'Go',          category: 'Languages', popularity: 65, desc: 'Statically typed language by Google, great for backends and CLIs.' },
-			    { id: 'Java',        category: 'Languages', popularity: 75, desc: 'Enterprise-grade, platform-independent language with huge ecosystem.' },
-			    { id: 'C#',          category: 'Languages', popularity: 60, desc: 'Microsoft language powering .NET, Unity, and enterprise systems.' },
-			    { id: 'Ruby',        category: 'Languages', popularity: 40, desc: 'Dynamic language optimized for developer happiness.' },
-			    { id: 'Swift',       category: 'Languages', popularity: 50, desc: 'Apple language for iOS, macOS, watchOS, and tvOS development.' },
-			    { id: 'Kotlin',      category: 'Languages', popularity: 52, desc: 'Modern language for Android and JVM-based development.' },
-
-			    // Frontend
-			    { id: 'React',       category: 'Frontend',  popularity: 92, desc: 'Component-based UI library by Meta for building interfaces.' },
-			    { id: 'Angular',     category: 'Frontend',  popularity: 70, desc: 'Full-featured framework by Google for enterprise web apps.' },
-			    { id: 'Vue',         category: 'Frontend',  popularity: 68, desc: 'Progressive framework for building user interfaces.' },
-			    { id: 'Svelte',      category: 'Frontend',  popularity: 48, desc: 'Compiler that generates minimal framework-less JavaScript.' },
-			    { id: 'Next.js',     category: 'Frontend',  popularity: 82, desc: 'React framework for production with SSR and static generation.' },
-			    { id: 'Nuxt',        category: 'Frontend',  popularity: 45, desc: 'Vue framework for server-side rendering and static sites.' },
-			    { id: 'Astro',       category: 'Frontend',  popularity: 42, desc: 'Content-focused framework with zero-JS output by default.' },
-			    { id: 'Tailwind',    category: 'Frontend',  popularity: 78, desc: 'Utility-first CSS framework for rapid UI development.' },
-
-			    // Backend
-			    { id: 'Node.js',     category: 'Backend',   popularity: 85, desc: 'JavaScript runtime built on V8 for server-side applications.' },
-			    { id: 'Django',      category: 'Backend',   popularity: 58, desc: 'High-level Python web framework with batteries included.' },
-			    { id: 'Flask',       category: 'Backend',   popularity: 48, desc: 'Lightweight Python micro-framework for web applications.' },
-			    { id: 'Express',     category: 'Backend',   popularity: 75, desc: 'Minimal and flexible Node.js web application framework.' },
-			    { id: 'FastAPI',     category: 'Backend',   popularity: 55, desc: 'Modern Python API framework with automatic OpenAPI docs.' },
-			    { id: 'Spring Boot', category: 'Backend',   popularity: 62, desc: 'Java framework for production-grade applications.' },
-			    { id: '.NET',        category: 'Backend',   popularity: 58, desc: 'Microsoft cross-platform framework for building modern apps.' },
-
-			    // Databases
-			    { id: 'PostgreSQL',  category: 'Databases', popularity: 80, desc: 'Advanced open-source relational database with rich features.' },
-			    { id: 'MongoDB',     category: 'Databases', popularity: 65, desc: 'Document-oriented NoSQL database for flexible schemas.' },
-			    { id: 'Redis',       category: 'Databases', popularity: 70, desc: 'In-memory data store used as cache and message broker.' },
-			    { id: 'MySQL',       category: 'Databases', popularity: 72, desc: 'Most popular open-source relational database.' },
-			    { id: 'SQLite',      category: 'Databases', popularity: 50, desc: 'Self-contained serverless SQL database engine.' },
-			    { id: 'DynamoDB',    category: 'Databases', popularity: 45, desc: 'AWS managed NoSQL database for high-performance apps.' },
-
-			    // DevOps
-			    { id: 'Docker',      category: 'DevOps',    popularity: 88, desc: 'Container platform for building, shipping, and running apps.' },
-			    { id: 'Kubernetes',  category: 'DevOps',    popularity: 75, desc: 'Container orchestration for automating deployment and scaling.' },
-			    { id: 'AWS',         category: 'DevOps',    popularity: 85, desc: 'Amazon cloud platform with 200+ services.' },
-			    { id: 'GitHub Actions', category: 'DevOps', popularity: 68, desc: 'CI/CD automation integrated with GitHub repositories.' },
-			    { id: 'Terraform',   category: 'DevOps',    popularity: 55, desc: 'Infrastructure as code for provisioning cloud resources.' },
-			    { id: 'Nginx',       category: 'DevOps',    popularity: 72, desc: 'High-performance web server, reverse proxy, and load balancer.' },
-
-			    // Mobile
-			    { id: 'React Native',    category: 'Mobile', popularity: 70, desc: 'Cross-platform mobile framework using React and JavaScript.' },
-			    { id: 'Flutter',         category: 'Mobile', popularity: 65, desc: 'Google UI toolkit for natively compiled mobile apps.' },
-			    { id: 'SwiftUI',         category: 'Mobile', popularity: 48, desc: 'Apple declarative UI framework for all Apple platforms.' },
-			    { id: 'Jetpack Compose', category: 'Mobile', popularity: 45, desc: 'Modern Android UI toolkit with Kotlin.' },
-			  ],
-
-			  // Connections between nodes
-			  links: [
-			    // Language -> Framework connections
-			    { source: 'JavaScript', target: 'React',       strength: 0.9 },
-			    { source: 'JavaScript', target: 'Angular',     strength: 0.7 },
-			    { source: 'JavaScript', target: 'Vue',         strength: 0.8 },
-			    { source: 'JavaScript', target: 'Svelte',      strength: 0.6 },
-			    { source: 'JavaScript', target: 'Node.js',     strength: 0.95 },
-			    { source: 'JavaScript', target: 'Express',     strength: 0.8 },
-			    { source: 'JavaScript', target: 'React Native', strength: 0.7 },
-
-			    { source: 'TypeScript', target: 'Angular',     strength: 0.95 },
-			    { source: 'TypeScript', target: 'React',       strength: 0.85 },
-			    { source: 'TypeScript', target: 'Next.js',     strength: 0.9 },
-			    { source: 'TypeScript', target: 'Vue',         strength: 0.6 },
-			    { source: 'TypeScript', target: 'Svelte',      strength: 0.5 },
-			    { source: 'TypeScript', target: 'Node.js',     strength: 0.8 },
-			    { source: 'TypeScript', target: 'Astro',       strength: 0.5 },
-
-			    { source: 'Python', target: 'Django',    strength: 0.9 },
-			    { source: 'Python', target: 'Flask',     strength: 0.85 },
-			    { source: 'Python', target: 'FastAPI',   strength: 0.8 },
-
-			    { source: 'Java', target: 'Spring Boot',      strength: 0.95 },
-			    { source: 'Java', target: 'Kotlin',           strength: 0.6 },
-			    { source: 'Kotlin', target: 'Spring Boot',    strength: 0.5 },
-			    { source: 'Kotlin', target: 'Jetpack Compose', strength: 0.95 },
-
-			    { source: 'C#', target: '.NET',    strength: 0.95 },
-			    { source: 'Swift', target: 'SwiftUI', strength: 0.95 },
-			    { source: 'Ruby', target: 'Node.js',  strength: 0.3 },
-
-			    // Frontend ecosystem
-			    { source: 'React', target: 'Next.js',       strength: 0.95 },
-			    { source: 'React', target: 'React Native',  strength: 0.85 },
-			    { source: 'React', target: 'Tailwind',      strength: 0.6 },
-			    { source: 'Vue', target: 'Nuxt',            strength: 0.95 },
-			    { source: 'Vue', target: 'Tailwind',        strength: 0.5 },
-			    { source: 'Svelte', target: 'Tailwind',     strength: 0.4 },
-			    { source: 'Astro', target: 'React',         strength: 0.4 },
-			    { source: 'Astro', target: 'Vue',           strength: 0.3 },
-			    { source: 'Astro', target: 'Svelte',        strength: 0.3 },
-			    { source: 'Angular', target: 'Tailwind',    strength: 0.3 },
-
-			    // Backend -> DB connections
-			    { source: 'Node.js', target: 'MongoDB',     strength: 0.7 },
-			    { source: 'Node.js', target: 'PostgreSQL',  strength: 0.65 },
-			    { source: 'Node.js', target: 'Redis',       strength: 0.6 },
-			    { source: 'Node.js', target: 'MySQL',       strength: 0.5 },
-			    { source: 'Express', target: 'Node.js',     strength: 0.9 },
-
-			    { source: 'Django', target: 'PostgreSQL',   strength: 0.85 },
-			    { source: 'Django', target: 'MySQL',        strength: 0.6 },
-			    { source: 'Django', target: 'SQLite',       strength: 0.7 },
-			    { source: 'Flask', target: 'PostgreSQL',    strength: 0.6 },
-			    { source: 'Flask', target: 'SQLite',        strength: 0.65 },
-			    { source: 'FastAPI', target: 'PostgreSQL',  strength: 0.7 },
-			    { source: 'FastAPI', target: 'MongoDB',     strength: 0.5 },
-
-			    { source: 'Spring Boot', target: 'PostgreSQL', strength: 0.75 },
-			    { source: 'Spring Boot', target: 'MySQL',      strength: 0.7 },
-			    { source: 'Spring Boot', target: 'Redis',      strength: 0.5 },
-			    { source: '.NET', target: 'PostgreSQL',    strength: 0.6 },
-			    { source: '.NET', target: 'MySQL',         strength: 0.55 },
-			    { source: '.NET', target: 'Redis',         strength: 0.45 },
-
-			    // DevOps connections
-			    { source: 'Docker', target: 'Kubernetes',    strength: 0.95 },
-			    { source: 'Docker', target: 'AWS',           strength: 0.7 },
-			    { source: 'Docker', target: 'Nginx',         strength: 0.6 },
-			    { source: 'Docker', target: 'Node.js',       strength: 0.5 },
-			    { source: 'Docker', target: 'Django',        strength: 0.4 },
-			    { source: 'Docker', target: 'Spring Boot',   strength: 0.5 },
-
-			    { source: 'Kubernetes', target: 'AWS',       strength: 0.8 },
-			    { source: 'Kubernetes', target: 'Terraform', strength: 0.7 },
-			    { source: 'Kubernetes', target: 'Nginx',     strength: 0.5 },
-
-			    { source: 'AWS', target: 'DynamoDB',          strength: 0.9 },
-			    { source: 'AWS', target: 'Terraform',         strength: 0.85 },
-			    { source: 'AWS', target: 'GitHub Actions',    strength: 0.5 },
-
-			    { source: 'GitHub Actions', target: 'Docker', strength: 0.7 },
-			    { source: 'GitHub Actions', target: 'Node.js', strength: 0.5 },
-			    { source: 'GitHub Actions', target: 'Next.js', strength: 0.4 },
-
-			    { source: 'Terraform', target: 'Nginx',     strength: 0.4 },
-
-			    // Mobile
-			    { source: 'Flutter', target: 'Kotlin',       strength: 0.3 },
-			    { source: 'Flutter', target: 'Swift',        strength: 0.3 },
-			    { source: 'React Native', target: 'Node.js', strength: 0.4 },
-
-			    // Cross-cutting
-			    { source: 'Rust', target: 'Docker',          strength: 0.3 },
-			    { source: 'Go', target: 'Docker',            strength: 0.6 },
-			    { source: 'Go', target: 'Kubernetes',        strength: 0.7 },
-			    { source: 'Go', target: 'Terraform',         strength: 0.5 },
-
-			    { source: 'Redis', target: 'Docker',         strength: 0.5 },
-			    { source: 'PostgreSQL', target: 'Docker',    strength: 0.5 },
-			    { source: 'MongoDB', target: 'Docker',       strength: 0.45 },
-
-			    { source: 'Next.js', target: 'Tailwind',    strength: 0.6 },
-			    { source: 'Nuxt', target: 'Tailwind',       strength: 0.5 },
-
-			    { source: 'Nginx', target: 'Node.js',       strength: 0.55 },
-			    { source: 'Nginx', target: 'Django',        strength: 0.5 },
-			    { source: 'Nginx', target: 'Flask',         strength: 0.45 },
-			  ],
-
-			  // Physics simulation settings
-			  physics: {
-			    chargeStrength: -300,
-			    linkDistance: 120,
-			    collisionRadius: 35
-			  }
-			};
-
-			/* ── Aliases for backward compatibility ── */
 			const CATEGORIES = GRAPH_CONFIG.categories;
 			const NODES_DATA = GRAPH_CONFIG.nodes;
 			const LINKS_DATA = GRAPH_CONFIG.links;
 
-			/* =============================================
-			   SETUP
-			============================================= */
 			const container = document.getElementById('extension-matter-adapter-viz-graph-container');
 			const tooltipEl = document.getElementById('extension-matter-adapter-viz-tooltip');
 			let W, H;
@@ -8380,9 +8734,6 @@
 			  return 4 + (d.popularity / 100) * 16;
 			}
 
-			/* =============================================
-			   SVG SETUP
-			============================================= */
 			function getDimensions() {
 			  const rect = container.getBoundingClientRect();
 			  W = rect.width;
@@ -8439,9 +8790,7 @@
 			const labelGroup = g.append('g').attr('class', 'extension-matter-adapter-viz-labels');
 			const selectionGroup = g.append('g').attr('class', 'extension-matter-adapter-viz-selection');
 
-			/* =============================================
-			   ZOOM
-			============================================= */
+            // Zoom
 			const zoom = d3.zoom()
 			  .scaleExtent([0.3, 5])
 			  .on('zoom', (event) => {
@@ -8469,9 +8818,9 @@
 			  );
 			}
 
-			/* =============================================
-			   SIMULATION
-			============================================= */
+
+			//Simulation
+
 			let simulation;
 			let currentNodes = [];
 			let currentLinks = [];
@@ -8557,7 +8906,6 @@
 			    .style('opacity', 1);
 
 			  const labelSelStatic = labelGroup.selectAll('text');
-              //console.log("labelSelStatic: ", labelSelStatic);
 
 			  // Drag
 			  const drag = d3.drag()
@@ -8628,9 +8976,8 @@
 			  //initParticles();
 			}
 
-			/* =============================================
-			   HIGHLIGHT
-			============================================= */
+            
+            // Highlight
 			function highlightConnected(d) {
 			  const connectedIds = adjacency[d.id] || new Set();
 
@@ -8673,9 +9020,7 @@
 			    .style('opacity', 1);
 			}
 
-			/* =============================================
-			   SELECTION
-			============================================= */
+            // Selection
 			function selectNode(d) {
 			  selectedNode = d;
 
@@ -8709,9 +9054,7 @@
 			  clearNodeDetail();
 			}
 
-			/* =============================================
-			   NODE DETAIL PANEL
-			============================================= */
+			// NODE DETAIL PANEL
 			function updateNodeDetail(d) {
 			  const connectedIds = adjacency[d.id] || new Set();
 			  const cat = CATEGORIES[d.category];
@@ -8758,9 +9101,9 @@
 			  document.getElementById('extension-matter-adapter-viz-node-detail-content').innerHTML = '<div class="extension-matter-adapter-viz-node-detail-empty">Click a node to see details</div>';
 			}
 
-			/* =============================================
-			   TOOLTIP
-			============================================= */
+
+			// Tooltip
+
 			function showTooltip(event, d) {
 			  const cat = CATEGORIES[d.category];
 			  const connCount = (adjacency[d.id] || new Set()).size;
@@ -8788,70 +9131,10 @@
 			  tooltipEl.classList.remove('visible');
 			}
 
-			/* =============================================
-			   PARTICLES
-			============================================= */
-			let particleData = [];
-			let particleFrame;
+			
 
-			function initParticles() {
-			  if (particleTimer) clearInterval(particleTimer);
-			  cancelAnimationFrame(particleFrame);
-			  particleData = [];
-			  particleGroup.selectAll('*').remove();
+            // Stats
 
-			  if (!showParticles) return;
-
-			  particleTimer = setInterval(spawnParticle, 120);
-			  animateParticles();
-			}
-
-			function spawnParticle() {
-			  if (!showParticles || currentLinks.length === 0) return;
-
-			  const linkIdx = Math.floor(Math.random() * currentLinks.length);
-			  const link = currentLinks[linkIdx];
-			  if (!link.source.x || !link.target.x) return;
-
-			  particleData.push({
-			    sx: link.source.x, sy: link.source.y,
-			    tx: link.target.x, ty: link.target.y,
-			    t: 0,
-			    speed: 0.008 + Math.random() * 0.012,
-			    color: CATEGORIES[link.source.category || 'Languages']?.color || '#22d3ee',
-			    opacity: 0.3 + link.strength * 0.4,
-			  });
-
-			  // Keep max particles
-			  if (particleData.length > 80) particleData.shift();
-			}
-
-			function animateParticles() {
-			  if (!showParticles) return;
-
-			  particleData.forEach(p => { p.t += p.speed; });
-			  particleData = particleData.filter(p => p.t < 1);
-
-			  const circles = particleGroup.selectAll('circle')
-			    .data(particleData);
-
-			  circles.exit().remove();
-
-			  circles.enter()
-			    .append('circle')
-			    .attr('r', 1.5)
-			    .merge(circles)
-			    .attr('cx', p => p.sx + (p.tx - p.sx) * p.t)
-			    .attr('cy', p => p.sy + (p.ty - p.sy) * p.t)
-			    .attr('fill', p => p.color)
-			    .attr('opacity', p => p.opacity * (1 - Math.abs(p.t - 0.5) * 2));
-
-			  particleFrame = requestAnimationFrame(animateParticles);
-			}
-
-			/* =============================================
-			   STATS
-			============================================= */
 			function updateStats() {
 			  document.getElementById('extension-matter-adapter-viz-stat-nodes').textContent = currentNodes.length;
 			  document.getElementById('extension-matter-adapter-viz-stat-edges').textContent = currentLinks.length;
@@ -8865,9 +9148,9 @@
 			  document.getElementById('extension-matter-adapter-viz-stat-degree').textContent = avgDeg;
 			}
 
-			/* =============================================
-			   LEGEND
-			============================================= */
+			
+            // Legend
+
 			function renderLegend() {
               if(this_debug){
                 console.log("matter debug: map: in renderLegend");
@@ -8895,9 +9178,9 @@
 			  document.getElementById('extension-matter-adapter-viz-category-count').textContent = `${Object.keys(CATEGORIES).length} total`;
 			}
 
-			/* =============================================
-			   SEARCH
-			============================================= */
+			
+            // Search
+
 			let searchDebounce;
 			document.getElementById('extension-matter-adapter-viz-search-input').addEventListener('input', (e) => {
 			  clearTimeout(searchDebounce);
@@ -8907,9 +9190,9 @@
 			  }, 250);
 			});
 
-			/* =============================================
-			   TOOLBAR TOGGLES
-			============================================= */
+			
+            // Toolbar toggles
+
 			document.getElementById('extension-matter-adapter-viz-btn-toggle-labels').addEventListener('click', function () {
 			  showLabels = !showLabels;
 			  this.classList.toggle('active', showLabels);
@@ -8919,24 +9202,10 @@
 			    .style('opacity', showLabels ? 1 : 0);
 			});
 
-            /*
-			document.getElementById('extension-matter-adapter-viz-btn-toggle-particles').addEventListener('click', function () {
-			  showParticles = !showParticles;
-			  this.classList.toggle('active', showParticles);
-			  if (showParticles) {
-			    initParticles();
-			  } else {
-			    if (particleTimer) clearInterval(particleTimer);
-			    cancelAnimationFrame(particleFrame);
-			    particleGroup.selectAll('*').remove();
-			    particleData = [];
-			  }
-			});
-            */
+            
 
-			/* =============================================
-			   LAYOUT CONTROLS
-			============================================= */
+			// Layout controls
+
 			document.getElementById('extension-matter-adapter-viz-force-strength').addEventListener('input', function () {
 			  document.getElementById('extension-matter-adapter-viz-force-val').textContent = this.value;
 			  if (simulation) {
@@ -8959,18 +9228,15 @@
 
 			document.getElementById('extension-matter-adapter-viz-btn-center').addEventListener('click', centerView);
 
-			/* =============================================
-			   ACCESSIBILITY
-			============================================= */
+			
+            // ACCESSIBILITY
 			function announceNode(d) {
 			  const announcer = document.getElementById('extension-matter-adapter-viz-graph-announcer');
 			  const connCount = (adjacency[d.id] || new Set()).size;
 			  announcer.textContent = `Selected ${d.id}, ${d.category}, ${connCount} connections`;
 			}
 
-			/* =============================================
-			   RESIZE
-			============================================= */
+			// RESIZE
 			let resizeTimeout;
 			window.addEventListener('resize', () => {
                 console.log("matter map viz: window resized");
@@ -8987,9 +9253,8 @@
 			  }, 200);
 			});
 
-			/* =============================================
-			   INIT
-			============================================= */
+
+			// INIT
             //console.log("calling renderLegend");
 			renderLegend();
             //console.log("calling initSimulation");
@@ -8997,9 +9262,8 @@
             //console.log("calling centerView");
 			centerView();
 
-			/* =============================================
-			   THEME HANDLING
-			============================================= */
+
+			// THEME HANDLING
 			function onThemeChange(theme) {
 			  const style = getComputedStyle(document.documentElement);
 			  const border = style.getPropertyValue('--border').trim();

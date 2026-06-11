@@ -31,6 +31,11 @@
             
             
             this.busy_pairing = false;
+            this.onboarding_complete = false;
+            this.force_onboarding = false;
+            this.previous_actual_interfaces = null;
+            this.matter_network_interface_found = false;
+            this.should_set_selected_privacy_network = true;
 			//this.busy_polling = false;
             this.busy_polling_counter = 0;
 			this.total_busy_polling_counter = 0;
@@ -62,7 +67,8 @@
             this.thread_diagnostics = {};
             this.general_diagnostics = {};
             //this.previous_thread_diagnostics = '{}';
-            
+
+            this.available_interfaces = [];
             this.reconnected_devices = {};
 
             this.my_rloc16 = null;
@@ -158,13 +164,15 @@
 			
 			if(this.content == ''){
                 if(this.debug){
-					console.log("matter adapter debug: content has not loaded yet");
+					console.log("matter debug: content has not loaded yet");
 				}
 				return;
 			}
 			else{
 				this.view.innerHTML = this.content;
 			}
+
+            this.should_set_selected_privacy_network = true;
 			
             try{
                 
@@ -242,7 +250,7 @@
                 if(check_for_updates_button_el){
                     check_for_updates_button_el.addEventListener('click', () => {
                         if(this.debug){
-                            console.log("matter adapter debug: check_for_updates button clicked");
+                            console.log("matter debug: check_for_updates button clicked");
                         }
                         this.view.querySelector('#extension-matter-adapter-content-container').classList.add('extension-matter-adapter-busy-checking-for-updates');
                         /*
@@ -260,7 +268,7 @@
                         
                         ).then((body) => {
                             if(this.debug){
-                                console.log("matter adapter debug: check_for_updates response: ", body);
+                                console.log("matter debug: check_for_updates response: ", body);
                             }
                             if(body.state == true){
                                 this.flash_message("Update check started");
@@ -291,11 +299,21 @@
 				
                 title_el.addEventListener('click', () => {
 					if(this.view.classList.contains('extension-matter-adapter-title-easter-egg')){
+                        this.force_onboarding = false;
 						this.view.classList.remove('extension-matter-adapter-title-easter-egg');
-					}else{
-						this.view.classList.add('extension-matter-adapter-title-easter-egg');
+                        this.view.classList.remove('extension-matter-adapter-busy-onboarding');
+                        if(document.body.classList.contains('developer')){
+                            this.show_onboarding_step('done');
+                        }
 					}
-					
+                    else{
+						this.view.classList.add('extension-matter-adapter-title-easter-egg');
+                        if(document.body.classList.contains('developer')){
+                            this.force_onboarding = true;
+                            this.view.classList.add('extension-matter-adapter-busy-onboarding');
+                            this.show_onboarding_step('start');
+                        }
+					}
                 });
 				
 				
@@ -314,7 +332,7 @@
                         this.current_tab = desired_tab;
 
                         if(this.debug){
-                            console.log("matter adapter debug: desired tab: ", desired_tab);
+                            console.log("matter debug: desired tab: ", desired_tab);
                         }
 
                         for(var j=0; j<all_tabs.length;j++){
@@ -337,7 +355,7 @@
 						{'action':'get_thread_network_code'}
 					).then((body) => { 
 						if(this.debug){
-                            console.log("matter adapter debug: get_thread_network_code response: ", body);
+                            console.log("matter debug: get_thread_network_code response: ", body);
                         }
                         if(typeof body.state == 'boolean'){
                             const network_code_display_el = this.view.querySelector('#extension-matter-adapter-thread-network-code');
@@ -410,7 +428,7 @@
                                 {'action':'save_thread_network_code','code':new_thread_network_code}
                             ).then((body) => { 
                                 if(this.debug){
-                                    console.log("matter adapter debug: save_thread_network_code response: ", body);
+                                    console.log("matter debug: save_thread_network_code response: ", body);
                                 }
                                 if(typeof body.state == 'boolean'){
                                     if(body.state == true){
@@ -451,11 +469,288 @@
                     });
                 }
 
+
+
+                // ONBOARDING
+
+                
+                const onboarding_step1_button_el = this.view.querySelector('#extension-matter-adapter-onboarding-step1-tab');
+                if(onboarding_step1_button_el){
+                    
+                    onboarding_step1_button_el.addEventListener('click', () => {
+                        this.show_onboarding_step('start');
+                    });
+                    this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').addEventListener('click', () => {
+                        this.show_onboarding_step('enter_thread_network_code');
+                    });
+                    this.view.querySelector('#extension-matter-adapter-onboarding-step2-tab').addEventListener('click', () => {
+                        this.show_onboarding_step('set_vendor_id');
+                    });
+                    this.view.querySelector('#extension-matter-adapter-onboarding-step3-tab').addEventListener('click', () => {
+                        this.show_onboarding_step('privacy');
+                    });
+                }
+
+                
+                const skip_connect_radio_button_el = this.view.querySelector('#extension-matter-adapter-onboarding-skip-find-radio-button');
+                if(skip_connect_radio_button_el){
+                    skip_connect_radio_button_el.addEventListener('click', () => {
+                        this.show_onboarding_step('set_vendor_id');
+                    });
+                }
+
+                const show_find_radio_button_el = this.view.querySelector('#extension-matter-adapter-onboarding-show-find-radio-button');
+                if(show_find_radio_button_el){
+                    show_find_radio_button_el.addEventListener('click', () => {
+                        this.show_onboarding_step('find_radio');
+                        const find_radio_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-container');
+                        if(find_radio_el){
+                            find_radio_el.classList.remove('extension-matter-adapter-hidden'); // allready handled by show_onboarding_step
+                            find_radio_el.scrollIntoView({'behavior':'smooth','block':'center'});
+                            this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.remove('extension-matter-adapter-hidden');
+                        }
+                    });
+                }
+
+
+
+                const onboarding_save_thread_network_code_button_el = this.view.querySelector('#extension-matter-adapter-onboarding-save-thread-network-code-button');
+                if(onboarding_save_thread_network_code_button_el){
+                    onboarding_save_thread_network_code_button_el.addEventListener('click', () => {
+
+                        let new_thread_network_code = this.view.querySelector('#extension-matter-adapter-onboarding-thread-network-code-input').value;
+                        if(new_thread_network_code.length > 40){
+                            onboarding_save_thread_network_code_button_el.classList.add('extension-matter-adapter-faded');
+
+                            window.API.postJson(
+                                `/extensions/${this.id}/api/ajax`,
+                                {'action':'save_thread_network_code','code':new_thread_network_code}
+                            ).then((body) => { 
+                                if(this.debug){
+                                    console.log("matter debug: onboarding: save_thread_network_code response: ", body);
+                                }
+                                if(typeof body.state == 'boolean'){
+                                    if(body.state == true){
+                                        if(this.debug){
+                                            console.log('matter adapter debug: save_thread_network_code response: state was good');
+                                        }
+                                        this.flash_message("Thread code was saved");
+
+                                        this.show_onboarding_step('set_vendor_id');
+
+                                    }
+                                    else{
+                                        if(this.debug){
+                                            console.error('matter adapter debug: error, save_thread_network_code failed');
+                                        }
+                                        this.flash_message("Error, could not save the Thread network code");
+                                    }
+                                }
+                                setTimeout(() => {
+                                    save_thread_network_code_button_el.classList.remove('extension-matter-adapter-faded');
+                                },4000);
+                                
+                            }).catch((err) => {
+                                if(this.debug){
+                                    console.error("matter-adapter debug: caught error calling save_thread_network_code: ", err);
+                                }
+                                this.flash_message("Connection error while trying to save the Thread network code");
+                                save_thread_network_code_button_el.classList.remove('extension-matter-adapter-faded');
+                            });
+
+                        }
+                        else{
+                            this.flash_message("Invalid Thread network code (not long enough)");
+                        }
+                        
+                    });
+                }
+
+
+                // Save onboarding Vendor ID
+                const onboarding_vendor_id_save_button_el = this.view.querySelector('#extension-matter-adapter-onboarding-vendor-id-save-button');
+                if(onboarding_vendor_id_save_button_el){
+                    onboarding_vendor_id_save_button_el.addEventListener('click', () => {
+
+                        let new_vendor_id = this.view.querySelector('#extension-matter-adapter-onboarding-vendor-id-input').value;
+                        new_vendor_id = new_vendor_id.toUpperCase();
+                        if(new_vendor_id.length == 4){
+                            onboarding_vendor_id_save_button_el.classList.add('extension-matter-adapter-faded');
+
+                            window.API.postJson(
+                                `/extensions/${this.id}/api/ajax`,
+                                {'action':'save_vendor_id','vendor_id':new_vendor_id}
+                            ).then((body) => { 
+                                if(this.debug){
+                                    console.log("matter debug: onboarding: save_vendor_id response: ", body);
+                                }
+                                if(typeof body.state == 'boolean'){
+                                    if(body.state == true){
+                                        if(this.debug){
+                                            console.log('matter adapter debug: save_vendor_id response: state was good');
+                                        }
+                                        this.flash_message("Vendor ID was saved");
+                                        this.show_onboarding_step('privacy');
+                                    }
+                                    else{
+                                        if(this.debug){
+                                            console.error('matter adapter debug: error, save_vendor_id failed');
+                                        }
+                                        this.flash_message("Error, could not save the Vendor ID");
+                                    }
+                                }
+                                setTimeout(() => {
+                                    onboarding_vendor_id_save_button_el.classList.remove('extension-matter-adapter-faded');
+                                },4000);
+                                
+                            }).catch((err) => {
+                                if(this.debug){
+                                    console.error("matter-adapter debug: caught error calling save_vendor_id: ", err);
+                                }
+                                this.flash_message("Connection error while trying to save the Vendor ID");
+                                onboarding_vendor_id_save_button_el.classList.remove('extension-matter-adapter-faded');
+                            });
+
+                        }
+                        else{
+                            this.flash_message("Invalid Vendor ID length (should be 4 characters)");
+                        }
+                        
+                    });
+                }
+                
+
+
+                // Save onboarding Matter network interface
+                const onboarding_network_interface_save_button_el = this.view.querySelector('#extension-matter-adapter-onboarding-save-network-button');
+                if(onboarding_network_interface_save_button_el){
+                    onboarding_network_interface_save_button_el.addEventListener('click', () => {
+
+                        let new_matter_network_interface_selected_el = this.view.querySelector('input[name="extension-matter-adapter-onboarding-network-radio-buttons"]:checked');
+                        if(new_matter_network_interface_selected_el){
+                            let new_matter_network_interface = new_matter_network_interface_selected_el.value;
+                            if(this.debug){
+                                console.log("matter debug:  new_matter_network_interface: ", new_matter_network_interface);
+                            }
+                            if(new_matter_network_interface){
+                                onboarding_network_interface_save_button_el.classList.add('extension-matter-adapter-faded');
+
+                                let actual_matter_network_interface = null;
+                                if(new_matter_network_interface == 'Advanced'){
+                                    actual_matter_network_interface = this.view.querySelector('#extension-matter-adapter-onboarding-network-item-advanced-select').value;
+                                }
+                                window.API.postJson(
+                                    `/extensions/${this.id}/api/ajax`,
+                                    {'action':'save_matter_network_interface','matter_network_interface':new_matter_network_interface,'actual_matter_network_interface':actual_matter_network_interface}
+                                ).then((body) => { 
+                                    if(this.debug){
+                                        console.log("matter debug: onboarding: save_matter_network_interface response: ", body);
+                                    }
+                                    if(typeof body.state == 'boolean'){
+                                        if(body.state == true){
+                                            if(this.debug){
+                                                console.log('matter adapter debug: save_matter_network_interface response: state was good');
+                                            }
+                                            this.flash_message("Matter network interface preference was saved");
+                                            
+                                            if(typeof body.onboarding_complete == 'boolean' && body.onboarding_complete == true){
+                                                this.show_onboarding_step('done');
+                                            }
+                                            else{
+                                                console.error("somehow onboarding is not yet complete");
+                                                this.flash_message('Please complete all Matter setup steps');
+                                            }
+                                        }
+                                        else{
+                                            if(this.debug){
+                                                console.error('matter adapter debug: error, save_matter_network_interface failed');
+                                            }
+                                            this.flash_message("Error, could not save the Matter network interface preference");
+                                        }
+                                    }
+                                    setTimeout(() => {
+                                        onboarding_network_interface_save_button_el.classList.remove('extension-matter-adapter-faded');
+                                    },4000);
+                                    
+                                }).catch((err) => {
+                                    if(this.debug){
+                                        console.error("matter-adapter debug: caught error calling save_matter_network_interface: ", err);
+                                    }
+                                    this.flash_message("Connection error while trying to save the Matter network interface preference");
+                                    onboarding_network_interface_save_button_el.classList.remove('extension-matter-adapter-faded');
+                                });
+                            }
+                            else{
+                                this.flash_message("Invalid Vendor ID length (should be 4 characters)");
+                            }
+                        }
+                        else{
+                            if(this.debug){
+                                console.error("matter debug:  could not find checked onboarding network radio button");
+                            }
+                            onboarding_network_interface_save_button_el.classList.remove('extension-matter-adapter-faded');
+                        }
+                    });
+                }
+
+
+                const restart_setup_button_el = this.view.querySelector('#extension-matter-adapter-restart-setup-button');
+                if(restart_setup_button_el){
+                    restart_setup_button_el.addEventListener('click', () => {
+                        this.force_onboarding = true;
+                        this.view.classList.add('extension-matter-adapter-busy-onboarding');
+                        this.show_onboarding_step('start');
+                        this.view.querySelector('#extension-matter-adapter-tab-button-overview').click();
+                    });
+                }
+                
+
+
+                /*
+                const onboarding_advanced_network_select_el = this.view.querySelector('#extension-matter-adapter-onboarding-network-item-advanced-select');
+                if(onboarding_advanced_network_select_el){
+                    onboarding_advanced_network_select_el.addEventListener('change', () => {
+                        let actual_network_interface = onboarding_advanced_network_select_el.value;
+                        if(this.debug){
+                            console.log("advanced network option changed to: ", actual_network_interface);
+                        }
+
+                        window.API.postJson(
+                            `/extensions/${this.id}/api/ajax`,
+                            {'action':'set_actual_network_interface','actual_network_interface':actual_network_interface}
+                        ).then((body) => { 
+                            if(this.debug){
+                                console.log("matter debug: set_actual_network_interface response: ", body);
+                            }
+                            if(typeof body.state == 'boolean'){
+                                if(body.state == true){
+                                    if(this.debug){
+                                        console.log('matter adapter debug: set_actual_network_interface response: state was good');
+                                    }
+                                    this.flash_message(actual_network_interface + " network preference saved");
+                                }
+                                else{
+                                    if(this.debug){
+                                        console.error('matter adapter debug: error, set_actual_network_interface failed');
+                                    }
+                                    this.flash_message("Failed to save network selection");
+                                }
+                            }
+                        }).catch((err) => {
+                            if(this.debug){
+                                console.error("matter-adapter debug: caught error calling set_actual_network_interface: ", err);
+                            }
+                            this.flash_message("Connection error, please try again");
+                        });
+                    });
+                }
+                */
+
                 
                 const join_thread_network_shortcut_button_el = this.view.querySelector('#extension-matter-adapter-join-existing-network-button');
                 if(join_thread_network_shortcut_button_el){
                     join_thread_network_shortcut_button_el.addEventListener('click', () => {
-                        this.view.querySelector('#extension-matter-adapter-tab-button-thread').click();
+                        //this.view.querySelector('#extension-matter-adapter-tab-button-thread').click();
                         show_enter_thread_network_code_button_el.classList.add('extension-matter-adapter-hidden');
                         const input_container_el = this.view.querySelector('#extension-matter-adapter-enter-thread-network-code-container');
                         if(input_container_el){
@@ -473,43 +768,53 @@
                     new_thread_network_shortcut_button_el.addEventListener('click', () => {
                         new_thread_network_shortcut_button_el.classList.add('extension-matter-adapter-sweep');
                         
-                        window.API.postJson(
-                            `/extensions/${this.id}/api/ajax`,
-                            {'action':'reset_thread'}
-                        ).then((body) => { 
-                            if(this.debug){
-                                console.log("matter adapter debug: reset_thread response: ", body);
-                            }
-                            if(typeof body.state == 'boolean'){
-                                if(body.state == true){
-                                    if(this.debug){
-                                        console.log('matter adapter debug: get_thread_network_code response: state was good');
+                        const request_new_thread_network = () => {
+                            window.API.postJson(
+                                `/extensions/${this.id}/api/ajax`,
+                                {'action':'reset_thread'}
+                            ).then((body) => { 
+                                if(this.debug){
+                                    console.log("matter debug: new_thread_network_shortcut_button: reset_thread response: ", body);
+                                }
+                                if(typeof body.state == 'boolean'){
+                                    if(body.state == true){
+                                        if(this.debug){
+                                            console.log('matter adapter debug: new_thread_network_shortcut_button: get_thread_network_code response: state was good');
+                                        }
+                                        this.flash_message("Creating new network...");
+                                        const still_starting_el = this.view.querySelector('#extension-matter-adapter-still-starting-hint');
+                                        if(still_starting_el){
+                                            still_starting_el.classList.remove('extension-matter-adapter-hidden');
+                                        }
                                     }
-                                    this.flash_message("Creating new network...");
-                                    const still_starting_el = this.view.querySelector('#extension-matter-adapter-still-starting-hint');
-					                if(still_starting_el){
-                                        still_starting_el.classList.remove('extension-matter-adapter-hidden');
+                                    else{
+                                        if(this.debug){
+                                            console.error('matter adapter debug: error, save_thread_network_code failed');
+                                        }
+                                        this.flash_message("Failed to create new Thread network");
                                     }
                                 }
-                                else{
-                                    if(this.debug){
-                                        console.error('matter adapter debug: error, save_thread_network_code failed');
-                                    }
-                                    this.flash_message("Failed to create new Thread network");
+                                setTimeout(() => {
+                                    save_thread_network_code_button_el.classList.remove('extension-matter-adapter-sweep');
+                                },4000);
+                                
+                            }).catch((err) => {
+                                if(this.debug){
+                                    console.error("matter-adapter debug: caught error creating new Thread network by calling reset_thread: ", err);
                                 }
-                            }
-                            setTimeout(() => {
+                                this.flash_message("Connection error, please try again");
                                 save_thread_network_code_button_el.classList.remove('extension-matter-adapter-sweep');
-                            },4000);
-                            
-                        }).catch((err) => {
-                            if(this.debug){
-                                console.error("matter-adapter debug: caught error creating new Thread network by calling reset_thread: ", err);
+                            });
+                        }
+
+                        if(this.has_thread_dataset == false){
+                            request_new_thread_network();
+                        }
+                        else{
+                            if(confirm("This will replace the existing dataset with a brand new one. You will have to re-pair any currently paired Thread devices. Are you absolutely sure you want to reset Thread?")){
+                                request_new_thread_network();
                             }
-                            this.flash_message("Connection error, please try again");
-                            save_thread_network_code_button_el.classList.remove('extension-matter-adapter-sweep');
-                        });
-                        
+                        }
                     });
                 }
 
@@ -749,7 +1054,7 @@
                     const send_cli_command = () => {
                         const command = command_input_el.value;
                         if(this.debug){
-                            console.log("matter adapter debug: clinked on send OTBR command button.   command: ",  command);
+                            console.log("matter debug: clinked on send OTBR command button.   command: ",  command);
                         }
                         window.API.postJson(
                             `/extensions/${this.id}/api/ajax`,
@@ -883,7 +1188,7 @@
                     const send_chip_cli_command = () => {
                         const chip_command = chip_command_input_el.value;
                         if(this.debug){
-                            console.log("matter adapter debug: clinked on send CHIP Tool command button.   chip_command: ",  chip_command);
+                            console.log("matter debug: clinked on send CHIP Tool command button.   chip_command: ",  chip_command);
                         }
 
                         chip_output_el.innerHTML = '<div class="extension-matter-adapter-spinner"><div></div><div></div><div></div><div></div></div>';
@@ -925,7 +1230,7 @@
                 // Start pairing button press
                 this.view.querySelector('#extension-matter-adapter-start-normal-pairing-button').addEventListener('click', () => {
                 	if(this.debug){
-                        console.log("matter adapter debug: start commission_with_code button clicked. this.busy_pairing: ", this.busy_pairing);
+                        console.log("matter debug: start commission_with_code button clicked. this.busy_pairing: ", this.busy_pairing);
                     }
                     this.start_pairing();
                 });
@@ -935,7 +1240,7 @@
                 // Start pairing via commission_on_network button press
                 this.view.querySelector('#extension-matter-adapter-start-network-pairing-button').addEventListener('click', () => {
                 	if(this.debug){
-                        console.log("matter adapter debug: Start network pairing button clicked");
+                        console.log("matter debug: Start network pairing button clicked");
                     }
                     const code = this.view.querySelector('#extension-matter-adapter-network-pairing-code-input').value; //this.pairing_code;//document.getElementById('extension-matter-adapter-pairing-code').value;
                     
@@ -943,14 +1248,14 @@
                     
                     if(code.length < 4){
                         if(this.debug){
-							console.error("matter adapter debug: code was too short");
+							console.error("matter debug: code was too short");
 						}
                         this.flash_message("That code is too short");
                         return;
                     }
                     this.pairing_code = code;
                     if(this.debug){
-                        console.log("matter adapter debug: network pairing code: ", code);
+                        console.log("matter debug: network pairing code: ", code);
                     }
                     //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.add('extension-matter-adapter-faded');
                     //document.getElementById('extension-matter-adapter-busy-pairing-indicator').classList.remove('extension-matter-adapter-hidden');
@@ -972,7 +1277,7 @@
                         'code':code}
 					).then((body) => { 
 						if(this.debug){
-                            console.log("matter adapter debug: pair device via commission_on_network response: ", body);
+                            console.log("matter debug: pair device via commission_on_network response: ", body);
                         }
                         if(typeof body.state != 'undefined'){
                             if(body.state == true){
@@ -1014,8 +1319,8 @@
 					}
 					else if(typeof this.matter_qr_scanner_url == 'string'){
 						if(this.debug){
-							console.log("matter adapter debug: opening in new window: event.target: ",  event.target);
-							console.log("matter adapter debug: opening in new window: url:", event.target.href);
+							console.log("matter debug: opening in new window: event.target: ",  event.target);
+							console.log("matter debug: opening in new window: url:", event.target.href);
 						}
 						this.scan_window = window.open(this.matter_qr_scanner_url,'_blank');
 						
@@ -1119,7 +1424,7 @@
 				// Choose to scan with phone
     			this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-phone').addEventListener('click', () => {
 					if(this.debug){
-						console.log("matter adapter debug: clicked on big phone button");
+						console.log("matter debug: clicked on big phone button");
 					}
     				document.getElementById('extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
     			});
@@ -1127,12 +1432,12 @@
 				// Use previously scanned code
     			this.view.querySelector('#extension-matter-adapter-pairing-use-previously-scanned-code').addEventListener('click', () => {
 					if(this.debug){
-						console.log("matter adapter debug: clicked on use-previously-scanned-code");
+						console.log("matter debug: clicked on use-previously-scanned-code");
 					}
     				
 					this.pairing_code = this.view.querySelector('#extension-matter-adapter-pairing-code-input').value;
 					if(this.debug){
-						console.log("matter adapter debug: this.pairing_code is now: ", this.pairing_code);
+						console.log("matter debug: this.pairing_code is now: ", this.pairing_code);
 					}
 					if(this.pairing_code.startsWith('MT:')){
 						document.getElementById('extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
@@ -1272,7 +1577,7 @@
 			
     			this.view.querySelector('#extension-matter-adapter-abort-pairing-button').addEventListener('click', () => {
                     if(this.debug){
-						console.log("matter adapter debug: abort pairing button clicked");
+						console.log("matter debug: abort pairing button clicked");
 					}
                     try{
                         this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-showing-second-page');
@@ -1280,7 +1585,7 @@
         			}
         			catch(err){
         				if(this.debug){
-							console.error("matter adapter debug: caught error aborting pairing ", err);
+							console.error("matter debug: caught error aborting pairing ", err);
 						}
         			}
     			});
@@ -1356,13 +1661,18 @@
                             }
                             
                         }
-                        else if(!isNaN(input_code)){
-                            this.pairing_code = input_code;
-                            this.show_pairing_start_area();
-                        }
                         else{
-                            this.flash_message("Pairing code does not seem valid");
+                            input_code = input_code.replaceAll('-','');
+                            if(!isNaN(input_code)){
+                                this.pairing_code = input_code;
+                                this.show_pairing_start_area();
+                            }
+                            else{
+                                this.flash_message("Pairing code does not seem valid");
+                            }
+
                         }
+                        
 
                         setTimeout(function(){
                             document.getElementById('extension-matter-adapter-save-manual-input-pairing-code-button').classList.remove('extension-matter-adapter-hidden');
@@ -1517,7 +1827,7 @@
                 // ADD DEVICES PLUS BUTTON
                 this.view.querySelector('#extension-matter-adapter-show-second-page-button').addEventListener('click', () => {
                     if(this.debug){
-                        console.log("matter adapter debug: clicked on (+) button");
+                        console.log("matter debug: clicked on (+) button");
                     }
                     
                     // iPhones need this fix to make the back button lay on top of the main menu button
@@ -1551,7 +1861,7 @@
                 // SHOW WIFI PASSWORD CHECKBOX
                 this.view.querySelector('#extension-matter-adapter-wifi-show-password-checkbox').addEventListener('change', () => {
                     if(this.debug){
-                        console.log("matter adapter debug: clicked on wifi password reveal checkbox");
+                        console.log("matter debug: clicked on wifi password reveal checkbox");
                     }
                     const checked = this.view.querySelector('#extension-matter-adapter-wifi-show-password-checkbox').checked;
                     if(checked){
@@ -1571,7 +1881,7 @@
 				
                 this.view.querySelector('#extension-matter-adapter-find-thread-radio-button').addEventListener('click', (event) => {
                     if(this.debug){
-                        console.log("matter adapter debug: clicked on add a Thread radio button");
+                        console.log("matter debug: clicked on add a Thread radio button");
                     }
 					this.started_thread_radio_wizard = true;
 					this.view.querySelector('#extension-matter-adapter-find-thread-radio-button').classList.add('extension-matter-adapter-hidden');
@@ -1583,14 +1893,14 @@
 				
                 this.view.querySelector('#extension-matter-adapter-find-thread-radio-unplugged-button').addEventListener('click', (event) => {
                     if(this.debug){
-                        console.log("matter adapter debug: clicked on find thread radio UNPLUGGED button");
+                        console.log("matter debug: clicked on find thread radio UNPLUGGED button");
                     }
 					window.API.postJson(
 						`/extensions/${this.id}/api/ajax`,
 						{'action':'find_thread_radio_before'}
 					).then((body) => { 
 						if(this.debug){
-                            console.log("matter adapter debug: find_thread_radio_before response: ", body);
+                            console.log("matter debug: find_thread_radio_before response: ", body);
                         }
 						this.view.querySelector('#extension-matter-adapter-find-thread-radio-step2').classList.remove('extension-matter-adapter-hidden');
 						
@@ -1602,20 +1912,30 @@
 				
                 this.view.querySelector('#extension-matter-adapter-find-thread-radio-plugged-in-button').addEventListener('click', (event) => {
                     if(this.debug){
-                        console.log("matter adapter debug: clicked on find thread radio PLUGGED IN button");
+                        console.log("matter debug: clicked on find thread radio PLUGGED IN button");
                     }
 					window.API.postJson(
 						`/extensions/${this.id}/api/ajax`,
 						{'action':'find_thread_radio'}
 					).then((body) => { 
 						if(this.debug){
-                            console.log("matter adapter debug: find_thread_radio response: ", body);
+                            console.log("matter debug: find_thread_radio response: ", body);
                         }
 						if((typeof body.state == 'boolean' && body.state == true) || (typeof body.thread_radio_serial_port == 'string' && body.thread_radio_serial_port.length > 5)){
 							this.view.querySelector('#extension-matter-adapter-find-thread-radio-step1').classList.add('extension-matter-adapter-hidden');
 							this.view.querySelector('#extension-matter-adapter-find-thread-radio-step2').classList.add('extension-matter-adapter-hidden');
 							this.view.querySelector('#extension-matter-adapter-find-thread-radio-success').classList.remove('extension-matter-adapter-hidden');
 							this.view.querySelector('#extension-matter-adapter-find-thread-radio-failed').classList.add('extension-matter-adapter-hidden');
+                            this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.remove('extension-matter-adapter-hidden');
+                            this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.remove('extension-matter-adapter-faded');
+                            if(this.onboarding_complete == false || this.force_onboarding){
+                                setTimeout(() => {
+                                    
+                                    this.view.querySelector('#extension-matter-adapter-import-thread-dataset-hint').classList.remove('extension-matter-adapter-hidden');
+                                    this.view.querySelector('#extension-matter-adapter-find-thread-radio-container').classList.add('extension-matter-adapter-hidden');
+                                    this.view.querySelector('#extension-matter-adapter-find-thread-radio-success').classList.add('extension-matter-adapter-hidden');
+                                },3000);
+                            }
 						}
 						else{
 							this.view.querySelector('#extension-matter-adapter-find-thread-radio-success').classList.add('extension-matter-adapter-hidden');
@@ -1633,7 +1953,7 @@
 				if(reveal_advanced_settings_button_el){
 					reveal_advanced_settings_button_el.addEventListener('click', (event) => {
 	                    if(this.debug){
-	                        console.log("matter adapter debug: clicked on advanced settings button");
+	                        console.log("matter debug: clicked on advanced settings button");
 	                    }
 						reveal_advanced_settings_button_el.classList.add('extension-matter-adapter-hidden');
 	    			});
@@ -1644,7 +1964,7 @@
                 // Back button, shows main page
                 this.view.querySelector('#extension-matter-adapter-back-button-container').addEventListener('click', (event) => {
                     if(this.debug){
-                        console.log("matter adapter debug: clicked on back button");
+                        console.log("matter debug: clicked on back button");
                     }
                     this.view.classList.remove('extension-matter-adapter-pairing-done');
                     this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-showing-second-page');
@@ -1710,7 +2030,7 @@
             
 		}
 		
-		update_seconds_until_wifi_restore(){
+		update_seconds_until_wifi_restore() {
 			const wifi_seconds_until_restore_el = this.view.querySelector('#extension-matter-adapter-wifi-restore-countdown');
 			if(wifi_seconds_until_restore_el){
 				let seconds_remaining_until_wifi_restore = Math.round((this.wifi_restore_timestamp - Date.now()) / 1000);
@@ -1731,7 +2051,7 @@
 		// This is called then the user navigates away from the addon. It's an opportunity to do some cleanup. To remove the HTML, for example, or stop running intervals.
 		hide() {
 			if(this.debug){
-                console.log("matter adapter debug: hide called");
+                console.log("matter debug: hide called");
             }
             
             try{
@@ -1753,11 +2073,83 @@
 				},5000);
 			}
             catch(err){
-                console.log("matter adapter addon: caught error in hide: ", err);
+                console.error("matter adapter addon: caught error in hide: ", err);
             }
 			
 		}
     
+
+        show_onboarding_step(step){
+
+            const choose_thread_el = this.view.querySelector('#extension-matter-adapter-choose-thread-container');
+            if(choose_thread_el){
+                choose_thread_el.classList.add('extension-matter-adapter-hidden');
+            }
+            const find_radio_el = this.view.querySelector('#extension-matter-adapter-find-thread-radio-container');
+            if(find_radio_el){
+                find_radio_el.classList.add('extension-matter-adapter-hidden');
+            }
+            const import_thread_dataset_hint_el = this.view.querySelector('#extension-matter-adapter-import-thread-dataset-hint');
+            if(import_thread_dataset_hint_el){
+                import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
+            }
+            const set_vendor_id_el = this.view.querySelector('#extension-matter-adapter-missing-vendor-id-hint');
+            if(set_vendor_id_el){
+                set_vendor_id_el.classList.add('extension-matter-adapter-hidden');
+            }
+            const onboarding_privacy_container_el = this.view.querySelector('#extension-matter-adapter-onboarding-privacy-container');
+            if(onboarding_privacy_container_el){
+                onboarding_privacy_container_el.classList.add('extension-matter-adapter-hidden');
+            }
+            
+
+            if(!choose_thread_el || !onboarding_privacy_container_el){
+                if(this.debug){
+                    console.error("matter debug: show_onboarding_step: missing HTML element(s)");
+                }
+                return
+            }
+
+            if(step == 'start'){
+                choose_thread_el.classList.remove('extension-matter-adapter-hidden');
+                setTimeout(() => {
+                    choose_thread_el.scrollIntoView({'behavior':'smooth','block':'center'});
+                },100);
+            }
+            else if(step == 'find_radio'){
+                find_radio_el.classList.remove('extension-matter-adapter-hidden');
+                setTimeout(() => {
+                    find_radio_el.scrollIntoView({'behavior':'smooth','block':'center'});
+                },100);
+            }
+            else if(step == 'enter_thread_network_code'){
+                import_thread_dataset_hint_el.classList.remove('extension-matter-adapter-hidden');
+                setTimeout(() => {
+                    import_thread_dataset_hint_el.scrollIntoView({'behavior':'smooth','block':'center'});
+                },100);
+                this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.remove('extension-matter-adapter-hidden');
+                this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.remove('extension-matter-adapter-faded');
+            }
+            else if(step == 'set_vendor_id'){
+                set_vendor_id_el.classList.remove('extension-matter-adapter-hidden');
+                this.view.querySelector('#extension-matter-adapter-onboarding-step2-tab').classList.remove('extension-matter-adapter-faded');
+                setTimeout(() => {
+                    set_vendor_id_el.scrollIntoView({'behavior':'smooth','block':'center'});
+                },100);
+            }
+            else if(step == 'privacy'){
+                this.should_set_selected_privacy_network = true;
+                onboarding_privacy_container_el.classList.remove('extension-matter-adapter-hidden');
+                this.view.querySelector('#extension-matter-adapter-onboarding-step3-tab').classList.remove('extension-matter-adapter-faded');
+                setTimeout(() => {
+                    onboarding_privacy_container_el.scrollIntoView({'behavior':'smooth','block':'center'});
+                },100);
+            }
+            else if(step == 'done'){
+                onboarding_privacy_container_el.classList.add('extension-matter-adapter-hidden');
+                this.view.classList.remove('extension-matter-adapter-busy-onboarding');
+            }
+        }
     
     
         //
@@ -1766,62 +2158,57 @@
         // This gets the first data from the addon API
         
         get_init_data(){
-			try{
+        
+            
+            // Load all things, in order to integrate that data with the init data
+            try{
+                API.getThings().then((things) => {
+        
+                    this.all_things = things;
+                    for (let key in things){
+                    
+                        try{
                 
-                // Load all things, in order to integrate that data with the init data
-                try{
-            	    API.getThings().then((things) => {
-			
-            			this.all_things = things;
-            			for (let key in things){
-                        
-            				try{
-					
-            					var thing_title = 'unknown';
-            					if( things[key].hasOwnProperty('title') ){
-            						thing_title = things[key]['title'];
-            					}
-            					else if( things[key].hasOwnProperty('label') ){
-            						thing_title = things[key]['label'];
-            					}
-					
-            					//console.log("thing_title = " + thing_title);
-					
-            					var thing_id = things[key]['href'].substr(things[key]['href'].lastIndexOf('/') + 1);
-                                if(thing_id.startsWith('matter-')){
-                                    this.title_lookup_table[thing_id] = thing_title;
-                                }
-                            
+                            var thing_title = 'unknown';
+                            if( things[key].hasOwnProperty('title') ){
+                                thing_title = things[key]['title'];
                             }
-                			catch(e){
-                				console.error("Matter adapter: error looping over all things: ", e);
-                			}
-                        }
-                        if(this.debug){
-                            console.log("matter adapter debug: this.all_things: ", this.all_things);
-                            console.log("matter adapter debug: this.title_lookup_table: ", this.title_lookup_table);
-                        }
-                        
-                        this.get_init_data2();
-                        
-                    });
-                }
-    			catch(e){
-    				console.log("matter adapter debug: Error calling API.getThings(): " , e);
-                    this.request_devices_list();
-    			}
+                            else if( things[key].hasOwnProperty('label') ){
+                                thing_title = things[key]['label'];
+                            }
                 
-			}
-			catch(e){
-				console.log("matter adapter debug: Error in API call to init: ", e);
-			}
+                            //console.log("thing_title = " + thing_title);
+                
+                            var thing_id = things[key]['href'].substr(things[key]['href'].lastIndexOf('/') + 1);
+                            if(thing_id.startsWith('matter-')){
+                                this.title_lookup_table[thing_id] = thing_title;
+                            }
+                        
+                        }
+                        catch(e){
+                            console.error("Matter adapter: error looping over all things: ", e);
+                        }
+                    }
+                    if(this.debug){
+                        console.log("matter debug: this.all_things: ", this.all_things);
+                        console.log("matter debug: this.title_lookup_table: ", this.title_lookup_table);
+                    }
+                    
+                    this.get_init_data2();
+                    
+                });
+            }
+            catch(e){
+                console.log("matter debug: Error calling API.getThings(): " , e);
+                this.request_devices_list();
+            }
         }
         
         
         // Gets called after the things have first been requested from the webthings API. Which is needed to get the thing title.
         get_init_data2(){
             if(this.debug){
-                console.log("matter adapter debug: in get_init_data2 (getting init from addon api)");
+                console.log("matter debug: in get_init_data2 (getting init from addon api)");
             }
             
 	  		// Init
@@ -1846,13 +2233,13 @@
 			
 	        }).catch((err) => {
 	  			if(this.debug){
-					console.error("matter adapter debug: caught ERROR getting INIT data!: ", err);
+					console.error("matter debug: caught ERROR getting INIT data!: ", err);
 				}
                 setTimeout(() => {
                     if(this.retried_init == false){
                         this.retried_init = true;
                         if(this.debug){
-							console.warn("matter adapter debug: restaring get_init_data after earlier attempt failed");
+							console.warn("matter debug: restaring get_init_data after earlier attempt failed");
 						}
                         this.get_init_data();
                     }
@@ -1868,7 +2255,7 @@
                 // We have now received initial data from the addon, so we can hide the loading spinner by adding the extension-matter-adapter-hidden class to it.
                 
 				if(this.debug){
-					console.log("matter adapter debug: in parse_body.  body: ", body);
+					console.log("matter debug: in parse_body.  body: ", body);
 				}
 				
 				if(!this.second_page_el){
@@ -1881,6 +2268,11 @@
 				}
 				
                 let starting_info = {
+                    'Setup complete': false,
+                    'Available interfaces':'',
+                    'Matter network interface':'',
+                    'Actual interfaces':'',
+                    'Actual Matter network interface':'',
                     'Vendor ID set': false,
                     'Thread radio detected': false,
                     'Thread radio starting': false,
@@ -1889,6 +2281,7 @@
                     'Thread network code loaded': false,
                     'Thread told how to access the internet': false,
                     'Thread running': false,
+                    'Matter network interface found':false,
                     'Matter starting in': 0,
                     'Matter starting': false,
                     'Matter server ready': false,
@@ -1910,9 +2303,176 @@
                 }
             
                 //if(this.debug){
-                //    console.log("matter adapter debug: parse_body: is_mobile? ", this.is_mobile);
+                //    console.log("matter debug: parse_body: is_mobile? ", this.is_mobile);
                 //}
             
+
+                if(typeof body.onboarding_complete == 'boolean'){
+                    if(this.debug){
+                        if(body.onboarding_complete){
+                            console.log("matter debug: onboarding_complete: ", body.onboarding_complete);
+                        }
+                        else{
+                            console.warn("matter debug: onboarding_complete: ", body.onboarding_complete);
+                        }
+                    }
+                    if(this.force_onboarding){
+                        this.onboarding_complete = false;
+                    }
+                    else{
+                        this.onboarding_complete = body.onboarding_complete;
+                    }
+                    starting_info['Setup complete'] = body.onboarding_complete;
+
+                    if(this.onboarding_complete == false){
+                        const onboarding_menu_el = this.view.querySelector('#extension-matter-adapter-onboarding-container');
+                        if(onboarding_menu_el){
+                            this.view.classList.add('extension-matter-adapter-busy-onboarding');
+                        }
+                    }
+                }
+
+
+                if(typeof body.matter_network_interface_found == 'boolean'){
+                    this.matter_network_interface_found = body.matter_network_interface_found;
+                    starting_info['Matter network interface found'] = body.matter_network_interface_found;
+                    if(this.onboarding_complete == true){
+                        const missing_network_interface_el = this.view.querySelector('#extension-matter-adapter-network-interfaces-is-missing-hint');
+                        if(missing_network_interface_el){
+                            if(body.matter_network_interface_found){
+                                missing_network_interface_el.classList.add('extension-matter-adapter-hidden');
+                            }
+                            else{
+                                missing_network_interface_el.classList.remove('extension-matter-adapter-hidden');
+                            }
+                        }
+                    }
+                }
+                if(typeof body.actual_interfaces != 'undefined' && Array.isArray(body.actual_interfaces)){
+                    console.log("body.actual_interfaces: ", body.actual_interfaces);
+                    starting_info['Actual interfaces'] = body.actual_interfaces.join(', ');
+                    if(this.onboarding_complete == false){
+                        if(starting_info['Actual interfaces'] != this.previous_actual_interfaces){
+                            this.previous_actual_interfaces = starting_info['Actual interfaces'];
+                            const onboarding_advanced_network_select_el = this.view.querySelector('#extension-matter-adapter-onboarding-network-item-advanced-select');
+                            if(onboarding_advanced_network_select_el){
+                                onboarding_advanced_network_select_el.innerHTML = '';
+                                for(let aii = 0; aii < body.actual_interfaces.length; aii++){
+                                    const advanced_network_option_el = document.createElement('option');
+                                    advanced_network_option_el.setAttribute('value',body.actual_interfaces[aii]);
+                                    advanced_network_option_el.textContent = body.actual_interfaces[aii];
+                                    onboarding_advanced_network_select_el.appendChild(advanced_network_option_el);
+                                }
+                                if(typeof body.actual_matter_network_interface == 'string'){
+                                    onboarding_advanced_network_select_el.value = body.actual_matter_network_interface;
+                                }
+                            }
+                        }
+                    }
+                }
+
+
+
+
+                if(typeof body.actual_matter_network_interface != 'undefined'){
+                    starting_info['Actual Matter network interface'] = body.actual_matter_network_interface;
+                    if(typeof body.actual_matter_network_interface == 'string' && body.actual_matter_network_interface.length > 1){
+                        this.view.querySelector('#extension-matter-adapter-onboarding-step3-tab').classList.add('extension-matter-adapter-onboarding-step-complete');
+                        this.view.querySelector('#extension-matter-adapter-missing-actual-network-interface').textContent = ' ' + body.actual_matter_network_interface;
+                    }
+                }
+
+
+                const update_matter_network_illustration = () => {
+                    const selected_network_type = this.view.querySelector('input[name="extension-matter-adapter-onboarding-network-radio-buttons"]:checked').value;
+                    if(typeof selected_network_type == 'string'){
+                        if(selected_network_type == 'Hotspot (recommended)'){
+                            this.view.querySelector('#extension-matter-adapter-onboarding-network-illustration').src = '/extensions/matter-adapter/images/hotspot_enabled.svg';
+                        }
+                        else if(selected_network_type == 'Home network'){
+                            this.view.querySelector('#extension-matter-adapter-onboarding-network-illustration').src = '/extensions/matter-adapter/images/hotspot_disabled.svg';
+                        }
+                        else if(selected_network_type == 'All networks'){
+                            this.view.querySelector('#extension-matter-adapter-onboarding-network-illustration').src = '/extensions/matter-adapter/images/hotspot_all.svg';
+                        }
+                        else if(selected_network_type == 'Advanced'){
+                            const advanced_actual_network = this.view.querySelector('#extension-matter-adapter-onboarding-network-item-advanced-select').value;
+                            if(typeof advanced_actual_network == 'string' && (advanced_actual_network == 'uap0' || advanced_actual_network == 'wlan1')){
+                                this.view.querySelector('#extension-matter-adapter-onboarding-network-illustration').src = '/extensions/matter-adapter/images/hotspot_enabled.svg';
+                            }
+                            else{
+                                this.view.querySelector('#extension-matter-adapter-onboarding-network-illustration').src = '/extensions/matter-adapter/images/hotspot_disabled.svg';
+                            }
+                        }
+                    }
+                }
+                
+                const privacy_networks_container_el = this.view.querySelector('#extension-matter-adapter-onboarding-privacy-networks-container');
+                if(privacy_networks_container_el){
+                    privacy_networks_container_el.addEventListener('click', () => {
+                        setTimeout(() => {
+                            update_matter_network_illustration();
+                        },100);
+                    });
+                }
+                
+                if(typeof body.matter_network_interface == 'string'){
+                    starting_info['Matter network interface'] = body.matter_network_interface;
+                }
+
+
+                if(typeof body.available_interfaces != 'undefined' && Array.isArray(body.available_interfaces)){
+                    this.available_interfaces = body.available_interfaces;
+                    starting_info['Available interfaces'] = body.available_interfaces.join(", ");
+                    
+                    if(this.should_set_selected_privacy_network){
+                        this.should_set_selected_privacy_network = false;
+                        const privacy_networks_container_el = this.view.querySelector('#extension-matter-adapter-onboarding-privacy-networks-container');
+                        if(privacy_networks_container_el){
+                            if(this.debug){
+                                console.log("matter debug:  body.available_interfaces: ", body.available_interfaces);
+                            }
+
+                            for(let cn = 0; cn < privacy_networks_container_el.children.length; cn++){
+                                const item_interface_el = privacy_networks_container_el.children[cn];
+                                if(item_interface_el){
+                                    const item_interface = item_interface_el.getAttribute('data-interface');
+                                    if(this.debug){
+                                        console.log("matter debug: privacy network radio buttons: checking if  item_interface in available_interfaces: ", item_interface, body.available_interfaces);
+                                    }
+
+                                    const radio_checkbox_el = item_interface_el.querySelector('input');
+                                    if(radio_checkbox_el){
+                                        if(typeof body.matter_network_interface == 'string' && body.matter_network_interface == item_interface){
+                                            radio_checkbox_el.checked = true;
+                                            update_matter_network_illustration();
+                                        }
+                                    }
+                                    
+
+                                    /*
+                                    if(body.available_interfaces.indexOf(item_interface) == -1){
+                                        item_interface_el.classList.add('extension-matter-adapter-faded');
+                                    }
+                                    else{
+                                        item_interface_el.classList.remove('extension-matter-adapter-faded');
+                                    }
+                                    */
+                                }
+                                else{
+                                    console.error("could not find onboarding privacy network selection radio button item");
+                                }
+                                
+                                //radio_button_option_el = privacy_networks_container_el.querySelector('div[data-interface="' + body.available_interfaces[ai] + '"');
+                            }
+                            
+                        }
+                    }
+                    
+                    
+                }
+
+                
 				
                 if(typeof body.use_hotspot == 'boolean' && typeof body.hotspot_addon_installed == 'boolean' && typeof body.wifi_credentials_available != 'undefined'){
                     this.hotspot_addon_installed = body.hotspot_addon_installed;
@@ -1947,21 +2507,39 @@
 
                     const import_thread_dataset_hint_el = this.view.querySelector('#extension-matter-adapter-import-thread-dataset-hint'); // hint on the main page
                     const has_dataset_hint_el = this.view.querySelector('#extension-matter-adapter-has-dataset-hint'); // hint on the thread tab
+                    
+                    
                     if(typeof body.found_new_thread_radio || body.found_thread_radio_again){
-                        if(has_dataset_hint_el && import_thread_dataset_hint_el){
-                            if(body.has_thread_dataset == false && body.should_create_thread_mesh == false){
-                                has_dataset_hint_el.textContent = 'No Thread network code created or imported yet';
-                                import_thread_dataset_hint_el.classList.remove('extension-matter-adapter-hidden');
-                            }
-                            else if(body.has_thread_dataset){
-                                has_dataset_hint_el.textContent = 'This controller has a Thread network code';
-                                import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
-                            }
-                            else if(body.hould_create_thread_mesh){
-                                has_dataset_hint_el.textContent = 'Busy creating a brand new Thread network...';
-                                import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
+
+                        this.view.querySelector('#extension-matter-adapter-onboarding-step1-tab').classList.add('extension-matter-adapter-onboarding-step-complete');
+
+                        if(body.has_thread_dataset){
+                            this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.add('extension-matter-adapter-onboarding-step-complete');
+                            this.view.querySelector('#extension-matter-adapter-onboarding-step2-tab').classList.remove('extension-matter-adapter-faded');
+                        }
+                        
+                        if(this.onboarding_complete == false){
+                            this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.remove('extension-matter-adapter-hidden');
+                            this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.remove('extension-matter-adapter-faded');
+                        }
+                        else{
+                            if(has_dataset_hint_el && import_thread_dataset_hint_el){
+                                if(body.has_thread_dataset == false && body.should_create_thread_mesh == false){
+                                    has_dataset_hint_el.textContent = 'No Thread network code created or imported yet';
+                                    import_thread_dataset_hint_el.classList.remove('extension-matter-adapter-hidden');
+                                }
+                                else if(body.has_thread_dataset){
+                                    has_dataset_hint_el.textContent = 'This controller has a Thread network code';
+                                    import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
+
+                                }
+                                else if(body.hould_create_thread_mesh){
+                                    has_dataset_hint_el.textContent = 'Busy creating a brand new Thread network...';
+                                    import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
+                                }
                             }
                         }
+                        
                     }
                     starting_info['Thread network code available'] = body.has_thread_dataset;
                 }
@@ -2017,26 +2595,36 @@
                 
 
                 if(typeof body.missing_vendor_id == 'boolean'){
+                    starting_info['Vendor ID set'] = !body.missing_vendor_id;
                     if(this.debug){
                         console.log("matter debug: body.missing_vendor_id: ", body.missing_vendor_id);
                     }
-                    const vendor_id_hint_el = this.view.querySelector('#extension-matter-adapter-missing-vendor-id-hint');
-                    if(vendor_id_hint_el){
-                        if(body.missing_vendor_id == true){
-                            vendor_id_hint_el.classList.remove('extension-matter-adapter-hidden');
-                        }
-                        else{
-                            vendor_id_hint_el.classList.add('extension-matter-adapter-hidden');
+
+                    if(body.missing_vendor_id == false){
+                        this.view.querySelector('#extension-matter-adapter-onboarding-step2-tab').classList.add('extension-matter-adapter-onboarding-step-complete');
+                        this.view.querySelector('#extension-matter-adapter-onboarding-step3-tab').classList.remove('extension-matter-adapter-faded');
+                        this.view.querySelector('#extension-matter-adapter-onboarding-vendor-id-input').setAttribute('placeholder','* * * *');
+                        this.view.querySelector('#extension-matter-adapter-missing-vendor-id-already-set-hint').classList.remove('extension-matter-adapter-hidden');
+                    }
+
+                    if(this.onboarding_complete == true){
+                        const vendor_id_hint_el = this.view.querySelector('#extension-matter-adapter-missing-vendor-id-hint');
+                        if(vendor_id_hint_el){
+                            if(body.missing_vendor_id == true){
+                                vendor_id_hint_el.classList.remove('extension-matter-adapter-hidden');
+                            }
+                            else{
+                                vendor_id_hint_el.classList.add('extension-matter-adapter-hidden');
+                            }
                         }
                     }
-                    starting_info['Vendor ID set'] = !body.missing_vendor_id;
                 }
 
                 
                 
                 if(typeof body.nodez != 'undefined'){
                     //if(this.debug){
-                    //    console.log("matter adapter debug: parse_body: received nodez: ", body.nodez);
+                    //    console.log("matter debug: parse_body: received nodez: ", body.nodez);
                     //}
                     this.nodez = body.nodez;
                     const nodes_string = JSON.stringify(body.nodez, null, 4);
@@ -2235,7 +2823,7 @@
 
                     
 					
-					if(this.debug){
+					if(this.debug && typeof body.thread_radio_is_alive_seconds_ago != 'undefined'){
 						if(typeof body.thread_radio_is_alive_seconds_ago == 'number'){
 							console.log("matter adapter: debug: thread_radio_is_alive_seconds_ago: ", body.thread_radio_is_alive_seconds_ago);
 						}
@@ -2310,12 +2898,12 @@
                 if(typeof body.busy_pairing == 'boolean'){
 					if(body.busy_pairing != this.busy_pairing){
 						if(this.debug){
-							console.warn("matter adapter debug:  parse body: PAIRING STATE CHANGED from,to:", this.busy_pairing, body.busy_pairing);
+							console.warn("matter debug:  parse body: PAIRING STATE CHANGED from,to:", this.busy_pairing, body.busy_pairing);
 						}
 					}
                     this.busy_pairing = body.busy_pairing;
 					if(this.debug){
-                        console.log("matter adapter debug: parse body: this.busy_pairing is now: ", this.busy_pairing);
+                        console.log("matter debug: parse body: this.busy_pairing is now: ", this.busy_pairing);
 					}
                     if(this.busy_pairing){
                         this.view.classList.add('extension-matter-adapter-busy-pairing');
@@ -2415,7 +3003,7 @@
 						
 							if(this.busy_pairing){
 	                            if(this.debug){
-	                                console.log("matter adapter debug: MATTER PAIRING FAILED");
+	                                console.log("matter debug: MATTER PAIRING FAILED");
 	                            }
                                 this.view.classList.add('extension-matter-adapter-pairing-done');
                                 this.view.classList.remove('extension-matter-adapter-busy-pairing');
@@ -2604,7 +3192,7 @@
                             }
 
                             else if(key == 'Matter starting in'){
-                                console.warn("key = Matter starting in.  value: ", value);
+                                //console.warn("key = Matter starting in.  value: ", value);
                                 starting_item_el.classList.add('extension-matter-adapter-show-if-developer');
                                 starting_item_el.classList.add('extension-matter-adapter-starting-checklist-item-irrelevant');
                                 
@@ -2618,7 +3206,11 @@
                             else if(starting_info['Thread radio detected'] == false && key.startsWith('Thread ')){
                                 starting_item_el.classList.add('extension-matter-adapter-starting-checklist-item-irrelevant');
                             }
-                            else if(value == true){
+                            else if(typeof value == 'string'){
+                                starting_item_el.classList.add('extension-matter-adapter-starting-checklist-item-done');
+                                starting_item_el.classList.add('extension-matter-adapter-show-if-developer');
+                            }
+                            else if(typeof value == 'boolean' && value == true){
                                 starting_item_el.classList.add('extension-matter-adapter-starting-checklist-item-done');
                             }
                             starting_info_el.appendChild(starting_item_el);
@@ -2640,7 +3232,7 @@
         show_pairing_page(){
             
             if(this.debug){
-                console.log("matter adapter debug: in show_pairing_page");
+                console.log("matter debug: in show_pairing_page");
             }
             
 			this.reset_pairing();
@@ -2664,7 +3256,7 @@
 			this.second_page_el.classList.remove('extension-matter-adapter-pairing-network');
             this.second_page_el.classList.remove('extension-matter-adapter-busy-pairing');
 			this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-area').classList.remove('extension-matter-adapter-hidden');
-			//this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.add('extension-matter-adapter-hidden');
+			this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.add('extension-matter-adapter-hidden');
 		    this.view.querySelector('#extension-matter-adapter-pairing-step-qr').classList.remove('extension-matter-adapter-hidden');
             this.view.querySelector('#extension-matter-adapter-save-manual-input-pairing-code-button').classList.remove('extension-matter-adapter-hidden');
             this.view.querySelector('#extension-matter-adapter-pairing-failed-hint').classList.add('extension-matter-adapter-hidden');
@@ -2678,7 +3270,7 @@
 			let old_pairing_code = localStorage.getItem('extension-matter-adapter-last-pairing-code');
 			if(typeof old_pairing_code == 'string' && old_pairing_code.startsWith('MT')){
 				if(this.debug){
-					console.log("matter adapter debug: spotted pairing code in local storage: ", old_pairing_code);
+					console.log("matter debug: spotted pairing code in local storage: ", old_pairing_code);
 				}
 				if(old_pairing_code.indexOf('----|----') != -1){
 					let old_code_storage_time = old_pairing_code.split('----|----')[1];
@@ -2697,7 +3289,7 @@
 					}
 					else{
 						if(this.debug){
-							console.log("matter adapter debug: pairing code in local storage was too old, deleting it");
+							console.log("matter debug: pairing code in local storage was too old, deleting it");
 						}
 						this.view.querySelector('#extension-matter-adapter-pairing-use-previously-scanned-code').classList.add('extension-matter-adapter-hidden');
 						localStorage.removeItem('extension-matter-adapter-last-pairing-code');
@@ -2712,13 +3304,13 @@
         // is called once every few seconds by poll_interval to see if the opened scanning window has found a pairing code
         pairing_poll(){
             if(this.debug){
-                console.log("matter adapter debug: in pairing_poll.  this.busy_pairing, this.busy_polling_counter, this.total_busy_polling_counter: ", this.busy_pairing, this.busy_polling_counter, this.total_busy_polling_counter);
+                console.log("matter debug: in pairing_poll.  this.busy_pairing, this.busy_polling_counter, this.total_busy_polling_counter: ", this.busy_pairing, this.busy_polling_counter, this.total_busy_polling_counter);
             }
 			
             if(this.busy_polling_counter > 13){
                 this.busy_polling_counter = 0;
                 if(this.debug){
-                    console.log("matter adapter debug: letting a new polling attempt through");
+                    console.log("matter debug: letting a new polling attempt through");
                 }
             }
 			
@@ -2730,14 +3322,14 @@
             
 				).then((body) => {
 	                if(this.debug){
-	                    console.log("matter adapter debug: poll response: ", body);
+	                    console.log("matter debug: poll response: ", body);
 	                }
 					
                 
                     if(typeof body.discovered != 'undefined'){
                         try{
                             if(this.debug){
-                                console.log("matter adapter debug: poll: body.discovered: ", body.discovered);
+                                console.log("matter debug: poll: body.discovered: ", body.discovered);
                             }
                         }
                         catch(err){
@@ -2770,7 +3362,7 @@
 		                        updating_certificates_el.classList.remove('extension-matter-adapter-hidden');
 								need_certificates_update_el.classList.add('extension-matter-adapter-hidden');
 		                        if(this.debug){
-		                            console.log("matter adapter debug: busy updating certificates");
+		                            console.log("matter debug: busy updating certificates");
 		                        }
 							}
 		                    else{
@@ -2789,12 +3381,12 @@
 				
 					if(typeof body.decoded_pairing_code != 'undefined'){
 						if(this.debug){
-                            console.log("matter adapter debug: body.decoded_pairing_code: ", body.decoded_pairing_code);
+                            console.log("matter debug: body.decoded_pairing_code: ", body.decoded_pairing_code);
 						}
 						if(Array.isArray(body.decoded_pairing_code)){
 							for(let l = 0; l < body.decoded_pairing_code.length; l++){
     							if(this.debug){
-                                    console.log("matter adapter debug: decoded pairing code line: ", body.decoded_pairing_code[l]);
+                                    console.log("matter debug: decoded pairing code line: ", body.decoded_pairing_code[l]);
 								}
 							}
 						}
@@ -2813,7 +3405,7 @@
 	                    if(body.nodez.length > this.initial_nodez_count){
                             this.nodez = body.nodez;
 	                        if(this.debug){
-								console.log("matter adapter debug: THE DEVICE LIST IS LONGER NOW, PAIRING MUST HAVE SUCCEEDED");
+								console.log("matter debug: THE DEVICE LIST IS LONGER NOW, PAIRING MUST HAVE SUCCEEDED");
 							}
                             /*
 	                        this.view.querySelector('#extension-matter-adapter-second-page').classList.remove('extension-matter-adapter-busy-pairing');
@@ -2837,7 +3429,7 @@
                 
 	                if(typeof body.nodes != 'undefined'){
                         if(this.debug){
-                            console.warn("matter adapter debug: parse_body: setting body.nodes to this.nodez");
+                            console.warn("matter debug: parse_body: setting body.nodes to this.nodez");
                         }
 	                    this.nodez = body.nodes;
 	                    //this.regenenerate_items();
@@ -2845,7 +3437,7 @@
 	                if(typeof body.pairing_code == 'string'){
 	                    if(body.pairing_code.startsWith('MT:')){
 	                        if(this.debug){
-	                            console.log("matter adapter debug: GOT A GOOD PAIRING CODE: ", body.pairing_code);
+	                            console.log("matter debug: GOT A GOOD PAIRING CODE: ", body.pairing_code);
 	                        }
 	                        this.pairing_code = body.pairing_code;
                         
@@ -2853,7 +3445,7 @@
                         	
 							if(this.scan_window){
 								if(this.debug){
-									console.log("matter adapter debug: closing previously opened scan window");
+									console.log("matter debug: closing previously opened scan window");
 								}
 								this.scan_window.close();
 								this.scan_window = null;
@@ -2882,7 +3474,7 @@
                                 this.view.classList.add('extension-matter-adapter-pairing-done');
 
                                 if(this.debug){
-	                                console.log("matter adapter debug: MATTER PAIRING FAILED");
+	                                console.log("matter debug: MATTER PAIRING FAILED");
 	                            }
 								
                                 if(this.second_page_el){
@@ -2916,7 +3508,7 @@
 						}
 	                    this.busy_pairing = body.busy_pairing;
 						if(this.debug){
-                            console.log("matter adapter debug: pairing_poll: this.busy_pairing is now: ", this.busy_pairing);
+                            console.log("matter debug: pairing_poll: this.busy_pairing is now: ", this.busy_pairing);
 						}
 						if(this.second_page_el){
 		                    if(this.busy_pairing){
@@ -2939,7 +3531,7 @@
 	                //this.busy_pairing = false;
 					this.busy_polling_counter = 0;
 					if(this.debug){
-                        console.error("matter adapter debug: caught pairing poll error: ", err);
+                        console.error("matter debug: caught pairing poll error: ", err);
 					}
 	                //this.view.querySelector('#extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-faded');
 				});
@@ -2961,11 +3553,11 @@
         // Reveal the div with the actual normal pairing button
         show_pairing_start_area(){
             if(this.debug){
-                console.log("matter adapter debug: in show_pairing_start_area");
+                console.log("matter debug: in show_pairing_start_area");
             }
             if(this.pairing_code != ""){
                 if(this.debug){
-                    console.log("matter adapter debug: pairing code is available. Showing pairing start area.");
+                    console.log("matter debug: pairing code is available. Showing pairing start area.");
                 }
 				
 	            if (this.current_stream) {
@@ -2987,7 +3579,7 @@
                 }
 				
 				
-                //this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.remove('extension-matter-adapter-hidden');
+                this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.remove('extension-matter-adapter-hidden');
                 this.view.querySelector('#extension-matter-adapter-pairing-step-qr').classList.add('extension-matter-adapter-hidden');
                 this.view.querySelector('#extension-matter-adapter-pairing-start-area-pairing-code').innerText = this.pairing_code;
             
@@ -2999,7 +3591,7 @@
 			}
             else{
                 if(this.debug){
-                    console.warn("matter adapter debug: WiFi credentials and pairing code are NOT both available yet. Not revealing pairing start area.");
+                    console.warn("matter debug: WiFi credentials and pairing code are NOT both available yet. Not revealing pairing start area.");
                 }
             }
 			
@@ -3009,7 +3601,7 @@
 		reset_pairing(){
 
             if(this.debug){
-                console.log("matter adapter debug: in reset_pairing");
+                console.log("matter debug: in reset_pairing");
             }
 
             this.busy_discovering = false;
@@ -3075,7 +3667,7 @@
 			if(!this.second_page_el){
 				this.second_page_el = this.view.querySelector('#extension-matter-adapter-second-page');
 			}
-            //this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.remove('extension-matter-adapter-hidden');
+            this.view.querySelector('#extension-matter-adapter-pairing-start-area').classList.remove('extension-matter-adapter-hidden');
             this.view.classList.remove('extension-matter-adapter-busy-pairing');
             this.view.classList.remove('extension-matter-adapter-pairing-done');
 		}
@@ -3102,7 +3694,7 @@
 				//}
 				
 				if(this.debug){
-                    console.log("matter adapter debug: in regenerating_items.  this.nodez: ", this.nodez);
+                    console.log("matter debug: in regenerating_items.  this.nodez: ", this.nodez);
                 }
 				
 				const list = this.view.querySelector('#extension-matter-adapter-paired-devices-list');
@@ -3166,7 +3758,7 @@
                         
                         let item_data = this.nodez[thing_id];
                         if(this.debug){
-                            console.log("matter adapter debug:  thing_id,item_data: ", thing_id, item_data); // device_id
+                            console.log("matter debug:  thing_id,item_data: ", thing_id, item_data); // device_id
                         }
 
 						if(typeof item_data['node_id'] == 'undefined'){
@@ -3175,7 +3767,7 @@
 							}
 							else{
 								if(this.debug){
-									console.error("matter adapter debug: regenerate_items: skipping, missing node_id in item data: ", item_data);
+									console.error("matter debug: regenerate_items: skipping, missing node_id in item data: ", item_data);
 								}
 								continue
 							}
@@ -3186,8 +3778,8 @@
 						
 						if(!clone){
 							if(this.debug){
-		                        console.log("matter adapter debug: creating new item for thing_id: ", thing_id );
-			                    console.log("matter adapter debug: sorted title_lookup_table: ", this.title_lookup_table);
+		                        console.log("matter debug: regenerate_items: creating new item for thing_id: ", thing_id );
+			                    console.log("matter debug: regenerate_items: sorted title_lookup_table: ", this.title_lookup_table);
 			                }
 							clone = original.cloneNode(true);
 							clone.setAttribute('id','extension-matter-adapter-item-' + thing_id);
@@ -3200,7 +3792,9 @@
                             }
                         }
                         catch(err){
-                            console.error("matter: caught error checking if thing_id is in self.reconnected_devices: ", err);
+                            if(this.debug){
+                                console.error("matter debug: regenerate_items: caught error checking if thing_id is in self.reconnected_devices: ", err);
+                            }
                         }
 					
     					//var clone = original.cloneNode(true);
@@ -3305,7 +3899,7 @@
                             const cancel_update_button = clone.querySelector('.extension-matter-adapter-overlay-cancel-update-button');
                             cancel_update_button.addEventListener('click', () => {
                                 if(this.debug){
-                                    console.log("matter adapter debug: cancel update button has been clicked.  my_node_id: ", my_node_id);
+                                    console.log("matter debug: regenerate_items: cancel update button has been clicked.  my_node_id: ", my_node_id);
                                 }
                                 let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
                                 item_el.classList.remove("extension-matter-adapter-update");
@@ -3315,7 +3909,7 @@
                             start_update_button.dataset.node_id = item_data['node_id'];
                             start_update_button.addEventListener('click', (event) => {
                                 if(this.debug){
-                                    console.log("matter adapter debug: clicked on start update button.  my_node_id: ", my_node_id);
+                                    console.log("matter debug: regenerate_items: clicked on start update button.  my_node_id: ", my_node_id);
                                 }
                                 //console.log("- node_id:" + item_data['node_id']);
                                 //console.log("data attribute: ", event.target.dataset);
@@ -3341,7 +3935,7 @@
                                 //pre.innerText = "Please wait 10 minutes before you start another update!";
                                 
                                 if(this.debug){
-                                    console.warn("matter adapter debug: calling update_node with my_node_id: ", my_node_id);
+                                    console.warn("matter debug: regenerate_items: calling update_node with my_node_id: ", my_node_id);
                                 }
                                 
                                 
@@ -3352,7 +3946,7 @@
 
                                 ).then((body) => { 
                                     if(this.debug){
-                                        console.log("matter adapter debug: update_node response.  node_id,body: ", my_node_id, body);
+                                        console.log("matter debug: regenerate_items: update_node response.  node_id,body: ", my_node_id, body);
                                     }
                                     if(typeof body['state'] == 'boolean' && body['state'] == true){
                                         this.updating_firmware = true;
@@ -3362,7 +3956,7 @@
 
                                 }).catch((err) => {
                                     if(this.debug){
-                                        console.error("matter adapter debug: caught error calling update_node: ", err);
+                                        console.error("matter debug: regenerate_items: caught error calling update_node: ", err);
                                     }
                                 });
                                 
@@ -3370,7 +3964,7 @@
                         }
                         else{
                             if(this.debug){
-                                console.warn("matter adapter debug: almost added another click event listener to update button!");
+                                console.warn("matter debug: regenerate_items: almost added another click event listener to update button!");
                             }
                         }
                         
@@ -3407,7 +4001,7 @@
 	                            }
 	                            catch(e){
 	                                if(this.debug){
-										console.error("matter adapter debug: caught error adding thing title to clone: ", e);
+										console.error("matter debug: regenerate_items: caught error adding thing title to clone: ", e);
 									}
 	                            }
 							}
@@ -3451,8 +4045,8 @@
                             }
                             catch(err){
 								if(this.debug){
-	                                console.error("matter adapter debug: Error setting vendor or product name: ", err);
-									console.log("matter adapter debug: item_data: ", item_data);
+	                                console.error("matter debug: regenerate_items: caught error setting vendor or product name: ", err);
+									console.log("matter debug: regenerate_items: - item_data: ", item_data);
 								}
                                 
                             }
@@ -3474,7 +4068,7 @@
                                 const ip_addresses_el = clone.querySelector('.extension-matter-adapter-item-ip-addresses');
                                 if(ip_addresses_el.innerHTML == ''){
 									if(this.debug){
-	                                    console.log("matter adapter debug: ip_addresses: ", item_data['ip_addresses']);
+	                                    console.log("matter debug: regenerate_items:  ip_addresses: ", item_data['ip_addresses']);
 	                                }
                                     for(let ipi = 0; ipi < item_data['ip_addresses'].length; ipi++){
                                         if(this.kiosk){
@@ -3484,7 +4078,12 @@
                                         }
                                         else{
                                             const a_el = document.createElement("a");
-                                            a_el.setAttribute('href','http://[' + item_data['ip_addresses'][ipi] + ']');
+                                            if(item_data['ip_addresses'][ipi].indexOf('.') != -1){
+                                                a_el.setAttribute('href','http://' + item_data['ip_addresses'][ipi]);
+                                            }
+                                            else{
+                                                a_el.setAttribute('href','http://[' + item_data['ip_addresses'][ipi] + ']');
+                                            }
                                             a_el.setAttribute('target','_blank');
                                             a_el.setAttribute('rel','norefferer');
 									        a_el.textContent = item_data['ip_addresses'][ipi];
@@ -3498,7 +4097,7 @@
     						if(typeof item_data['software_version'] != "undefined"){
                                 if(clone.querySelector('.extension-matter-adapter-item-software-version' ).innerHTML == ''){
 									if(this.debug){
-	                                    console.log("matter adapter debug: software version: ", item_data['software_version']);
+	                                    console.log("matter debug: regenerate_items:  software version: ", item_data['software_version']);
 	                                }
 	                                //this.flash_message(item_data['software_version']);
 	    							const s = document.createElement("span");
@@ -3531,11 +4130,11 @@
                                     const line3_el = clone.querySelector('.extension-matter-adapter-line3');
                                     if(line3_el){
                                         const week_ago_timestamp = Math.round(Date.now() / 1000) - (38400 * 7);
-                                        console.log("week_ago_timestamp: ", week_ago_timestamp);
-                                        console.log("last_update_check_timestamp: ", item_data['update']['last_update_check_timestamp']);
+                                        //console.log("week_ago_timestamp: ", week_ago_timestamp);
+                                        //console.log("last_update_check_timestamp: ", item_data['update']['last_update_check_timestamp']);
                                         if(item_data['update']['last_update_check_timestamp'] > week_ago_timestamp){ // 7 days
                                             if(this.debug){
-                                                console.log("recent update info is available: ", item_data['update']);
+                                                console.log("matter debug: regenerate_items: regenerate_items: recent update info is available: ", item_data['update']);
                                             }
 
                                             if(item_data['update']['result'] == null){
@@ -3568,8 +4167,8 @@
                                                     update_button_el.textContent = 'Update';
                                                     //line3_el.innerHTML = '<button class="extension-matter-adapter-item-update-container extension-matter-adapter-item-update-available">Update</button>';
                                                 }
+
                                                 update_button_el.addEventListener('click', () => {
-                                                    
                                                     //let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
                                                     //item_el.classList.add("extension-matter-adapter-update");
                                                     clone.classList.add("extension-matter-adapter-update");
@@ -3581,12 +4180,12 @@
 
                                                     ).then((body) => { 
                                                         if(this.debug){
-                                                            console.log("response from calling update_node: ", body);
+                                                            console.log("matter debug: regenerate_items: response from calling update_node: ", body);
                                                         }
                                                     })
                                                     .catch((err) => {
                                                         if(this.debug){
-                                                            console.log("matter adapter debug: caught error calling update_node: ", err);
+                                                            console.log("matter debug: regenerate_items:  caught error calling update_node: ", err);
                                                         }
                                                     });
                                                 })
@@ -3596,7 +4195,7 @@
                                         }
                                         else{
                                             if(this.debug){
-                                                console.log("update info was more than a week old, not adding update button");
+                                                console.log("matter debug: regenerate_items: update info was more than a week old, not adding update button");
                                             }
                                         }
                                     }
@@ -3608,8 +4207,10 @@
                             
 						
     					}
-    					catch(e){
-    						console.log("matter adapter debug: error handling Matter device data: " , e);
+    					catch(err){
+    						if(this.debug){
+                                console.log("matter debug: regenerate_items:  caught error handling Matter device data: " , err);
+                            }
     					}
 						
                         
@@ -3622,20 +4223,17 @@
 								show_delete_button.classList.add('extension-matter-adapter-listener-added');
 								
         						if(this.debug){
-									console.log("matter adapter debug: adding listeners to buttons for thing_id: ", thing_id);
+									console.log("matter debug: regenerate_items: adding listeners to buttons for thing_id: ", thing_id);
 								}
 								
 								
 								// DELETE
-								
-		    					
-                                
 
                                 // Delete cancel button
 		                        const delete_cancel_button = clone.querySelector('.extension-matter-adapter-item-delete-cancel-button');
 		    					delete_cancel_button.addEventListener('click', (event) => {
 		                            if(this.debug){
-		                                console.log("matter adapter debug: delete cancel button clicked");
+		                                console.log("matter debug: regenerate_items: delete cancel button clicked");
 		                            }
 		    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
 		    						item_el.classList.remove("extension-matter-adapter-delete");
@@ -3645,7 +4243,7 @@
 		                        const delete_confirm_button = clone.querySelector('.extension-matter-adapter-item-delete-confirm-button');
 		    					delete_confirm_button.addEventListener('click', (event) => {
 		                            if(this.debug){
-		                                console.log("matter adapter debug: delete confirm button clicked. my_node_id: ", my_node_id);
+		                                console.log("matter debug: regenerate_items: delete confirm button clicked. my_node_id: ", my_node_id);
 		                            }
                         
                                     delete_cancel_button.classList.add('extension-matter-adapter-hidden');
@@ -3664,8 +4262,8 @@
 
 		    						).then((body) => { 
 		    							if(this.debug){
-		                                    console.log("matter adapter debug: delete matter item reaction: ", body);
-		                                    console.log("matter adapter debug: do event and item exist here?: ", event);
+		                                    console.log("matter debug: regenerate_items: delete matter item reaction: ", body);
+		                                    console.log("matter debug: regenerate_items: do event and item exist here?: ", event);
 		                                }
 		                                if(typeof body.state == 'boolean' && body.state == true){
 		                                    this.nodez = body.nodez;
@@ -3679,7 +4277,7 @@
 		                                    }
                                             this.flash_message('Device deleted successfully');
 		                                    if(this.debug){
-		                                        console.log("matter adapter debug: Delete succeeded. Message: ", body.message);
+		                                        console.log("matter debug: regenerate_items: Delete succeeded. Message: ", body.message);
 		                                    }
                                 
 		            						//let item_el_parent = item_el.parentElement;
@@ -3687,7 +4285,7 @@
 		                                }
 		                                else{
 		                                    if(this.debug){
-		                                        console.error("matter adapter debug: Delete failed. Message: ", body.message);
+		                                        console.error("matter debug: regenerate_items:  Delete failed. Message: ", body.message);
 		                                        this.flash_message("Delete error: " + body.message);
 		                                    }
                                             else{
@@ -3697,7 +4295,7 @@
 
 		    						}).catch((err) => {
 		    							if(this.debug){
-		                                    console.error('matter adapter debug: caught error calling delete_node', err);
+		                                    console.error('matter adapter debug: regenerate_items: caught error calling delete_node', err);
 		                                    this.flash_message("An error occured during the delete process. Try reloading the page.");
 		                                }
 		    						});
@@ -3706,14 +4304,16 @@
                     
                                 show_delete_button.addEventListener('click', (event) => {
 		                            if(this.debug){
-		                                console.log("matter adapter debug: show delete overlay button clicked");
+		                                console.log("matter debug: show delete overlay button clicked");
 		                            }
 		    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
 									if(item_el){
 										item_el.classList.add("extension-matter-adapter-delete");
 									}
 									else{
-										console.error("could not find closest parent item");
+										if(this.debug){
+                                            console.error("matter debug: regenerate_items: could not find closest parent item");
+                                        }
 									}
 
                                     delete_cancel_button.classList.remove('extension-matter-adapter-hidden');
@@ -3766,7 +4366,7 @@
 			    					const confirm_share_button = clone.querySelector('.extension-matter-adapter-rule-share-confirm-button');
 			    					confirm_share_button.addEventListener('click', (event) => {
 			    						if(this.debug){
-			                                console.log("matter adapter debug: confirm share button has been clicked");
+			                                console.log("matter debug: regenerate_items: confirm share button has been clicked");
 			                            }
 			                            confirm_share_button.classList.add('extension-matter-adapter-hidden');
                             
@@ -3780,8 +4380,8 @@
 			    							{'action':'share_node','node_id':my_node_id}
 			    						).then((body) => {
 			    							if(this.debug){
-			                                    console.log("matter adapter debug: share_node reaction: ", body);
-			                                    console.log("matter adapter debug: item_el in response: ", item_el);
+			                                    console.log("matter debug: regenerate_items: share_node reaction: ", body);
+			                                    console.log("matter debug: regenerate_items: item_el in response: ", item_el);
 			                                }
 			                                if(typeof body.state != 'undefined'){
 			                                    if(body['state'] == true){
@@ -3793,7 +4393,7 @@
 			                                    }
 			                                    else{
 			                                        if(this.debug){
-			                                            console.error('matter adapter debug: share failed: ', body.message);
+			                                            console.error('matter adapter debug: regenerate_items: share failed: ', body.message);
 			                                        }
 			                                        item_el.querySelector('.extension-matter-adapter-share-code').innerText = body.message;
 			                                    }
@@ -3930,18 +4530,18 @@
 								                        console.log("change_attribute response: ", body);
 								                        if(body.state == true){
 															if(this.debug){
-										                        console.log("matter adapter debug: change_attribute response was OK");
+										                        console.log("matter debug: regenerate_items: change_attribute response was OK");
 															}
 								                        }
 								                        else{
 															if(this.debug){
-										                        console.error("matter adapter debug: change_attribute failed?");
+										                        console.error("matter debug: regenerate_items: change_attribute failed?");
 															}
 								                        }
                     
 								    				}).catch((err) => {
 														if(this.debug){
-									                        console.error("matter adapter debug: caught error calling change_attribute: ", err);
+									                        console.error("matter debug: regenerate_items: caught error calling change_attribute: ", err);
 														}
 								    				});
 												});
@@ -3968,7 +4568,7 @@
 										
 										if(!attribute_el){
 											if(this.debug){
-						                        console.error("matter adapter debug: no attribute_el?");
+						                        console.error("matter debug: no attribute_el?");
 											}
 											continue
 										}
@@ -4045,11 +4645,11 @@
                     
 											    				).then((body) => {
 																	if(this.debug){
-												                        console.log("matter adapter debug: change_attribute response: ", body);
+												                        console.log("matter debug: change_attribute response: ", body);
 																	}
 											                        if(body.state == true){
 											                            if(this.debug){
-																			console.log("matter adapter debug: change_attribute response was OK");
+																			console.log("matter debug: change_attribute response was OK");
 																		}
 																		value_input_el.classList.add('extension-matter-adapter-green-bg');
 																		setTimeout(() => {
@@ -4059,13 +4659,13 @@
 											                        }
 											                        else{
 																		if(this.debug){
-													                        console.error("matter adapter debug: change_attribute failed?");
+													                        console.error("matter debug: change_attribute failed?");
 																		}
 											                        }
                     
 											    				}).catch((err) => {
 																	if(this.debug){
-												                        console.error("matter adapter debug: caught error calling change_attribute: ", err);
+												                        console.error("matter debug: caught error calling change_attribute: ", err);
 																	}
 											    				});
 															}
@@ -4122,7 +4722,9 @@
     					
                     }
         			catch(err){
-        				console.error("matter adapter: caught general error while looping over nodez: ", err);
+        				if(this.debug){
+                            console.error("matter debug: caught general error while looping over nodez: ", err);
+                        }
         			}
                     
                     
@@ -4171,8 +4773,10 @@
 				*/
 			
 			}
-			catch (e) {
-				console.log("Matter adapter: general error while generating items: ", e);
+			catch (err) {
+				if(this.debug){
+                    console.log("matter debug: caught general error while generating items: ", err);
+                }
 			}
 			
 		}
@@ -4189,14 +4793,14 @@
             if(this.wifi_credentials_available == false){
                 if(wifi_ssid.length < 2){
                     if(this.debug){
-                        console.log("matter adapter debug: Wifi name is too short");
+                        console.log("matter debug: Wifi name is too short");
                     }
                     this.flash_message("That wifi name is too short");
                     return;
                 }
                 if(wifi_password.length < 8){
                     if(this.debug){
-                        console.log("matter adapter debug: Wifi password is too short");
+                        console.log("matter debug: Wifi password is too short");
                     }
                     this.flash_message("That wifi password is too short");
                     return;
@@ -4205,11 +4809,11 @@
             
             const code = this.pairing_code;
             if(this.debug){
-                console.log("matter adapter debug: Pairing code: ", code);
+                console.log("matter debug: Pairing code: ", code);
             }
             if(code.length < 5){
                 if(this.debug){
-					console.log("matter adapter debug: pairing code was too short");
+					console.log("matter debug: pairing code was too short");
 				}
                 this.flash_message("That pairing code is too short");
                 return;
@@ -4217,7 +4821,7 @@
             /*
             if(!code.startsWith('MT:')){
                 if(this.debug){
-					console.log("matter adapter debug: pairing code did not start with MT:");
+					console.log("matter debug: pairing code did not start with MT:");
 				}
                 this.flash_message("The pairing code should start with 'MT:'");
                 return;
@@ -4234,31 +4838,31 @@
 			const bluetooth_view_el = document.getElementById('#extension-bluetoothpairing-view');
 			if(bluetooth_view_el){
                 if(this.debug){
-                    console.log("matter adapter debug: asking bluetooth addon to stop scanning for a little while...");
+                    console.log("matter debug: asking bluetooth addon to stop scanning for a little while...");
                 }
                 window.API.postJson(
 					`/extensions/bluetoothpairing/api/ajax`,
 					{'action':'shh'}
 				).then((body) => { 
 					if(this.debug){
-                        console.log("matter adapter debug: asked bluetooth addon to stop scanning for a little while. Its response body: ", body);
+                        console.log("matter debug: asked bluetooth addon to stop scanning for a little while. Its response body: ", body);
                     }
 					if(typeof body.state == 'boolean'){
 						if(body.state == false){
                             if(this.debug){
-		                        console.error("matter adapter debug: requested the Bluetooth addon to stop scanning for a little while, but it said no?");
+		                        console.error("matter debug: requested the Bluetooth addon to stop scanning for a little while, but it said no?");
 							}
 						}
 						else if(body.state == true){
 							if(this.debug){
-		                        console.log("matter adapter debug: succesfully requested the Bluetooth addon to stop scanning for a little while");
+		                        console.log("matter debug: succesfully requested the Bluetooth addon to stop scanning for a little while");
 							}
 						}
 					}
                 
 				}).catch((err) => {
 					if(this.debug){
-                        console.error("matter adapter debug: caught error asking the Bluetooth addon to stop scanning for a little while: ", err);
+                        console.error("matter debug: caught error asking the Bluetooth addon to stop scanning for a little while: ", err);
 					}
                     //document.getElementById('extension-matter-adapter-start-normal-pairing-button').classList.remove('extension-matter-adapter-hidden');
 				});
@@ -4295,7 +4899,7 @@
                     'code':code}
 				).then((body) => { 
 					if(this.debug){
-                        console.log("matter adapter debug: pair device via commission_with_code response: ", body);
+                        console.log("matter debug: pair device via commission_with_code response: ", body);
                     }
 					if(typeof body.state == 'boolean'){
 						if(body.state == false){
@@ -4306,7 +4910,7 @@
 						}
 						else if(body.state == true){
 							if(this.debug){
-		                        console.log("matter adapter debug: Matter server pairing process seems to have started succesfully");
+		                        console.log("matter debug: Matter server pairing process seems to have started succesfully");
 							}
 						}
 					}
@@ -4314,7 +4918,7 @@
 				}).catch((err) => {
                     //this.busy_pairing = false;
 					if(this.debug){
-                        console.error("matter adapter debug: error making commission_with_code pairing request: ", err);
+                        console.error("matter debug: error making commission_with_code pairing request: ", err);
 					}
 					this.flash_message('Failed to start the pairing process: connection error?');
                     this.view.classList.remove('extension-matter-adapter-busy-pairing');
@@ -4386,7 +4990,7 @@
 		
 		start_local_qr_scanner(){
 			if(this.debug){
-                console.log("matter adapter debug: in start_local_qr_scanner");
+                console.log("matter debug: in start_local_qr_scanner");
 			}
 			
 			this.current_stream = null;
@@ -4398,7 +5002,7 @@
 			
 				const create_qr_scanner = () => {
 					if(this.debug){
-                        console.log("matter adapter debug: in create_qr_scanner");
+                        console.log("matter debug: in create_qr_scanner");
 					}
 					scanner_container_el.innerHTML = '';
 					
@@ -4530,7 +5134,7 @@
 						}
 						else{
 							if(this.debug){
-								console.error("matter adapter debug: video.videoWidth was zero");
+								console.error("matter debug: video.videoWidth was zero");
 							}
 						}
 					}
@@ -4542,7 +5146,7 @@
 				    .getUserMedia(constraints)
 				    .then((stream) => {
 						if(this.debug){
-	                        console.log("matter adapter debug: GOT VIDEO STREAM.  video_el: ", video_el, stream);
+	                        console.log("matter debug: GOT VIDEO STREAM.  video_el: ", video_el, stream);
 						}
 						this.current_stream = stream;
 						video_el.srcObject = stream;
@@ -4559,7 +5163,7 @@
 				    })
 				    .catch((err) => {
 						if(this.debug){
-							console.error("matter adapter debug: caught error getting video stream: ", err);
+							console.error("matter debug: caught error getting video stream: ", err);
 						}
 						turn_off_qr_scanner();
 						
@@ -4584,14 +5188,14 @@
 	  
 							for (const barcode of codes)  {
 								if(this.debug){
-			                        console.log("matter adapter debug: Found QR code: ", barcode);
+			                        console.log("matter debug: Found QR code: ", barcode);
 								}
 							
 								if(typeof barcode.rawValue == 'string'){
 									
 									const raw_code = "" + barcode.rawValue;
 									if(this.debug){
-				                        console.log("matter adapter debug: raw_code: ", raw_code);
+				                        console.log("matter debug: raw_code: ", raw_code);
 									}
 									let matter_code = '';
 									//let codes = raw_code.match(/(MT:[A-Z0-9]{5}[^a-zA-Z\d\s][A-Z0-9]{13})/g);
@@ -4609,12 +5213,12 @@
 										}
 									}
 									if(this.debug){
-				                        console.log("matter adapter debug: matter-code?: ", matter_code);
+				                        console.log("matter debug: matter-code?: ", matter_code);
 									}
 						            if(typeof matter_code == 'string' && matter_code.startsWith("MT:")){
 										
 										if(this.debug){
-					                        console.log("matter adapter debug: FOUND A VALID MATTER CODE");
+					                        console.log("matter debug: FOUND A VALID MATTER CODE");
 										}
 										
 										if(video_el && video_el.detecting_interval){
@@ -4644,7 +5248,7 @@
 						})
 						.catch(err => {
 							if(this.debug){
-		                        console.error("matter adapter debug: Caught error using barcodeDetector: ", err);
+		                        console.error("matter debug: Caught error using barcodeDetector: ", err);
 							}
 							if(video_el.detecting_interval){
 								clearInterval(video_el.detecting_interval);
@@ -4747,7 +5351,7 @@
 			}
 			else{
 				if(this.debug){
-                    console.error("matter adapter debug: missing qr scanner container");
+                    console.error("matter debug: missing qr scanner container");
 				}
 			}
 		}
@@ -4933,7 +5537,7 @@
 		
 		get_old_pairing_codes_list(){
 			if(this.debug){
-				console.log("matter adapter debug: in get_old_pairing_codes_list");
+				console.log("matter debug: in get_old_pairing_codes_list");
 			}
 			
 			window.API.postJson(
@@ -4942,11 +5546,11 @@
             
 			).then((body) => {
                 if(this.debug){
-					console.log("matter adapter debug: get_old_pairing_codes response: ", body);
+					console.log("matter debug: get_old_pairing_codes response: ", body);
 				}
                 if(typeof body.state == 'boolean' && body.state == true){
                     if(this.debug){
-                        console.log("matter adapter debug: get_old_pairing_codes response was OK");
+                        console.log("matter debug: get_old_pairing_codes response was OK");
                     }
 					if(typeof body.old_pairing_codes != 'undefined'){
 						this.old_pairing_codes = body.old_pairing_codes;
@@ -4955,13 +5559,13 @@
                 }
                 else{
                     if(this.debug){
-                        console.warn("matter adapter debug: get_old_pairing_codes response body indicates failure: ", body);
+                        console.warn("matter debug: get_old_pairing_codes response body indicates failure: ", body);
                     }
                 }
             
 			}).catch((err) => {
 				if(this.debug){
-					console.error("matter adapter debug: caught error calling get_old_pairing_codes: ", err);
+					console.error("matter debug: caught error calling get_old_pairing_codes: ", err);
 				}
 			});
 		}
@@ -4970,7 +5574,7 @@
 		
 		render_old_pairing_codes_list(){
 			if(this.debug){
-				console.log("matter adapter debug: in render_old_pairing_codes_list");
+				console.log("matter debug: in render_old_pairing_codes_list");
 			}
 			if(this.old_pairing_codes){
 				const old_codes_list_el = this.view.querySelector('#extension-matter-adapter-pairing-old-pairing-codes-list');
@@ -4978,7 +5582,7 @@
                     old_codes_list_el.innerHTML = '';
 					for (const [pairing_code, device_details] of Object.entries(this.old_pairing_codes)) {
 						if(this.debug){
-							console.log("matter adapter debug: render_old_pairing_codes_list:  pairing_code,device_details: ", pairing_code, device_details);
+							console.log("matter debug: render_old_pairing_codes_list:  pairing_code,device_details: ", pairing_code, device_details);
 						}
 						const old_code_item_el = document.createElement('div');
 						old_code_item_el.classList.add('extension-matter-adapter-old-pairing-code-item');
@@ -5019,7 +5623,7 @@
 							this.view.querySelector('#extension-matter-adapter-pairing-code-input').value = pairing_code;
 							this.pairing_code = pairing_code;
 							if(this.debug){
-								console.log("matter adapter debug: this.pairing_code from old codes list is now: ", this.pairing_code);
+								console.log("matter debug: this.pairing_code from old codes list is now: ", this.pairing_code);
 							}
 							if(this.pairing_code.startsWith('MT:')){
 								this.view.querySelector('#extension-matter-adapter-pairing-qr-choose-scanner-area').classList.add('extension-matter-adapter-hidden');
@@ -5077,12 +5681,12 @@
 								const remove_me = document.getElementById('extension-matter-adapter-print-css');
 								if(remove_me){
 									if(this.debug){
-										console.log("matter adapter debug: found and removed the style element with print CSS");
+										console.log("matter debug: found and removed the style element with print CSS");
 									}
 									remove_me.remove();
 								}
 								else if(this.debug){
-									console.warn("matter adapter debug: could not find the print CSS style element. Already removed?");
+									console.warn("matter debug: could not find the print CSS style element. Already removed?");
 								}
 								old_codes_list_el.classList.remove('printable');
 							}
@@ -5118,19 +5722,19 @@
 								
 								window.onafterprint = () => {
 								   if(this.debug){
-                                    console.log("matter adapter debug: window.onafterprint: Printing completed...?");
+                                    console.log("matter debug: window.onafterprint: Printing completed...?");
                                    }
 								}
 								window.addEventListener('focus', () => {
 									if(this.debug){
-                                        console.log("matter adapter debug: window gained focus.. after printing?");
+                                        console.log("matter debug: window gained focus.. after printing?");
                                     }
 									cleanup();
 								});
 							}
 							else{
 								if(this.debug){
-									console.warn("matter adapter debug: unexpectedly the print css style element already exists");
+									console.warn("matter debug: unexpectedly the print css style element already exists");
 								}
 							}
 							
@@ -8273,12 +8877,12 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
 
             //const routing_roles = ['REED','endDevice','leader','router','sleepyEndDevice','unassigned','unspecified']
             // const roleNames = { 2: 'Sleepy End Device', 3: 'End Device', 4: 'REED', 5: 'Router', 6: 'Leader' };
-            const routing_roles = ['Unspecified', 'Unassigned', 'SleepyEndDevice', 'EndDevice', 'Reed', 'Router', 'Leader', 'UnknownEnumValue'];
+            const routing_roles = ['Unspecified', 'Unassigned', 'SleepyEndDevice', 'EndDevice', 'RouterEligibleEndDevice', 'Router', 'Leader', 'UnknownEnumValue'];
 
             let GRAPH_CONFIG = {
                 title: 'Thread mesh visualizer',
                 categories: {
-                    'Reed': { color: '#f2f838', dim: 'rgba(56,189,248,0.12)' },
+                    'RouterEligibleEndDevice': { color: '#f2f838', dim: 'rgba(56,189,248,0.12)' }, // Router Eligible End Device
 			        'EndDevice':  { color: '#24fb32', dim: 'rgba(224, 238, 34, 0.15)' },
                     'Leader':  { color: '#1872f9', dim: 'rgba(114, 202, 215, 0.15)' },
                     'Router':  { color: '#39b2d7', dim: 'rgba(114, 202, 215, 0.15)' },
@@ -8303,7 +8907,7 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
             const add_node = (thread_id, thing_title=null, category='Unspecified', popularity=30, description=null) => {
                 for(let n = 0; n < GRAPH_CONFIG['nodes'].length; n++){
                     if(GRAPH_CONFIG['nodes'][n]['id'] == '' + thread_id){
-                        console.warn("add_node: that node was already known.  thread_id: ", thread_id);
+                        //console.warn("add_node: that node was already known.  thread_id: ", thread_id);
 
                         if(GRAPH_CONFIG['nodes'][n]['category'] == 'Unspecified' || GRAPH_CONFIG['nodes'][n]['category'] == 'Unassigned'){
                             if(category != 'Unspecified' && category != 'Unassigned'){
@@ -8353,7 +8957,7 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                     description = 'A node';
                 }
                 const new_node = { 'id': '' + thread_id, 'title':thing_title, 'category':category, 'popularity':popularity, 'desc':description };
-                console.warn("\n\nADD NODE: ADDING!: ", JSON.stringify(new_node,null,4));
+                //console.warn("\n\nADD NODE: ADDING!: ", JSON.stringify(new_node,null,4));
                 //GRAPH_CONFIG['nodes'].push({ 'id': '' + thread_id });
                 GRAPH_CONFIG['nodes'].push(new_node);
             }
@@ -8361,7 +8965,7 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
             const add_node_link = (source,target,lqi=1) => {
                 for(let gl = 0; gl < GRAPH_CONFIG['links'].length; gl++){
                     if(GRAPH_CONFIG['links'][gl]['source'] == '' + source && GRAPH_CONFIG['links'][gl]['target'] == '' + target){
-                        console.warn("add_node_link: that link was already known:  source,target: ", source,target);
+                        //console.warn("add_node_link: that link was already known:  source,target: ", source,target);
                         return
                     }
                 }
@@ -8380,21 +8984,21 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                             if(typeof all_neighbors[early_neighbor_thread_id] == 'undefined'){
                                 all_neighbors[early_neighbor_thread_id] = node_details['NeighborTable'][ntt];
                             } 
-                            console.log("++ raw early_neighbor_thread_id: ", early_neighbor_thread_id)
+                            //console.log("++ raw early_neighbor_thread_id: ", early_neighbor_thread_id)
                             if(early_neighbor_thread_id.startsWith('' + short_controller_thread_id)){
                                 actual_controller_thread_id = early_neighbor_thread_id;
                                 if(this.debug){
-                                    console.error("\n\nRAW BINGO\n\n found actual_controller_thread_id?: ", actual_controller_thread_id, ", from short_controller_thread_id: ", short_controller_thread_id, ", from this.my_extaddr: ", this.my_extaddr);
+                                    //console.error("\n\nRAW BINGO\n\n found actual_controller_thread_id?: ", actual_controller_thread_id, ", from short_controller_thread_id: ", short_controller_thread_id, ", from this.my_extaddr: ", this.my_extaddr);
                                 }
                             }
                         }
 
                         if(typeof this.general_diagnostics[thing_id] != 'undefined'){
-                            console.log("OK, thing_id is also in this.general_diagnostics: ", this.general_diagnostics[thing_id]);
+                            //console.log("OK, thing_id is also in this.general_diagnostics: ", this.general_diagnostics[thing_id]);
                         }
 
                         if(typeof node_details['NetworkInterfaces'] != 'undefined'){
-                            console.log("NICE, NetworkInterfaces is available in ThreadDiagnostics: ", node_details['NetworkInterfaces']);
+                            //console.log("NICE, NetworkInterfaces is available in ThreadDiagnostics: ", node_details['NetworkInterfaces']);
 
                             const networkInterfaces = node_details['NetworkInterfaces'] || [];
                             if (Array.isArray(networkInterfaces)) {
@@ -8410,7 +9014,7 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                                             for (let i = 0; i < bytes.length; i++) {
                                                 extAddrInt = (extAddrInt << 8n) | BigInt(bytes.charCodeAt(i));
                                             }
-                                            console.log("initial extAddrInt: ", extAddrInt.toString());
+                                            //console.log("initial extAddrInt: ", extAddrInt.toString());
                                             let short_ext_addr = extAddrInt.toString().slice(0,6);
                                             thing_id_to_short_thread_id[thing_id] = '' + short_ext_addr;//extAddrInt.toString();
                                             //thing_id_to_thread_id[extAddrInt.toString()] = thing_id;
@@ -8457,11 +9061,11 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                         // Also build RLOC16 map from route table for routers
                         const routeTable = node_details['RouteTable'] || [];
                         if (Array.isArray(routeTable)) {
-                            console.log("routeTable: ", routeTable);
-                            console.log("routeTable[0]['2']: ", routeTable[0]['2']);
+                            //console.log("routeTable: ", routeTable);
+                            //console.log("routeTable[0]['2']: ", routeTable[0]['2']);
 
                             const selfEntry = routeTable.find(r => r['2'] === r['3'] && r['8'] === true);
-                            console.log("routeTable -> selfEntry: ", selfEntry);
+                            //console.log("routeTable -> selfEntry: ", selfEntry);
                             if (selfEntry && selfEntry['1'] !== undefined) {
                                 this.rloc16ToNodeId[selfEntry['1']] = thing_id;
                             }
@@ -8472,15 +9076,17 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                 }
                 if(this_debug){
                     console.warn("matter debug: map: matter_to_thread_id_lookup: ", JSON.stringify(matter_to_thread_id_lookup,null,4));
+                    console.warn(" >> all_neighbors: ", all_neighbors);
+                    console.log(" >> actual_controller_thread_id: ", actual_controller_thread_id);
+                    console.log(" >> thing_id_to_thread_id: ", thing_id_to_thread_id);
+                    console.log(" >> this.extAddrToNodeId: ",  this.extAddrToNodeId);
+                    console.log(" >> this.rloc16ToNodeId: ",  this.rloc16ToNodeId);
+                    console.log(" >> this.nodeExtAddrs: ",  this.nodeExtAddrs);
+                    console.log(" >> this.bridgeHwAddrs: ",  this.bridgeHwAddrs);
                 }
-
-                console.warn(" >> all_neighbors: ", all_neighbors);
-                console.log(" >> actual_controller_thread_id: ", actual_controller_thread_id);
-                console.log(" >> thing_id_to_thread_id: ", thing_id_to_thread_id);
-                console.log(" >> this.extAddrToNodeId: ",  this.extAddrToNodeId);
-                console.log(" >> this.rloc16ToNodeId: ",  this.rloc16ToNodeId);
-                console.log(" >> this.nodeExtAddrs: ",  this.nodeExtAddrs);
-                console.log(" >> this.bridgeHwAddrs: ",  this.bridgeHwAddrs);
+                
+                
+                
 
                 /*
                 this.extAddrToNodeId = {};  // upper48bits -> node_id
@@ -8610,31 +9216,31 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
 
                             const neighbor_node = node_details['NeighborTable'][nt];
                             if(this_debug){
-                                console.log("+link: neighbor_node: ", neighbor_node);
+                                //console.log("+link: neighbor_node: ", neighbor_node);
                             }
                             
                             let neighbor_thread_id = '' + Object.values(neighbor_node)[thread_id_index];
-                            console.log("++ raw neighbor_thread_id: ", neighbor_thread_id);
+                            //console.log("++ raw neighbor_thread_id: ", neighbor_thread_id);
                             //neighbor_thread_id = (BigInt(neighbor_thread_id) >> 16n).toString();
                             //console.log("++ neighbor_thread_id: ", neighbor_thread_id)
 
                             let neigbor_lqi = node_details['NeighborTable'][nt]['5'];
                             if(this_debug){
-                                console.log("matter debug: map: neigbor_lqi: ", neigbor_lqi);
+                                //console.log("matter debug: map: neigbor_lqi: ", neigbor_lqi);
                             }
 
                             const rloc16Raw = Object.values(node_details['NeighborTable'][0])[2];
                             //console.log("++ rloc16Raw: ", rloc16Raw);
                             let neighbor_fancy_rloc16 = rloc16Raw?.toString(16).toUpperCase().padStart(4, '0') || '?';
                             if(this_debug){
-                                console.log("matter debug: map: ++ neighbor_fancy_rloc16: ", neighbor_fancy_rloc16);
+                                //console.log("matter debug: map: ++ neighbor_fancy_rloc16: ", neighbor_fancy_rloc16);
                             }
                             
                             if(actual_controller_thread_id){
                                 for(let mnt = 0; mnt < this.my_neighbortable.length; mnt++){
                                     if(this.my_neighbortable[mnt]['rloc16'] == neighbor_fancy_rloc16){
                                         if(this_debug){
-                                            console.log("matter debug: map: found a neighbor that is connected to the main controller.   neighbor_fancy_rloc16: ", neighbor_fancy_rloc16);
+                                            //console.log("matter debug: map: found a neighbor that is connected to the main controller.   neighbor_fancy_rloc16: ", neighbor_fancy_rloc16);
                                         }
                                         add_node_link('' + actual_controller_thread_id, '' + neighbor_thread_id, this.my_neighbortable[mnt]['lqi']);
                                     }
@@ -8648,13 +9254,13 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                             
                             if(my_thread_id && my_thread_id != neighbor_thread_id){
                                 if(this_debug){
-                                    console.log("matter debug: map: linking neighbor with node for thread_id was in the thing_id_to_thread_id lookup:  my_thread_id,neighbor_thread_id: ", my_thread_id,neighbor_thread_id );
+                                    //console.log("matter debug: map: linking neighbor with node for thread_id was in the thing_id_to_thread_id lookup:  my_thread_id,neighbor_thread_id: ", my_thread_id,neighbor_thread_id );
                                 }
                                 add_node_link('' + my_thread_id, '' + neighbor_thread_id, neigbor_lqi);
                             }
                             else{
                                 if(this_debug){
-                                    console.log("matter debug: map: not linking neighbor.  my_thread_id,neighbor_thread_id: ", my_thread_id,neighbor_thread_id);
+                                    //console.log("matter debug: map: not linking neighbor.  my_thread_id,neighbor_thread_id: ", my_thread_id,neighbor_thread_id);
                                 }
                             }
                         }
@@ -8665,7 +9271,9 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                 console.error("matter: caught error in generate_map: ", err);
             }
             
-            console.warn("\nGRAPH_CONFIG: \n", JSON.stringify(GRAPH_CONFIG,null,4));
+            if(this_debug){
+                console.warn("\nmatter debug: map: GRAPH_CONFIG: \n", JSON.stringify(GRAPH_CONFIG,null,4));
+            }
             
 
 			const CATEGORIES = GRAPH_CONFIG.categories;

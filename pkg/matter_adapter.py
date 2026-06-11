@@ -194,7 +194,7 @@ class MatterAdapter(Adapter):
             time.sleep(5)
 
 
-        matter_http_server_pid = str(run_command("sudo lsof -i :5580 | grep ':5580 (ESTABLISHED)' | awk -F' ' '{print $2}'"))
+        matter_http_server_pid = str(run_command(r"sudo lsof -i :5580 | grep ':5580 (ESTABLISHED)' | awk -F' ' '{print $2}'"))
         if matter_http_server_pid and str(matter_http_server_pid).isdigit():
             print("\n\nMatter adapter: ERROR, matter HTTP seemed to still/already be running!\nUsing sudo kill -9 to stop it..\n\n")
             run_command('sudo kill -9 ' + str(matter_http_server_pid))
@@ -248,6 +248,14 @@ class MatterAdapter(Adapter):
         self.server_process = None
         self.matter_server_type = 'Python'
         self.matter_collision_detected = False
+
+        self.matter_network_interface_found = False
+        self.actual_interfaces = []
+        self.available_interfaces = []
+        #if self.nmcli_installed:
+        #    self.update_network_interfaces()
+        
+
         #self.client = None
         #self.unsubscribe = None
 
@@ -256,7 +264,7 @@ class MatterAdapter(Adapter):
         self.matter_client_connected = False
         self.disable_matter_dashboard = True
 
-        self.vendor_id = ""
+        #self.vendor_id = ""
         self.missing_vendor_id = False
 
         self.discovered = []
@@ -297,9 +305,6 @@ class MatterAdapter(Adapter):
         self.missing_devices = []
         self.node_thing_id_lookup = {} # map the Matter node ID's to the unique device ID's of the actual matter devices
     
-        #self.do_not_save_persistent_data = False
-
-
         # THREAD / OTBR
         self.thread_network_name = 'CandleThread'
         self.otbr_thread = None
@@ -552,15 +557,16 @@ class MatterAdapter(Adapter):
 
         # Get persistent data
         try:
-            with open(self.persistence_file_path) as f:
-                self.persistent_data = json.load(f)
-                if self.DEBUG:
-                    self.s_print('self.persistent_data was loaded from file: ' + str(self.persistent_data))
+            if os.path.isfile(self.persistence_file_path):
+                with open(self.persistence_file_path) as f:
+                    self.persistent_data = json.load(f)
+                    if self.DEBUG:
+                        self.s_print('self.persistent_data was loaded from file: ', JSON.dumps(self.persistent_data,indent=4))
 
-        except:
+        except Exception as ex:
             if self.DEBUG:
-                self.s_print("Could not load persistent data (if you just installed the add-on then this is normal)")
-
+                self.s_print("caught error loading persistent data: ", ex)
+            self.persistent_data = {}
 
         if not 'thread_dataset' in self.persistent_data:
             self.persistent_data['thread_dataset'] = ''
@@ -577,7 +583,19 @@ class MatterAdapter(Adapter):
             self.persistent_data['leaderweight'] = 255
             self.should_save = True
         
+        if not 'vendor_id' in self.persistent_data:
+            self.persistent_data['vendor_id'] = None
 
+        if not 'actual_matter_network_interface' in self.persistent_data:
+            self.persistent_data['actual_matter_network_interface'] = None
+
+        if not 'matter_network_interface' in self.persistent_data:
+            self.persistent_data['matter_network_interface'] = None
+
+        if not 'onboarding_complete' in self.persistent_data:
+            self.persistent_data['onboarding_complete'] = False
+
+        #self.vendor_id = self.persistent_data['vendor_id']
 
         # LOAD CONFIG
         try:
@@ -600,6 +618,7 @@ class MatterAdapter(Adapter):
 
 
         # Override vendor ID
+        """
         if len(self.vendor_id) > 2 and len(self.vendor_id) < 7:
             #if os.path.exists(self.chip_factory_ini_file_path):
             if os.path.exists(self.data_chip_factory_ini_file_path):
@@ -620,6 +639,7 @@ class MatterAdapter(Adapter):
                     #if self.DEBUG:
                     #    self.s_print("\nWARNING, replacing vendor-id in chip_factory.ini with: " + str(self.vendor_id) + ", in: " + str(self.data_chip_factory_ini_file_path))
                     os.system("sed -i 's/.*vendor-id=*.*/vendor-id=" + str(decimal_vendor_id) + "/' " + str(self.data_chip_factory_ini_file_path))
+        """
 
         # Now we check if all the values that should exist actually do
 
@@ -637,11 +657,6 @@ class MatterAdapter(Adapter):
             self.persistent_data['pairing_codes'] = {}
             self.should_save = True
 
-
-        #print("PERSISTENT DATA")
-        #print(json.dumps(self.persistent_data, None,4))
-        #print(json.dumps(self.persistent_data))
-
         if self.persistent_data['wifi_ssid'] != "" and self.persistent_data['wifi_password'] != "":
             self.wifi_ssid = self.persistent_data['wifi_ssid']
             self.wifi_password = self.persistent_data['wifi_password']
@@ -654,6 +669,8 @@ class MatterAdapter(Adapter):
         if 'thread_radio_serial_port' not in self.persistent_data:
             self.persistent_data['thread_radio_serial_port'] = None
 
+        if 'matter_network_interface' not in self.persistent_data:
+            self.persistent_data['matter_network_interface'] = None
 
 
         # Allow the use_hotspot setting to override the wifi credentials
@@ -661,14 +678,25 @@ class MatterAdapter(Adapter):
         self.hotspot_addon_installed = False
         if os.path.isdir(self.hotspot_addon_path):
             self.hotspot_addon_installed = True
+        
 
+        #print("self.persistent_data: ", json.dumps(self.persistent_data,indent=4))
+        
 
         if not os.path.exists('/boot/firmware/candle_hotspot.txt'):
             self.use_hotspot = False
 
+            if self.persistent_data['matter_network_interface'] == 'Hotspot (recommended)':
+                if self.DEBUG:
+                    print("WARNING, settings persistent_data['matter_network_interface'] from Hotspot to None, since hotspot is disabled")
+                self.persistent_data['matter_network_interface'] = None
+
+        self.check_onboarding_state()
+
         #print("self.nmcli_installed: ", self.nmcli_installed)
 
-        if self.use_hotspot and (self.nmcli_installed or self.hotspot_addon_installed):
+        
+        if self.use_hotspot and self.persistent_data['matter_network_interface'] == 'Hotspot (recommended)' and (self.nmcli_installed or self.hotspot_addon_installed):
             # Figure out the Hotspot addon's SSID and password
             self.load_hotspot_config()
 
@@ -676,11 +704,7 @@ class MatterAdapter(Adapter):
                 self.wifi_ssid = self.hotspot_ssid
                 self.wifi_password = self.hotspot_password
 
-        if isinstance(self.vendor_id,str):
-            if self.vendor_id == '':
-                self.missing_vendor_id = True
-        else:
-            self.missing_vendor_id = True
+        
 
 
 
@@ -742,6 +766,29 @@ class MatterAdapter(Adapter):
             os.system('sudo ln -s ' + str(self.data_dir_path) + ' /data')
 
 
+        self.update_network_interfaces()
+
+        # Wait for onboarding to complete
+        while self.running and self.persistent_data['matter_network_interface'] == None:
+            time.sleep(1)
+            self.check_onboarding_state()
+
+        if self.nmcli_installed:
+            waiting_for_network_interface_counter = 0
+            while self.running and self.matter_network_interface_found == False:
+                waiting_for_network_interface_counter += 1
+                while self.running and waiting_for_network_interface_counter < 5:
+                    time.sleep(1)
+                if waiting_for_network_interface_counter > 5:
+                    waiting_for_network_interface_counter = 0
+                self.update_network_interfaces()
+
+        
+        self.update_network_interfaces()
+        
+
+        
+
         if self.DEBUG:
             self.get_ips_interval = 120
 
@@ -749,30 +796,23 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             self.s_print("Init: starting the clock thread")
         try:
-            if self.missing_vendor_id:
-                if self.DEBUG:
-                    self.s_print("Vendor_ID was empty string - not starting Clock thread")
-            else:
-                self.ct = threading.Thread(target=self.clock)
-                self.ct.daemon = True
-                self.ct.start()
+            self.ct = threading.Thread(target=self.clock)
+            self.ct.daemon = True
+            self.ct.start()
         except Exception as ex:
             if self.DEBUG:
-                self.s_print("Error starting the clock thread: " + str(ex))
+                self.s_print("caught error starting the clock thread: " + str(ex))
         
         try:
-            if self.missing_vendor_id:
-                if self.DEBUG:
-                    self.s_print("Vendor_ID was empty string - not starting Matter servers thread")
-            else:
-                if self.DEBUG:
-                    self.s_print("init: creating start_servers thread")
-                self.matter_servers_thread = threading.Thread(target=self.start_servers)
-                self.matter_servers_thread.daemon = True
-                self.matter_servers_thread.start()
+            
+            if self.DEBUG:
+                self.s_print("init: creating start_servers thread")
+            self.matter_servers_thread = threading.Thread(target=self.start_servers)
+            self.matter_servers_thread.daemon = True
+            self.matter_servers_thread.start()
         except Exception as ex:
             if self.DEBUG:
-                self.s_print("Error starting the matter servers thread: " + str(ex))
+                self.s_print("caught error starting the matter servers thread: " + str(ex))
 
 
         # Init matter server
@@ -965,6 +1005,7 @@ class MatterAdapter(Adapter):
             database = Database(self.addon_id)
             if not database.open():
                 self.s_print("Error. Could not open settings database")
+                self.close_proxy()
                 return
 
             config = database.load_config()
@@ -1007,11 +1048,11 @@ class MatterAdapter(Adapter):
                 if self.DEBUG:
                     self.s_print("Use hotspot preference was in settings: " + str(self.use_hotspot))
 
-            if "Vendor ID" in config:
-                if len(config["Vendor ID"]) > 2:
-                    self.vendor_id = str(config["Vendor ID"])
-                    if self.DEBUG:
-                        self.s_print("Vendor ID override was in settings: " + str(self.vendor_id))
+            #if "Vendor ID" in config:
+            #    if len(config["Vendor ID"]) > 2:
+            #        self.persistent_data['vendor_id'] = str(config["Vendor ID"])
+            #        if self.DEBUG:
+            #            self.s_print("Vendor ID override was in settings: " + strself.persistent_data['vendor_id']))
 
             if "Region" in config:
                 self.thread_region = str(config["Region"])
@@ -1118,10 +1159,120 @@ class MatterAdapter(Adapter):
 
 
 
+
+
+
+    def update_network_interfaces(self):
+        if self.DEBUG:
+            print("debug: in update_network_interfaces")
+        actual_interfaces = ['uap0']
+        available_interfaces = ['Hotspot (recommended)']
+        found_it = False
+
+        interfaces_check = run_command(r"nmcli | grep 'connected' | grep -v 'disconnected' | grep ': ' | grep -v 'p2p-dev-' | grep -v 'lo:' | grep -v 'wpan0:' | sed 's/\://' | awk '{print $1}'")
+        if self.DEBUG:
+            print("update_network_interfaces: interfaces_check: \n", interfaces_check, "\n")
+        
+        if isinstance(interfaces_check,str):
+            
+            for line in interfaces_check.splitlines():
+                line = line.rstrip().strip()
+                line = line.lower()
+                
+                if line == 'wpan0' or line == 'lo':
+                    continue
+
+                if line != 'uap0':
+                    actual_interfaces.append(line)
+                    
+                if (line == 'uap0' or line == 'wlan1'):
+                    pass
+                elif (line == 'eth0' or line == 'wlan0'):
+                    if 'Home network' not in available_interfaces:
+                        available_interfaces.append('Home network')
+                else:
+                    if 'Advanced' not in available_interfaces:
+                        available_interfaces.append('Advanced')
+
+        else:
+            if self.DEBUG:
+                print("\nERROR: update_network_interfaces: interfaces_check output was not string")
+
+        if self.DEBUG:
+            print("\nupdate_network_interfaces: available_interfaces: \n", json.dumps(available_interfaces,indent=4), "\n");
+            print("\nupdate_network_interfaces: actual_interfaces: \n", json.dumps(actual_interfaces,indent=4), "\n");
+        self.actual_interfaces = actual_interfaces
+        self.available_interfaces = available_interfaces
+
+        actual_matter_network_interface = None
+        if self.persistent_data['matter_network_interface'] == 'Hotspot (recommended)':
+            if 'wlan1' in self.actual_interfaces:
+                actual_matter_network_interface = 'wlan1'
+                found_it = True
+            elif 'uap0' in self.actual_interfaces:
+                actual_matter_network_interface = 'uap0'
+                found_it = True
+            #else:
+            #    actual_matter_network_interface = 'uap0'
+
+        elif self.persistent_data['matter_network_interface'] == 'Home network':
+            if 'eth1' in self.actual_interfaces:
+                actual_matter_network_interface = 'eth1'
+                found_it = True
+            elif 'eth0' in self.actual_interfaces:
+                actual_matter_network_interface = 'eth0'
+                found_it = True
+            elif 'wlan0' in self.actual_interfaces:
+                actual_matter_network_interface = 'wlan0'
+                found_it = True
+            elif 'mlan0' in self.actual_interfaces:
+                actual_matter_network_interface = 'mlan0'
+                found_it = True
+            else:
+                if self.DEBUG:
+                    print("\nWARNNG: update_network_interfaces: no connected home interface found!\n")
+
+        elif self.persistent_data['matter_network_interface'] == 'All networks':
+            actual_matter_network_interface = 'all'
+            found_it = True
+
+        elif self.persistent_data['matter_network_interface'] == 'Advanced':
+            if self.DEBUG:
+                print("update_network_interfaces:matter_network_interface is set to advanced")
+
+            if isinstance(self.persistent_data['actual_matter_network_interface'],str) and len(self.persistent_data['actual_matter_network_interface']) > 1:
+                if self.persistent_data['actual_matter_network_interface'] in actual_interfaces:
+                    actual_matter_network_interface = self.persistent_data['actual_matter_network_interface']
+                    found_it = True
+                    if self.DEBUG:
+                        print("update_network_interfaces: OK, advanced interface selection is in actual connected interfaces: ", self.persistent_data['actual_matter_network_interface'], actual_interfaces)
+                else:
+                    if self.DEBUG:
+                        print("\nWARNNG: update_network_interfaces: no advanced network interface was not found in actual connected interfaces!: ", self.persistent_data['actual_matter_network_interface'], actual_interfaces)
+            else:
+                if self.DEBUG:
+                    print("\nERROR: update_network_interfaces: should use advanced interface selection, but self.persistent_data['actual_matter_network_interface'] is somehow not a valid string: ", self.persistent_data['actual_matter_network_interface'])
+        
+        if found_it and isinstance(actual_matter_network_interface,str):
+            if actual_matter_network_interface != self.persistent_data['actual_matter_network_interface']:
+                self.persistent_data['actual_matter_network_interface'] = actual_matter_network_interface
+                if self.DEBUG:
+                    print("update_network_interfaces: self.persistent_data['actual_matter_network_interface'] changed to: ", self.actual_matter_network_interface)
+        
+        self.matter_network_interface_found = found_it
+        if self.DEBUG:
+            print("update_network_interfaces: was a valid network interface found?: ", found_it)
+
+        return available_interfaces
+
+
+
     # Get real tty port from:
     # ls -la /dev/serial/by-id/usb-*
 
     def find_thread_radio(self):
+        if self.DEBUG:
+            print("debug: in find_thread_radio")
         found_thread_radio_again = False
         found_new_thread_radio = False
         if os.path.isdir('/dev/serial/by-id'):
@@ -1184,6 +1335,9 @@ class MatterAdapter(Adapter):
         self.found_thread_radio_again = found_thread_radio_again
         self.found_new_thread_radio = found_new_thread_radio
 
+        if self.found_new_thread_radio:
+            self.check_onboarding_state()
+            
         if self.found_thread_radio_again or self.found_new_thread_radio:
             if self.DEBUG:
                 print("find_thread_radio: OK, a radio has been found.  self.found_new_thread_radio,self.found_thread_radio_again: ", self.found_new_thread_radio, self.found_thread_radio_again)
@@ -1254,7 +1408,7 @@ class MatterAdapter(Adapter):
             #print(str(self.run_ot_ctl_command('dataset set active ' + str(new_dataset))))
             if load_dataset_check == 'Done':
                 self.thread_dataset = new_dataset
-                if self.persistent_data['thread_dataset'] == '' or self.vendor_id == '':
+                if self.persistent_data['thread_dataset'] == '' or self.persistent_data['vendor_id'] == '':
                     if self.DEBUG:
                         print("import_thread_dataset:  lowering leaderweight to 60")
                     self.persistent_data['leaderweight'] = 254 # Lower than the 'main' controller
@@ -1264,7 +1418,7 @@ class MatterAdapter(Adapter):
                 self.save_persistent_data()
                 
                 #self.find_thread_radio()
-                if self.vendor_id != '' and self.found_thread_radio_again or self.found_new_thread_radio:
+                if self.persistent_data['vendor_id'] != '' and self.found_thread_radio_again or self.found_new_thread_radio:
                     if str(self.run_ot_ctl_command('ifconfig up')).rstrip() == 'Done':
                         if str(self.run_ot_ctl_command('thread start')).rstrip() == 'Done':
                             if self.DEBUG:
@@ -1623,14 +1777,20 @@ class MatterAdapter(Adapter):
             #matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.data_dir_path)
             matter_server_command = str(python3_path) + ' -m matter_server.server --storage-path ' + str(self.hasdata_dir_path)
 
-            if self.vendor_id != "":
-                decimal_vendor_id = int(self.vendor_id, 16)
-                #matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
+            if self.persistent_data['vendor_id'] != "":
+                decimal_vendor_id = int(self.persistent_data['vendor_id'], 16)
+                #matter_server_command = matter_server_command + " --vendorid " + str(self.persistent_data['vendor_id'])
                 matter_server_command = matter_server_command + " --vendorid " + str(decimal_vendor_id)
 
             if self.nmcli_installed == True:
-                matter_server_command = matter_server_command + " --primary-interface uap0"
-
+                if isinstance(self.persistent_data['matter_network_interface'],str) and self.persistent_data['matter_network_interface'] == 'all':
+                    if self.DEBUG:
+                        self.s_print("start_matter_server: WARNING, allowing Matter on all network interfaces!")
+                elif isinstance(self.persistent_data['actual_matter_network_interface'],str) and len(self.persistent_data['actual_matter_network_interface']) > 1:
+                    if self.persistent_data['actual_matter_network_interface'] != 'all':
+                        matter_server_command = matter_server_command + " --primary-interface " + str(self.persistent_data['actual_matter_network_interface'])
+                else:
+                    print("\nERROR\nERROR: actual_matter_network_interface was not a string! Starting matter server anyway, but without setting --primary-interface")
 
             #if not os.path.isdir('/data/credentials'):
             #    os.system('mkdir -p /data/credentials')
@@ -1716,18 +1876,24 @@ class MatterAdapter(Adapter):
             else:
                 matter_server_command += ' --log-level critical'
 
-
             if self.nmcli_installed == True:
-                matter_server_command = matter_server_command + " --primary-interface uap0"
+                if isinstance(self.persistent_data['matter_network_interface'],str) and self.persistent_data['matter_network_interface'] == 'all':
+                    if self.DEBUG:
+                        self.s_print("start_matter_server: WARNING, allowing Matter on all network interfaces!")
+                elif isinstance(self.persistent_data['actual_matter_network_interface'],str) and len(self.persistent_data['actual_matter_network_interface']) > 1:
+                    if self.persistent_data['actual_matter_network_interface'] != 'all':
+                        matter_server_command = matter_server_command + " --primary-interface " + str(self.persistent_data['actual_matter_network_interface'])
+                else:
+                    print("\nERROR\nERROR: actual_matter_network_interface was not a string! Starting matter server anyway, but without setting --primary-interface")
 
             # --listen-address 192.168.12.1  # REPEATABLE, so should then also bind to wpan0 if that has an IP address
 
 
             #matter_server_command = matter_server_command + " --ble"
 
-            if self.vendor_id != "":
-                decimal_vendor_id = int(self.vendor_id, 16)
-                #matter_server_command = matter_server_command + " --vendorid " + str(self.vendor_id)
+            if self.persistent_data['vendor_id'] != "":
+                decimal_vendor_id = int(self.persistent_data['vendor_id'], 16)
+                #matter_server_command = matter_server_command + " --vendorid " + str(self.persistent_data['vendor_id'])
                 matter_server_command = matter_server_command + " --vendorid " + str(decimal_vendor_id)
 
 
@@ -1983,16 +2149,16 @@ class MatterAdapter(Adapter):
                         #    initial_dataset = str(self.run_ot_ctl_command('dataset')).rstrip()
                         #    self.s_print("loaded initial_dataset?: \n\n", initial_dataset, "\n\n")
                         
-                        #if str(self.run_ot_ctl_command('dataset set active ' + str(self.vendor_id))).rstrip() == 'Done':
+                        #if str(self.run_ot_ctl_command('dataset set active ' + str(self.persistent_data['vendor_id']))).rstrip() == 'Done':
                             #if self.DEBUG:
-                            #    print("OK, existing dataset was succesfully set to active with vendor_id: ", self.vendor_id)
+                            #    print("OK, existing dataset was succesfully set to active with vendor_id: ", self.persistent_data['vendor_id'])
                         
                         
                         
 
                         #else:
                         #    if self.DEBUG:
-                        #        self.s_print("\nERROR, dataset set active FAILED.  vendor_id: ", self.vendor_id)
+                        #        self.s_print("\nERROR, dataset set active FAILED.  vendor_id: ", self.persistent_data['vendor_id'])
                         #    self.thread_error = 'Setting the Thread dataset to active failed.  vendor_id: ' + str(vendor_id)
 
                         #if str(self.run_ot_ctl_command('dataset networkname CandleThread')).rstrip() == 'Done':
@@ -2346,10 +2512,10 @@ class MatterAdapter(Adapter):
                                         if self.DEBUG:
                                             self.s_print("\ncreate_new_thread_dataset: OK, new dataset network key was set")
                                         
-                                        #set_active_output = str(self.run_ot_ctl_command('dataset set active ' + str(self.vendor_id))).rstrip()
+                                        #set_active_output = str(self.run_ot_ctl_command('dataset set active ' + str(self.persistent_data['vendor_id']))).rstrip()
                                         #if set_active_output == 'Done':
                                         #    if self.DEBUG:
-                                        #        print("OK, brand new dataset was succesfully set to active with vendor_id: ", self.vendor_id)
+                                        #        print("OK, brand new dataset was succesfully set to active with vendor_id: ", self.persistent_data['vendor_id'])
                                         #else:
                                         #    if self.DEBUG:
                                         #        self.s_print("create_new_thread_dataset: failed to set new dataset to active with vendor_ID: \n", set_active_output)
@@ -3959,16 +4125,12 @@ class MatterAdapter(Adapter):
                 """
                 # Check if the thread radio was unplugged
 
-
                 if self.found_a_thread_radio_once:
-
 
                     if self.last_thread_radio_is_alive_timestamp < time.time() - 30:
                         pass
 
                     elif self.last_thread_radio_is_alive_timestamp < time.time() - 300:
-
-
 
                         self.find_thread_radio()
 
@@ -5375,6 +5537,26 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
         except Exception as ex:
             self.s_print("caught error in update_node: " + str(ex))
         
+
+    
+    def check_onboarding_state(self):
+        if isinstance(self.persistent_data['vendor_id'],str) and len(self.persistent_data['vendor_id']) == 4:
+            self.missing_vendor_id = False
+            if isinstance(self.persistent_data['matter_network_interface'],str) and len(self.persistent_data['matter_network_interface']) > 1:
+                if self.persistent_data['onboarding_complete'] == False:
+                    self.should_save_persistent = True
+                self.persistent_data['onboarding_complete'] = True
+            else:
+                self.persistent_data['onboarding_complete'] = False
+        else:
+            self.persistent_data['onboarding_complete'] = False
+            self.missing_vendor_id = True
+
+
+            
+              
+
+
 
     # Reset Thread
     def reset_thread(self):

@@ -211,7 +211,7 @@ body.developer #extension-matter-adapter-still-starting-hint .extension-matter-a
 
 .extension-matter-adapter-area{
     background-color:rgba(0,0,0,.1);
-    border-radius:.5rem;
+    border-radius:1rem;
     padding:2rem;
     margin:4rem 0;
 	box-sizing:border-box;
@@ -245,6 +245,10 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 .extension-matter-adapter-flex-align-center{
 	display:flex;
 	align-items:center;
+}
+.extension-matter-adapter-flex-justify-right{
+	display:flex;
+    justify-content:flex-end;
 }
 
 .extension-matter-adapter-flex-center{
@@ -404,6 +408,13 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	margin:2rem auto;
 	text-align: left;
 }
+#extension-matter-adapter-still-starting-info > div > span:first-of-type{
+	white-space: nowrap;
+	margin-right: 2rem;
+}
+#extension-matter-adapter-still-starting-info > div > span:last-of-type{
+	text-align: right;
+}
 
 .extension-matter-adapter-starting-checklist-item-done{
 	color:green;
@@ -412,31 +423,11 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	opacity: .4;
 }
 
-#extension-matter-adapter-import-thread-dataset-hint{
-	background: linear-gradient(337deg, rgba(0, 0, 0, .1), rgba(0, 0, 0, .3));
-	border-radius:1rem;
-}
-
-#extension-matter-adapter-import-thread-dataset-hint h2{
-    font-size: 3.3rem;
-    margin: 4rem 0;
-    max-width: 60rem;
-}
-
-#extension-matter-adapter-import-thread-dataset-hint p{
-	max-width:60rem;
-}
 
 
 
 
 
-#extension-matter-adapter-view #extension-matter-adapter-new-thread-network-button,
-#extension-matter-adapter-view #extension-matter-adapter-join-existing-network-button{
-	padding:1rem 2rem;
-	font-size:2rem;
-	border-radius:1rem;
-}
 
 
 
@@ -574,7 +565,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 #extension-matter-adapter-view .extension-matter-adapter-item-node-id{
 	opacity:.2;
 	position:absolute;
-    right: 14rem;
+    right: 1rem;
     top: 0rem;
 	font-size:5rem;
 	pointer-events:none;
@@ -871,6 +862,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	opacity:1;
 }
 
+#extension-matter-adapter-onboarding-thread-network-code-input,
 #extension-matter-adapter-thread-network-code-input{
     width: 100%;
     min-height: 10rem;
@@ -884,6 +876,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	margin-bottom:0;
 }
 
+#extension-matter-adapter-missing-vendor-id-already-set-hint,
 #extension-matter-adapter-thread-network-code-warning{
 	color:orange; 
 	font-style: italic;
@@ -1248,6 +1241,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 }
 
 
+#extension-matter-adapter-choose-thread-container-text::before,
 #extension-matter-adapter-thread-radio-serial-port:not(:empty)::before{
     content: '';
     background-image: url(../images/USB_radio.svg);
@@ -1260,8 +1254,9 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
     min-height: 6rem;
     display: inline-block;
     background-color: rgba(255, 255, 255, .2);
-    margin-right: 1rem;
+    margin-right: 2rem;
     border-radius: 3rem;
+	float:left;
 }
 
 .extension-matter-adapter-start-pairing-button{
@@ -1461,6 +1456,135 @@ body.kiosk #extension-matter-adapter-qr-scan-button-container{
   padding: 20px;
 }
 */
+
+
+
+
+/*  ONBOARDING  onboarding  */
+
+#extension-matter-adapter-view #extension-matter-adapter-onboarding-container{
+	margin-bottom:0;
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
+}
+#extension-matter-adapter-view.extension-matter-adapter-busy-onboarding #extension-matter-adapter-onboarding-container ~ div.extension-matter-adapter-onboarding-step{
+	margin-top:0;
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+	background: linear-gradient(337deg, rgba(0, 0, 0, .1), rgba(0, 0, 0, .3));
+}
+
+.extension-matter-adapter-onboarding-step-tab{
+	cursor:pointer;
+}
+
+.extension-matter-adapter-onboarding-step > h2{
+    font-size: 3.3rem;
+    margin: 4rem 0;
+    max-width: 60rem;
+}
+
+.extension-matter-adapter-onboarding-step > p{
+    max-width: 60rem;
+}
+
+.extension-matter-adapter-onboarding-step button{
+	padding:1rem 2rem;
+	font-size:2rem;
+	border-radius:1rem;
+}
+
+
+.extension-matter-adapter-onboarding-step-tab:not(.extension-matter-adapter-onboarding-step-complete):first-of-type{
+	flex-grow:1;
+}
+
+.extension-matter-adapter-onboarding-step-tab h1,
+.extension-matter-adapter-onboarding-step-tab h2{
+	white-space: nowrap
+}
+
+#extension-matter-adapter-view #extension-matter-adapter-onboarding-steps-container > div.extension-matter-adapter-onboarding-step-complete{
+	border:1px solid green;
+	background-color:#005500;
+	opacity:.9;
+	flex-shrink: 1;
+}
+
+
+#extension-matter-adapter-view #extension-matter-adapter-onboarding-steps-container .extension-matter-adapter-area{
+	margin:0;
+}
+#extension-matter-adapter-view #extension-matter-adapter-onboarding-steps-container .extension-matter-adapter-area:not(:last-of-type){
+	margin:0 1px 5px 0;
+}
+#extension-matter-adapter-view #extension-matter-adapter-onboarding-steps-container > div{
+	border-radius:2rem;
+	border:1px solid rgba(255,255,255,.2);
+}
+#extension-matter-adapter-view #extension-matter-adapter-onboarding-steps-container > div:not(.extension-matter-adapter-faded):not(.extension-matter-adapter-onboarding-step-complete){
+	border:1px solid rgba(255,255,255,.4);
+}
+
+#extension-matter-adapter-view.extension-matter-adapter-busy-onboarding .extension-matter-adapter-hide-if-onboarding,
+#extension-matter-adapter-view:not(.extension-matter-adapter-busy-onboarding) .extension-matter-adapter-show-if-onboarding{
+	display:none!important;
+}
+
+#extension-matter-adapter-choose-thread-container-text{
+	margin-bottom:4rem;
+}
+
+#extension-matter-adapter-onboarding-vendor-id-input{
+	padding:2rem;
+	font-size:3rem;
+	max-width:10rem;
+	margin-right:1rem;
+	text-align: center;
+	text-transform:uppercase;
+}
+
+#extension-matter-adapter-onboarding-network-item-advanced:not(:checked) ~ #extension-matter-adapter-onboarding-network-item-advanced-select-container{
+	display:none;
+}
+
+#extension-matter-adapter-onboarding-network-item-advanced-select{
+	font-size:2rem;
+	padding:1rem;
+	margin-right:2rem;
+	margin-bottom:1rem;
+	border-radius:.5rem;
+}
+
+#extension-matter-adapter-onboarding-privacy-networks-container{
+	margin-top:4rem;
+}
+
+#extension-matter-adapter-onboarding-privacy-networks-container > div{
+	margin:1rem 0;
+	padding:0;
+	padding-left:2rem;
+	display:flex;
+	align-items: center;
+	overflow:hidden;
+}
+
+#extension-matter-adapter-onboarding-privacy-networks-container input[type="radio"]{
+	transform:scale(3);
+	cursor:pointer;
+	margin-left:1rem;
+}
+#extension-matter-adapter-onboarding-privacy-networks-container label{
+	padding:2rem;
+	font-size:2rem;
+	flex-grow:1;
+	cursor:pointer;
+}
+
+
+
+
+
 
 
 /*  START PAIRING  */
@@ -1910,6 +2034,17 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 		margin-bottom:.5rem;
 	}
 
+	#extension-matter-adapter-thread-command-select,
+	#extension-matter-adapter-chip-command-select{
+		max-width:100%;
+	}
+
+	#extension-matter-adapter-thread-command-send-button,
+	#extension-matter-adapter-chip-command-send-button{
+		display: block;
+		margin-top:.5rem;
+		margin-left:auto;
+	}
 
 }
 
@@ -1944,6 +2079,10 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 		width:100%;
 		margin-top:1rem;
 	}
+
+	#extension-matter-adapter-view #extension-matter-adapter-onboarding-steps-container > div{
+		width:100%;
+	}
 }
 
 @media screen and (min-width: 761px) {
@@ -1975,11 +2114,15 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 	#extension-matter-adapter-import-thread-dataset-hint{
 		padding:4rem 4rem 2rem 4rem;
 	}
+
+	#extension-matter-adapter-view .extension-matter-adapter-item-node-id{
+		right: 14rem;
+	}
 }
 
 
 @media screen and (min-width: 1025px) {
-	.extension-matter-adapter-area{
+	.extension-matter-adapter-area:not(.extension-matter-adapter-onboarding-step-tab){
 		padding:4rem;
 	}
 }

@@ -13,13 +13,12 @@
 
         <div id="extension-matter-adapter-pages-container">
 
-
             <div id="extension-matter-adapter-main-page">
 
 				<div class="extension-matter-adapter-tab-buttons extension-matter-adapter-flex-wrap-when-narrow">
 					<button id="extension-matter-adapter-tab-button-overview" class="extension-matter-adapter-main-tab-button extension-matter-adapter-tab-selected">Overview</button>
 					<button id="extension-matter-adapter-tab-button-thread" class="extension-matter-adapter-main-tab-button">Thread</button>
-					<button id="extension-matter-adapter-tab-button-map" class="extension-matter-adapter-main-tab-button">Map</button>
+					<button id="extension-matter-adapter-tab-button-map" class="extension-matter-adapter-main-tab-button extension-matter-adapter-hide-if-onboarding">Map</button>
 					<button id="extension-matter-adapter-tab-button-advanced" class="extension-matter-adapter-main-tab-button">Advanced</button>
 				</div>
 		
@@ -27,24 +26,57 @@
 			
 					<div id="extension-matter-adapter-tab-overview" class="extension-matter-adapter-tab">
 
-						
-
-						<div id="extension-matter-adapter-thread-radio-container" class="extension-matter-adapter-flex-center extension-matter-adapter-flex-wrap-when-narrow extension-matter-adapter-hiddenX">
+						<div id="extension-matter-adapter-thread-radio-container" class="extension-matter-adapter-flex-center extension-matter-adapter-flex-wrap-when-narrow extension-matter-adapter-hiddenX extension-matter-adapter-hide-if-onboarding">
 							<div class="extension-matter-adapter-flex-center">
 								<div id="extension-matter-adapter-thread-logo-wrapper"><img src="/extensions/matter-adapter/images/candle_thread_logo.svg" alt="Candle Thread logo"></div>
 								<div id="extension-matter-adapter-thread-radio-details"><span>One moment...</span></div>
 							</div>
 							
 							
-							<div id="extension-matter-adapter-find-thread-radio-button-container" class="extension-matter-adapter-hidden">
+							<div id="extension-matter-adapter-find-thread-radio-button-container" class="extension-matter-adapter-hidden extension-matter-adapter-hide-if-onboarding">
 								<button id="extension-matter-adapter-find-thread-radio-button" class="text-button">Add a Thread radio</button>
 							</div>
 						</div>
 
 
+						<div id="extension-matter-adapter-onboarding-container" class="extension-matter-adapter-area extension-matter-adapter-show-if-onboarding">
+							<h5>SETTING UP MATTER</h5>
+							<div id="extension-matter-adapter-onboarding-steps-container" class="extension-matter-adapter-flex extension-matter-adapter-flex-wrap-when-narrow">
+								<div id="extension-matter-adapter-onboarding-step1-tab" class="extension-matter-adapter-area extension-matter-adapter-onboarding-step-tab">
+									<h2>Step 1</h2>
+									<p>Use Thread?</p>
+								</div>
 
+								<div id="extension-matter-adapter-onboarding-step1b-tab" class="extension-matter-adapter-area  extension-matter-adapter-onboarding-step-tab extension-matter-adapter-hidden extension-matter-adapter-faded">
+									<h2>Step 1B</h2>
+									<p>Choose Thread network</p>
+								</div>
 
-						<div id="extension-matter-adapter-find-thread-radio-container" class="extension-matter-adapter-hidden">
+								<div id="extension-matter-adapter-onboarding-step2-tab" class="extension-matter-adapter-area  extension-matter-adapter-onboarding-step-tab extension-matter-adapter-faded">
+									<h2>Step 2</h2>
+									<p>Set a Vendor ID</p>
+								</div>
+
+								<div id="extension-matter-adapter-onboarding-step3-tab" class="extension-matter-adapter-area  extension-matter-adapter-onboarding-step-tab extension-matter-adapter-faded">
+									<h2>Step 3</h2>
+									<p>Privacy protection</p>
+								</div>
+
+							</div>
+						</div>
+
+						<div id="extension-matter-adapter-choose-thread-container" class="extension-matter-adapter-hidden extension-matter-adapter-area extension-matter-adapter-onboarding-step">
+							<div id="extension-matter-adapter-choose-thread-container-text">
+								<h2>Do you wish to create or connect to a Thread network?</h2><p style="opacity:.6;font-style:italic; margin-bottom:2rem">This is optional, and you can always connect a Thread radio later.</p>
+							</div>
+							
+							<div class="extension-matter-adapter-flex-between extension-matter-adapter-onboarding-flex-column-if-narrow">
+								<button id="extension-matter-adapter-onboarding-skip-find-radio-button" class="text-button">Skip</button>
+								<button id="extension-matter-adapter-onboarding-show-find-radio-button" class="text-button">Yes</button>
+							</div>
+						</div>
+
+						<div id="extension-matter-adapter-find-thread-radio-container" class="extension-matter-adapter-hidden extension-matter-adapter-onboarding-step">
 							<div id="extension-matter-adapter-find-thread-radio-step1" class="extension-matter-adapter-area">
 								<h3>1. Make sure it's unplugged first</h3>
 								<p>Before we begin, make sure your Thread radio is <span class="extension-matter-adapter-bold">unplugged</span>.</p>
@@ -61,7 +93,9 @@
 							</div>
 							<div id="extension-matter-adapter-find-thread-radio-success" class="extension-matter-adapter-hidden extension-matter-adapter-area">
 								<h3>Found it!</h3>
+								<!--
 								<p>Attempting to start Thread...</p>
+								// -->
 							</div>
 							<div id="extension-matter-adapter-find-thread-radio-failed" class="extension-matter-adapter-hidden extension-matter-adapter-area">
 								<h3>No new Thread radio found?</h3>
@@ -72,21 +106,94 @@
 						</div>
 
 
-						<div id="extension-matter-adapter-import-thread-dataset-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
+						<div id="extension-matter-adapter-import-thread-dataset-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area extension-matter-adapter-onboarding-step">
 							<h2>Start fresh or join an existing Thread network?</h2>
 							<p>This controller has not created a Thread network yet. It can join an existing Thread network, but you'll need to provide that network's passcode.</p><p>If you want to join the Thread network of another Candle controller, then view it's Matter addon page, and click on the 'Show network code' button at the bottom of the Thread tab. </p>
 							<div class="extension-matter-adapter-align-right-button-container">
 								<button id="extension-matter-adapter-new-thread-network-button" class="text-button">Create a new Network</button>
 								<button id="extension-matter-adapter-join-existing-network-button" class="text-button">Join existing network</button>
 							</div>
-							
-						</div>
-						<div id="extension-matter-adapter-missing-vendor-id-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
-							<p>Matter cannot start until you set a 'Vendor ID' on the settings page.</p>
-							<a href="/extensions/candleappstore#matter-adapter" id="extension-matter-adapter-missing-vendor-id-button" class="text-button" style="text-decoration:none">Next</a>
 						</div>
 
-						<div id="extension-matter-adapter-still-starting-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
+						
+
+						<div id="extension-matter-adapter-onboarding-enter-thread-network-code-container" class="extension-matter-adapter-area extension-matter-adapter-hidden extension-matter-adapter-onboarding-step">
+							<p>Copy the Thread network code (also known as the 'Thread dataset') from another (Candle) controller and paste it in here.</p>
+							<textarea id="extension-matter-adapter-onboarding-thread-network-code-input" type="text" placeholder="Thread network code"></textarea>
+							<div class="extension-matter-adapter-align-right">
+								<button id="extension-matter-adapter-onboarding-save-thread-network-code-button" class="text-button">Save</button>
+							</div>
+						</div>
+
+						<div id="extension-matter-adapter-missing-vendor-id-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area extension-matter-adapter-onboarding-step">
+							<h2>Set a Vendor ID</h2>
+							<p>For optimal device compatibility it's recommended to set a so called 'Vendor ID' for the Matter network. This lets Matter devices know which organisation's software has set up the network.</p>
+							<p>For example, Home Assistant uses the code <strong>134B</strong></p>
+							<div id="extension-matter-adapter-missing-vendor-id-already-set-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">WARNING<br><br>A vendor ID has already been set. Changing it may require you to re-pair any already paired devices.</div>
+							<div class="extension-matter-adapter-flex-align-center extension-matter-adapter-flex-justify-right">
+								<input id="extension-matter-adapter-onboarding-vendor-id-input" type="text" placeholder="_ _ _ _">
+								<button id="extension-matter-adapter-onboarding-vendor-id-save-button" class="text-button">Save</button>
+							</div>
+							<div class="extension-matter-adapter-area "><h3>❤️ FUN FACT</h3><p style="font-style:italic;opacity:.8">Did you know Candle's implementation of Matter gratefully builds on the open source work done by Home Assistant?</p></div>
+						</div>
+
+						<div id="extension-matter-adapter-onboarding-privacy-container" class="extension-matter-adapter-hidden extension-matter-adapter-area extension-matter-adapter-onboarding-step">
+							<h2>Privacy protection</h2>
+							<p>Some Matter devices use WiFi to communicate (avoid them where possible). How do you want to connect those devices to the Matter network?</p>
+							<p>Candle can only attempt to protect your privacy if you select 'Hotspot', and you connect WiFi devices that support Matter (especially so called "border routers") to the Hotspot only.</p>
+							<p></p>
+							<div id="extension-matter-adapter-onboarding-privacy-networks-container">
+
+								<div data-interface="Hotspot (recommended)" class="extension-matter-adapter-area">
+									<input type="radio" 
+										id="extension-matter-adapter-onboarding-network-item-hotspot" 
+										name="extension-matter-adapter-onboarding-network-radio-buttons" 
+										value="Hotspot (recommended)">
+									<label for="extension-matter-adapter-onboarding-network-item-hotspot">Hotspot (recommended)</label>
+								</div>
+
+								<div data-interface="Home network" class="extension-matter-adapter-area">
+									<input type="radio" 
+										id="extension-matter-adapter-onboarding-network-item-home-network" 
+										name="extension-matter-adapter-onboarding-network-radio-buttons" 
+										value="Home network">
+									<label for="extension-matter-adapter-onboarding-network-item-home-network">Home network</label>
+								</div>
+
+								<div data-interface="All networks" class="extension-matter-adapter-area">
+									<input type="radio" 
+										id="extension-matter-adapter-onboarding-network-item-home-all" 
+										name="extension-matter-adapter-onboarding-network-radio-buttons" 
+										value="All networks">
+									<label for="extension-matter-adapter-onboarding-network-item-home-all">All networks</label>
+								</div>
+
+								<div data-interface="Advanced" class="extension-matter-adapter-area">
+									<input type="radio" 
+										id="extension-matter-adapter-onboarding-network-item-advanced" 
+										name="extension-matter-adapter-onboarding-network-radio-buttons" 
+										value="Advanced">
+									<label for="extension-matter-adapter-onboarding-network-item-advanced">Advanced</label>
+									<div id="extension-matter-adapter-onboarding-network-item-advanced-select-container" class="extension-matter-adapter-align-right">
+										<select id="extension-matter-adapter-onboarding-network-item-advanced-select"></select>
+									</div>
+								</div>
+
+								<img id="extension-matter-adapter-onboarding-network-illustration" src="/extensions/matter-adapter/images/hotspot_enabled.svg" loading="lazy" alt="Hotspot privacy protection illustration">
+								
+							</div>
+							<div class="extension-matter-adapter-align-right">
+								<button id="extension-matter-adapter-onboarding-save-network-button" class="text-button">Save</button>
+							</div>
+						</div>
+
+						<div id="extension-matter-adapter-network-interfaces-is-missing-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
+							<h3>The Matter addon cannot find the network interface it's supposed to connect to (yet). <span id="extension-matter-adapter-missing-actual-network-interface" class="extension-matter-adapter-show-if-developer" style="font-weight:bold; padding:1rem"></span></h3>
+							<p>You can wait a bit and/or make sure everything is plugged in properly. If something was (suddenly) unplugged you may need to reboot the controller to ensure proper operation.</p>
+						</div>
+
+
+						<div id="extension-matter-adapter-still-starting-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area extension-matter-adapter-hide-if-onboarding">
 							<div class="extension-matter-adapter-spinner">
 								<div></div><div></div><div></div><div></div>
 							</div>
@@ -96,23 +203,24 @@
 							
 						</div>
 						
-
-
 						<div id="extension-matter-adapter-extension-cable-hint" class="extension-matter-adapter-hidden extension-matter-adapter-area">
 							<img loading="lazy" src="/extensions/matter-adapter/images/interference.svg" alt="Interference">
 							<p>Interference seems to be causing pairing issues. It's recommended to use your Thread radio with a USB extension cord so that it's further away from the Candle Controller.</p>
 						</div>
 
 						<div id="extension-matter-adapter-install-hotspot-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
-							<p>To protect your privacy it's recommended to enable the hotspot feature. Think of it as a WiFi guest network for your devices, giving you control over which servers devices on that network may connect to. When enabled, this addon will automatically tell new WiFi-based Matter devices to connect to the Candle Hotspot.</p>
+							<p>To protect your privacy it's strongly recommended to enable the Hotspot feature. Think of it as a WiFi guest network for your devices, giving you control over which servers devices on that network may connect to.</p>
+							<div class="extension-matter-adapter-align-right">
+								<a href="/settings/network" class="text-button">View Network Settings</a>
+							</div>
 						</div>
 
 						<div id="extension-matter-adapter-delete-thing-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
-							<p>You have deleted a Matter device. Now you will also have to manually remove the corresponding thing.<br><br><a href="/things" class="text-button">Do to thing</a></p>
+							<p>You have deleted a Matter device. Now you will also have to manually remove the corresponding thing.<br><br><a href="/things" class="text-button">Go to Things</a></p>
 						</div>
 
 						<div id="extension-matter-adapter-fabric-collision-hint" class="extension-matter-adapter-area extension-matter-adapter-hidden">
-							<p>A Matter fabric collision was detected. A device may be misconfigured.</p>
+							<p>A Matter fabric collision was detected. Some vital settings may have change, or a device may be misconfigured.</p>
 						</div>
 						
 						
@@ -430,7 +538,12 @@
 								- print your existing pairing codes list</p>
 						</div>
 
-						<div id="extension-matter-adapter-dashboard-link-container" class="extension-matter-adapter-hidden extension-matter-adapter-hidden-on-kiosk">
+						<div id="extension-matter-adapter-dashboard-restart-setup-container" class="extension-matter-adapter-area">
+							<button id="extension-matter-adapter-restart-setup-button" class="text-button">Restart setup process</button>
+						</div>
+
+
+						<div id="extension-matter-adapter-dashboard-link-container" class="extension-matter-adapter-area extension-matter-adapter-hidden extension-matter-adapter-hidden-on-kiosk">
 							<button id="extension-matter-adapter-dashboard-button" class="text-button">View Matter dashboard</button>
 						</div>
 

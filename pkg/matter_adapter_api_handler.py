@@ -109,13 +109,7 @@ class MatterAPIHandler(APIHandler):
                         if self.adapter.wifi_ssid != "" and self.adapter.wifi_password != "":
                             wifi_credentials_available = True
 
-                        missing_vendor_id = False
-                        if isinstance(self.adapter.vendor_id,str):
-                            if self.adapter.vendor_id == '':
-                                missing_vendor_id = True
-                        else:
-                            missing_vendor_id = True
-                        self.adapter.missing_vendor_id = missing_vendor_id
+                        self.adapter.check_onboarding_state()
 
                         has_thread_dataset = False
                         if isinstance(self.adapter.persistent_data['thread_dataset'],str) and len(self.adapter.persistent_data['thread_dataset']) > 40:
@@ -135,7 +129,7 @@ class MatterAPIHandler(APIHandler):
                                       'disable_matter_dashboard':self.adapter.disable_matter_dashboard,
                                       'thread_channel':self.adapter.thread_channel,
                                       'matter_collision_detected':self.adapter.matter_collision_detected,
-                                      'missing_vendor_id':missing_vendor_id,
+                                      'missing_vendor_id':self.adapter.missing_vendor_id,
                                       'thread_network_name':self.adapter.thread_network_name,
                                       'has_thread_dataset':has_thread_dataset
                                       }),
@@ -179,15 +173,6 @@ class MatterAPIHandler(APIHandler):
                         if isinstance(self.adapter.persistent_data['thread_dataset'],str) and len(self.adapter.persistent_data['thread_dataset']) > 40:
                             has_thread_dataset = True
 
-                        missing_vendor_id = False
-                        if isinstance(self.adapter.vendor_id,str):
-                            if self.adapter.vendor_id == '':
-                                missing_vendor_id = True
-                        else:
-                            missing_vendor_id = True
-                        self.adapter.missing_vendor_id = missing_vendor_id
-
-
                         pairing_activity_seconds_ago = 0
                         if self.adapter.last_pairing_update_time > 0:
                             pairing_activity_seconds_ago = int(time.time()) - self.adapter.last_pairing_update_time
@@ -211,13 +196,18 @@ class MatterAPIHandler(APIHandler):
                                       'busy_pairing': self.adapter.busy_pairing,
                                       'pairing_failed': self.adapter.pairing_failed,
                                       'nodez': self.adapter.persistent_data['nodez'],
+                                      'actual_interfaces':self.adapter.actual_interfaces,
+                                      'matter_network_interface':self.adapter.persistent_data['matter_network_interface'],
+                                      'actual_matter_network_interface':self.adapter.persistent_data['actual_matter_network_interface'],
+                                      'available_interfaces':self.adapter.available_interfaces,
                                       'found_thread_radio_again': self.adapter.found_thread_radio_again,
                                       'found_new_thread_radio': self.adapter.found_new_thread_radio,
                                       'found_a_thread_radio_once': self.adapter.found_a_thread_radio_once,
                                       'thread_radio_went_missing': self.adapter.thread_radio_went_missing,
                                       'matter_server_type': self.adapter.matter_server_type,
                                       
-                                      'missing_vendor_id': missing_vendor_id,
+                                      'onboarding_complete':self.adapter.persistent_data['onboarding_complete'],
+                                      'missing_vendor_id': self.adapter.missing_vendor_id,
                                       'thread_radio_serial_port': self.adapter.persistent_data['thread_radio_serial_port'],
                                       'thread_error': self.adapter.thread_error,
                                       'thread_channel': self.adapter.thread_channel,
@@ -230,6 +220,7 @@ class MatterAPIHandler(APIHandler):
                                       'thread_netdata_registered':self.adapter.thread_netdata_registered,
                                       'thread_running': self.adapter.thread_running,
                                       'seconds_until_starting_matter':seconds_until_starting_matter,
+                                      'matter_network_interface_found':self.adapter.matter_network_interface_found,
                                       'should_start_matter':self.adapter.should_start_matter,
                                       'matter_server_running':self.adapter.matter_server_running,
                                       'matter_client_connected': self.adapter.matter_client_connected,
@@ -336,7 +327,8 @@ class MatterAPIHandler(APIHandler):
                                       }),
                         )
                         
-                        
+                    
+
 
                     elif action == 'get_map':
                         if self.DEBUG:
@@ -596,6 +588,58 @@ class MatterAPIHandler(APIHandler):
                           content=json.dumps({'state':state}),
                         )
                     
+
+                    elif action == 'save_vendor_id':
+                        if self.DEBUG:
+                            print("got request to save_vendor_id")
+                    
+                        try:
+                            if 'vendor_id' in request.body and isinstance(str(request.body['vendor_id']),str):
+                                new_vendor_id = request.body['vendor_id']
+                                if len(new_vendor_id) == 4:
+                                    if isinstance(self.adapter.persistent_data['vendor_id'],str) and len(self.adapter.persistent_data['vendor_id']) == 4 and self.adapter.persistent_data['vendor_id'] != new_vendor_id:
+                                        if self.DEBUG:
+                                            print("WARNING, VENDOR ID IS BEING CHANGED FROM: ", self.adapter.persistent_data['vendor_id'], ", TO: ", new_vendor_id);
+                                    self.adapter.persistent_data['vendor_id'] = new_vendor_id
+                                    #self.adapter.vendor_id = new_vendor_id
+                                    self.adapter.check_onboarding_state()
+                                    self.adapter.should_save_persistent = True
+                                    state = True
+
+                        except Exception as ex:
+                            print("caught error handling save_vendor_id API request: ", ex)
+
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':state}),
+                        )
+
+                    elif action == 'save_matter_network_interface':
+                        if self.DEBUG:
+                            print("got request to save_matter_network_interface")
+                    
+                        try:
+                            if 'matter_network_interface' in request.body and isinstance(str(request.body['matter_network_interface']),str):
+                                if self.DEBUG:
+                                    print("matter_network_interface has been set to: ", self.adapter.persistent_data['matter_network_interface']);
+                                self.adapter.persistent_data['matter_network_interface'] = request.body['matter_network_interface']
+                                if request.body['matter_network_interface'] == 'Advanced' and 'actual_matter_network_interface' in request.body and isinstance(str(request.body['actual_matter_network_interface']),str):
+                                    self.adapter.persistent_data['actual_matter_network_interface'] = request.body['actual_matter_network_interface']
+                                self.adapter.update_network_interfaces()
+                                self.adapter.check_onboarding_state()
+                                self.adapter.should_save_persistent = True
+                                state = True
+                                    
+                        except Exception as ex:
+                            print("caught error handling save_matter_network_interface API request: ", ex)
+
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':state, 'onboarding_complete':self.adapter.persistent_data['onboarding_complete']}),
+                        )
+
 
                     elif action == 'run_otbr_command':
                         output = ''

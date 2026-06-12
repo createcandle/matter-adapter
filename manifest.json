@@ -29,12 +29,10 @@
   "name": "Matter adapter",
   "options": {
     "default": {
-      "Vendor ID":"",
 	  "Region":"EU",
 	  "Help Thread devices to connect to the internet": false,
       "Brightness transition duration":0,
 	  "Days between updating certificates":14,
-      "Do not use Hotspot as WiFi network for devices": false,
 	  "Thread channel":26,
 	  "Thread network name": "CandleThread",
 	  "Default Matter fabric name": "Home",
@@ -45,10 +43,6 @@
     },
     "schema": {
       "properties": {
-        "Vendor ID":{
-            "type": "string",
-            "description": "You should set the Vendor ID of the Matter fabric. For example, the Home Assistant vendor ID is 134B"
-        },
         "Region":{
             "type": "string",
             "enum": [
@@ -72,10 +66,6 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 28
-        },
-        "Do not use Hotspot as WiFi network for devices":{
-            "type": "boolean",
-            "description": "Advanced. The Hotspot offers a separate guest WiFi network for your smart devices. Using it will give you more insight into the communication habits of your Matter devices, and you can also block connections you don't want or trust. The default is to use the Hotspot feature to offer more protection against corporate surveillance."
         },
         "Thread channel":{
             "description": "Advanced. Which wireless channel the Thread network should use. Common recommendations are 11, 15, 20 and 25 or 26. Fun fact: Apple always uses 26. The default is 26.",

@@ -56,7 +56,7 @@ python3 --version
 
 sudo apt install -y build-essential gcc-aarch64-linux-gnu libdbus-glib-1-dev libgirepository1.0-dev
 
-sudo apt install -y python3-distutils-extra
+sudo apt install -y python3-distutils-extra 
 sudo apt-get update -q
 echo "."
 echo ".."
@@ -250,7 +250,7 @@ echo ""
 
 #sudo apt install -y python3.11-distutils
 curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
-python3.11 -m pip install --upgrade setuptools wheel
+python3.11 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org --upgrade setuptools wheel
 
 #echo ""
 #echo "PIP OPTIONS AFTER:"
@@ -273,19 +273,19 @@ python3.11 -m pip install dbus-python  -t lib --prefix "" --no-cache-dir
 
 
     
-python3.11 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
-python3.11 -m pip install home-assistant-chip-core -t lib --prefix "" --no-cache-dir --upgrade
+python3.11 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
+python3.11 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org home-assistant-chip-core -t lib --prefix "" --no-cache-dir --upgrade
 #python3.11 -m pip install home_assistant_chip_core -t lib --prefix "" --no-cache-dir --upgrade
 
-python3.11 -m pip install home-assistant-chip-clusters -t lib --prefix "" --no-cache-dir --upgrade
+python3.11 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org home-assistant-chip-clusters -t lib --prefix "" --no-cache-dir --upgrade
 
-python3.11 -m pip install zeroconf -t lib --prefix "" --no-cache-dir --upgrade
-python3.11 -m pip install atomicwrites -t lib --prefix "" --no-cache-dir --upgrade
-python3.11 -m pip install orjson -t lib --prefix "" --no-cache-dir --upgrade
+python3.11 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org zeroconf -t lib --prefix "" --no-cache-dir --upgrade
+python3.11 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org atomicwrites -t lib --prefix "" --no-cache-dir --upgrade
+python3.11 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org orjson -t lib --prefix "" --no-cache-dir --upgrade
 
-python3.11 -m pip install python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
+python3.11 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org python-matter-server[server] -t lib --prefix "" --no-cache-dir --upgrade
 
-python3.11 -m pip install silabs-flasher -t lib --prefix "" --no-cache-dir --upgrade
+python3.11 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org silabs-flasher -t lib --prefix "" --no-cache-dir --upgrade
 
 #    cryptography \
 #    home_assistant_chip_repl \
@@ -306,7 +306,7 @@ echo
 echo "PACKAGE.SH ALMOST THERE FOR PYTHON LIBS"
 
 
-python3.11 -m pip install coloredlogs aiorun requests click click_option_group -t lib --prefix "" --no-cache-dir
+python3.11 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org coloredlogs aiorun requests click click_option_group -t lib --prefix "" --no-cache-dir
 #    -t lib --prefix "" --no-binary :all: --no-cache-dir
     
     

@@ -1043,10 +1043,10 @@ class MatterAdapter(Adapter):
             if "Days between updating certificates" in config:
                 self.time_between_certificate_downloads = int(config["Days between updating certificates"]) * 86400
 
-            if "Do not use Hotspot as WiFi network for devices" in config:
-                self.use_hotspot = not bool(config["Do not use Hotspot as WiFi network for devices"])
-                if self.DEBUG:
-                    self.s_print("Use hotspot preference was in settings: " + str(self.use_hotspot))
+            #if "Do not use Hotspot as WiFi network for devices" in config:
+            #    self.use_hotspot = not bool(config["Do not use Hotspot as WiFi network for devices"])
+            #    if self.DEBUG:
+            #        self.s_print("Use hotspot preference was in settings: " + str(self.use_hotspot))
 
             #if "Vendor ID" in config:
             #    if len(config["Vendor ID"]) > 2:
@@ -1169,7 +1169,8 @@ class MatterAdapter(Adapter):
         available_interfaces = ['Hotspot (recommended)']
         found_it = False
 
-        interfaces_check = run_command(r"nmcli | grep 'connected' | grep -v 'disconnected' | grep ': ' | grep -v 'p2p-dev-' | grep -v 'lo:' | grep -v 'wpan0:' | sed 's/\://' | awk '{print $1}'")
+        #interfaces_check = run_command(r"nmcli | grep 'connected' | grep -v 'disconnected' | grep ': ' | grep -v 'p2p-dev-' | grep -v 'lo:' | grep -v 'wpan0:' | sed 's/\://' | awk '{print $1}'")
+        interfaces_check = run_command(r"nmcli | grep 'connected' | grep -v 'disconnected' | grep ': ' | grep -v 'p2p-dev-' | grep -v 'lo:' | sed 's/\://' | awk '{print $1}'")
         if self.DEBUG:
             print("update_network_interfaces: interfaces_check: \n", interfaces_check, "\n")
         
@@ -1179,7 +1180,8 @@ class MatterAdapter(Adapter):
                 line = line.rstrip().strip()
                 line = line.lower()
                 
-                if line == 'wpan0' or line == 'lo':
+                #if line == 'wpan0' or line == 'lo':
+                if line == 'lo': # should not be possible because grep already filters this out, but just in case
                     continue
 
                 if line != 'uap0':
@@ -1863,7 +1865,7 @@ class MatterAdapter(Adapter):
             # self.matter_server_start_path = os.path.join(self.matter_server_base_path,'packages','matter-server','dist','esm','MatterServer.js')
 
             #matter_server_command = '/home/pi/node24 ' + self.matter_serverjs_start_path + ' --enable-source-maps --disable-dashboard '
-            matter_server_command = 'exec node --enable-source-maps ' + self.matter_serverjs_start_path  #+ ' --disable-dashboard '
+            matter_server_command = 'node --enable-source-maps ' + self.matter_serverjs_start_path  #+ ' --disable-dashboard '
             if self.disable_matter_dashboard:
                 matter_server_command += ' --disable-dashboard'
             #node --enable-source-maps packages/matter-server/dist/esm/MatterServer.js

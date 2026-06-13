@@ -588,6 +588,18 @@ def process_node(node):
             cluster_name = f"{cluster_id} (unknown)"
             attribute_path = f"{cluster_id}.Attributes."
 
+        if attr_id == 65530:
+            if cluster_id in ALL_ATTRIBUTES:
+                ALL_ATTRIBUTES[cluster_id][attr_id] = 'eventList'
+        """
+            ('attrib_id', 65531, 'attributeList', True),
+            ('event_id', 65530, 'eventList', True),
+            ('command_id', 65529, 'acceptedCommandList', True),
+            ('command_id', 65528, 'generatedCommandList', True),
+            ('bitmap32', 65532, 'featureMap', False),
+        """
+
+
         if cluster_id in ALL_ATTRIBUTES and attr_id in ALL_ATTRIBUTES[cluster_id]:
             attr_name = f"{ALL_ATTRIBUTES[cluster_id][attr_id].__name__}"
             attribute_path += attr_name
@@ -740,16 +752,16 @@ def get_env():
             if user_index.isdigit():
                 my_env["XDG_RUNTIME_DIR"] = "/run/user/" + str(user_index)
 
-    if os.path.isdir('/home/pi/.dbus/session-bus'):
-        dbus_session_lines = run_command('cat /home/pi/.dbus/session-bus/* | grep -v ^# ')
-        if isinstance(dbus_session_lines,str):
-            for line in dbus_session_lines.splitlines():
-                #print("DBUS line: -->" + str(line) + "<--" )
-                if '=' in line and line.startswith('DBUS_SESSION_BUS'):
-                    dbus_value = re.escape(str(line.split('=', 1)[1]))
-                    #print("dbus_value: -->" + str(dbus_value) + "<--")
-                    dbus_value = dbus_value.replace("'","")
-                    my_env[ str(line.split('=', 1)[0]).strip() ] = dbus_value
+    #if os.path.isdir('/home/pi/.dbus/session-bus'):
+    #    dbus_session_lines = run_command('cat /home/pi/.dbus/session-bus/* | grep -v ^# ')
+    #    if isinstance(dbus_session_lines,str):
+    #        for line in dbus_session_lines.splitlines():
+    #            #print("DBUS line: -->" + str(line) + "<--" )
+    #            if '=' in line and line.startswith('DBUS_SESSION_BUS'):
+    #                dbus_value = re.escape(str(line.split('=', 1)[1]))
+    #                #print("dbus_value: -->" + str(dbus_value) + "<--")
+    #                dbus_value = dbus_value.replace("'","")
+    #                my_env[ str(line.split('=', 1)[0]).strip() ] = dbus_value
 
     return my_env
 

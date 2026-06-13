@@ -79,8 +79,11 @@
 /*
 #extension-matter-adapter-viz-container *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 */
-#extension-matter-adapter-viz-container *, *::before, *::after { box-sizing: border-box; }
-#extension-matter-adapter-viz-container *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+#extension-matter-adapter-viz-container *, 
+#extension-matter-adapter-viz-container *::before, 
+#extension-matter-adapter-viz-container *::after { box-sizing: border-box; }
+#extension-matter-adapter-viz-container *::before, 
+#extension-matter-adapter-viz-container *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 /*
 html {

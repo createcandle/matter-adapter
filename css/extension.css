@@ -778,9 +778,6 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	background-color:#600;
 }
 
-#extension-matter-adapter-dashboard-button{
-	margin-top:4rem;
-}
 
 
 /*  SECOND PAGE  */
@@ -2057,9 +2054,6 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 	#extension-matter-adapter-dashboard-button,
 	#extension-matter-adapter-reset-customizations-button{
 		width:100%;
-	}
-	#extension-matter-adapter-dashboard-button{
-		margin-top:2rem;
 	}
 
 	.extension-matter-adapter-radio-buttons-container{

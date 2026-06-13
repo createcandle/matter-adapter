@@ -443,7 +443,10 @@ class MatterProperty(Property):
                             print("property: update: currentPosition update value: ", value)
                         
                 if value != None: # None values are allowed and encouraged
-                    
+                    if self.DEBUG:
+                        print("property: update:  type(value),value: ", type(value, value))
+
+
                     if self.details['attribute_code'] == 'ColorControl.Attributes.CurrentX' and (isinstance(value,int) or str(value).isdigit()):
                         if self.DEBUG:
                             print("error: property: update: TODO: provided color was a number, but should become a hex value: ", value)
@@ -451,7 +454,7 @@ class MatterProperty(Property):
                         return
             
                     # turn into enum string value
-                    if 'enum' in self.description:
+                    if 'enum' in self.description and isinstance(value,int) and value < len(self.description['enum']):
                         value = str(self.description['enum'][value])
                     elif self.details['attribute_code'] in self.device.adapter.enums_lookup and isinstance(value,int) and value >= 0 and value < len(self.device.adapter.enums_lookup[ self.details['attribute_code'] ]) and 'type' in self.description and self.description['type'] == 'string':
                         value = str(self.device.adapter.enums_lookup[ self.details['attribute_code'] ][value])

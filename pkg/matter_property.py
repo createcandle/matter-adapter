@@ -73,8 +73,11 @@ class MatterProperty(Property):
         self.description = description # a dictionary that holds the details about the property type
         self.details = details
 
-        self.cluster_name = self.details['attribute_code'].split('.Attributes.')[0]
-        self.attribute_name = self.details['attribute_code'].split('.Attributes.')[1]
+        self.cluster_name = None
+        self.attribute_name = None
+        if 'attribute_code' in self.details:
+            self.cluster_name = self.details['attribute_code'].split('.Attributes.')[0]
+            self.attribute_name = self.details['attribute_code'].split('.Attributes.')[1]
         
         self.value = value
         
@@ -109,8 +112,8 @@ class MatterProperty(Property):
     def set_value(self, value):
         # This gets called by the controller whenever the user changes the value inside the interface. For example if they press a button, or use a slider.
         if self.DEBUG:
-            print("property: set_value called for " + str(self.title))
-            print("property: set_value to: " + str(value))
+            self.device.adapter.s_print("property: set_value called for " + str(self.title))
+            self.device.adapter.s_print("property: set_value to: " + str(value))
         try:
             
             
@@ -119,8 +122,9 @@ class MatterProperty(Property):
                     print("property: set_value: self.device.attributes.keys(): ", self.device.attributes.keys())
             
             # Data Mute is a little different
-            if self.id == 'matter-data_mute':
+            if self.id == 'data_mute':
                 self.device.data_mute = bool(value)
+                self.update(self.device.data_mute)
                 
             # Turn property changes into Matter commands
             else:
@@ -128,7 +132,7 @@ class MatterProperty(Property):
                 command = None
                 command_name = 'Move'
                 
-                if self.description['readOnly'] == True:
+                if 'readOnly' in self.description and self.description['readOnly'] == True:
                     if self.DEBUG:
                         print("Error / impossible: readOnly property cannot be changed")
                     return
@@ -270,82 +274,92 @@ class MatterProperty(Property):
                         return
                 
                     else:
-                        if self.attribute_name in self.device.attribute_multipliers:
-                            multiplier = self.device.attribute_multipliers[self.attribute_name]
+                        if str(self.attribute_name) in self.device.adapter.attribute_multipliers:
+                            multiplier = self.device.adapter.attribute_multipliers[self.attribute_name]
+                            if self.DEBUG:
+                                print("set_value: value BEFORE applying attribute_multiplier: ", value, ", * multiplier: ", multiplier)
                             value = int(value * multiplier)
-                        if self.cluster_name in self.device.cluster_multipliers and isinstance(value,(int,float)):
-                            multiplier = self.device.cluster_multipliers[self.cluster_name]
+                            if self.DEBUG:
+                                print("set_value: value _AFTER applying attribute_multiplier: ", value)
+
+                        if str(self.cluster_name) in self.device.adapter.cluster_multipliers and isinstance(value,(int,float)):
+                            multiplier = self.device.adapter.cluster_multipliers[self.cluster_name]
+                            if self.DEBUG:
+                                print("set_value: value BEFORE applying cluster_multiplier: ", value, ", * multiplier: ", multiplier)
                             value = int(value * multiplier)
+                            if self.DEBUG:
+                                print("set_value: value _AFTER applying cluster_multiplier: ", value)
+                            
                             # TODO apply multiplier to additional commands that set numeric/integer values
                             
 
 
                 
-                # If a matching command was found, then it can be forwarder to the Matter server
-                if command == None:
-                    if self.DEBUG:
-                        print("Property: set_value: ERROR, COMMAND WAS STILL NONE")
-                else:
-                    
-                    try:
-                        command_name = command.__class__.__name__
+                    # If a matching command was found, then it can be forwarder to the Matter server
+                    if command == None:
                         if self.DEBUG:
-                            print("command_name from command: ", command_name)
-                    except:
-                        if self.DEBUG:
-                            print("\nERROR: getting command_name failed")
+                            print("Property: set_value: ERROR, COMMAND WAS STILL NONE")
+                    else:
+                        
                         try:
-                            command_name = command.__name__
+                            command_name = command.__class__.__name__
+                            if self.DEBUG:
+                                print("command_name from command: ", command_name)
                         except:
                             if self.DEBUG:
-                                print("\nERROR: getting command_name failed twice")
-                            return
-                            
-                    if self.DEBUG:
-                        #print("set_value: dir of command: ", dir(command))
-                        print("node_id: ", self.details['node_id'])
-                        print("self.details['endpoint']: ", self.details['endpoint'])
-                        print("command.cluster_id", command.cluster_id)
-                        print("command.command_id", command.command_id)
-                        print("command_name: ", command_name)
-                        
-                        
-                    
-                    #command = clusters.OnOff.Commands.Toggle() # test
-                    payload = dataclass_to_dict(command)
-                    if self.DEBUG:
-                        print("Property: set_value: payload: payload,payload.keys(): ", payload, payload.keys())
-                    #if len(payload.keys()):
-                    if self.DEBUG:
-                        print("\n\nForwarding value to Matter server. payload as dict: " + str(payload))
-                    
-                    message = {
-                        "message_id": "device_command",
-                        "command": "device_command",
-                        "args": {
-                            "node_id": int(self.details['node_id']),
-                            "endpoint_id": int(self.details['endpoint']),
-                            "payload": payload,
-                            "cluster_id": int(command.cluster_id),
-                            "command_name": str(command_name)
-                        }
-                      }
-                
-                    
-                    if message != None:
-                    
-                        # send device command
+                                print("\nERROR: getting command_name failed")
+                            try:
+                                command_name = command.__name__
+                            except:
+                                if self.DEBUG:
+                                    print("\nERROR: getting command_name failed twice")
+                                return
+                                
                         if self.DEBUG:
-                            dump = json.dumps(message, sort_keys=True, indent=4, separators=(',', ': '))
-                            if self.DEBUG:
-                                print("\n.\n) ) )\n.\nsending change value message to the Matter network: " + str(dump))
-                        json_message = json.dumps(message)
+                            #print("set_value: dir of command: ", dir(command))
+                            print("node_id: ", self.details['node_id'])
+                            print("self.details['endpoint']: ", self.details['endpoint'])
+                            print("command.cluster_id", command.cluster_id)
+                            print("command.command_id", command.command_id)
+                            print("command_name: ", command_name)
+                            
+                            
                         
-                        if self.device.adapter.ws:
-                            was_sent = self.device.adapter.ws.send(json_message)
+                        #command = clusters.OnOff.Commands.Toggle() # test
+                        payload = dataclass_to_dict(command)
+                        if self.DEBUG:
+                            print("Property: set_value: payload: payload,payload.keys(): ", payload, payload.keys())
+                        #if len(payload.keys()):
+                        if self.DEBUG:
+                            print("\n\nForwarding value to Matter server. payload as dict: " + str(payload))
+                        
+                        message = {
+                            "message_id": "device_command",
+                            "command": "device_command",
+                            "args": {
+                                "node_id": int(self.details['node_id']),
+                                "endpoint_id": int(self.details['endpoint']),
+                                "payload": payload,
+                                "cluster_id": int(command.cluster_id),
+                                "command_name": str(command_name)
+                            }
+                        }
+                    
+                        
+                        if message != None:
+                        
+                            # send device command
                             if self.DEBUG:
-                                print("message sent? was_sent: ", was_sent)
-                            self.update(value)
+                                dump = json.dumps(message, sort_keys=True, indent=4, separators=(',', ': '))
+                                if self.DEBUG:
+                                    print("\n.\n) ) )\n.\nsending change value message to the Matter network: " + str(dump))
+                            json_message = json.dumps(message)
+                            
+                            if self.device.adapter.ws:
+                                was_sent = self.device.adapter.ws.send(json_message)
+                                if self.DEBUG:
+                                    print("message sent? was_sent: ", was_sent)
+                                self.update(value)
                 
                 """
                 client: on_message: {
@@ -376,165 +390,245 @@ class MatterProperty(Property):
     #def send_to_matter(self,command):
     #    run(self.run_matter(), shutdown_callback=self.handle_stop)
 
+    def toggle(self):
+        if self.DEBUG:
+            print("property: in toggle()")
+        self.update(not bool(self.value))
+
+
+
+    #
+    #  UPDATE
+    #
+    #  TODO: maybe some of this, such as the percentage scaling, should move to the handle_event method in matter-adapter.py?
+    #
 
     def update(self, value, meta=None):
         # This is a quick way to set the value of this property. It checks that the value is indeed new, and then notifies the controller that the value was changed.
         
         if meta != None:
             if self.DEBUG:
-                print("OK, Matter property received META data: ", meta)
+                print("property: update: OK, Matter property received META data: ", meta)
         
-        if self.device.data_mute:
+        if hasattr(self.device,'data_mute') and isinstance(self.device.data_mute,bool) and self.device.data_mute == True:
             if self.DEBUG:
-                print("update of value blocked by Data mute for: " + str(self.title))
+                print("property: update:  updating value blocked by Data mute for: " + str(self.title))
+            return
+
+        if not hasattr(self,'description') or 'type' not in self.description:
+            if self.DEBUG:
+                print("\n\nproperty: update: ERROR, MISSING TYPE\n\n")
             return
         
         if self.DEBUG:
-            print("property: update. value: " + str(value) + ', existing value: ' + str(self.value))
-            print("self.details: ", self.details) 
-            
-
-        if 'attribute_code' in self.details and '.Attributes.' in str(self.details['attribute_code']):
-
-            # Apply multiplier
-            if self.attribute_name in self.device.attribute_multipliers and isinstance(value,(int,float)):
-                multiplier = self.device.attribute_multipliers[self.attribute_name]
-                if self.DEBUG:
-                    print("property: update: applying attribute multiplier (divide by).  multiplier, value before: ", multiplier, value)
-                value = value / multiplier
-                if self.DEBUG:
-                    print("property: update: value after applying attribute multiplier: ", value)
-            elif self.cluster_name in self.device.cluster_multipliers and isinstance(value,(int,float)):
-                multiplier = self.device.cluster_multipliers[self.cluster_name]
-                if self.DEBUG:
-                    print("property: update: applying cluster multiplier (divide by).  multiplier, value before: ", multiplier, value)
-                value = value / multiplier
-                if self.DEBUG:
-                    print("property: update: value after applying cluster multiplier: ", value)
-            else:
-                if self.DEBUG:
-                    print("property: no multiplier found for self.cluster_name,self.attribute_name: ", self.cluster_name, self.attribute_name)
+            self.device.adapter.s_print("property: update: received value: " + str(value) + ', self.value: ' + str(self.value))
+            self.device.adapter.s_print("property: update: self.details: ", self.details)
+            self.device.adapter.s_print("property: update: self.attribute_name: ", self.attribute_name)
 
         try:
-
-            if isinstance(value,float) and self.description['type'] == 'integer':
+            if value == None: # None values are allowed and encouraged
                 if self.DEBUG:
-                    print("property: update: forcing float to int: ", value, " -> ", int(value))
+                    self.device.adapter.s_print("property: update: provied value is None")
+
+            # TODO: implement color conversion from XY to HEX
+            elif self.details['attribute_code'] == 'ColorControl.Attributes.CurrentX' and (isinstance(value,int) or str(value).isdigit()):
+                if self.DEBUG:
+                    self.device.adapter.s_print("\nERROR: property: update: TODO: provided color was a number, but should become a hex value: ", value)
+                    # TODO: change this to a hex color instead of returning
+                return
+
+            elif isinstance(value,float) and self.description['type'] == 'integer':
+                if self.DEBUG:
+                    self.device.adapter.s_print("property: update: forcing float to int: ", value, " -> ", int(value))
                 value = int(value)
 
-            if 'attribute_code' in self.details and '.Attributes.' in str(self.details['attribute_code']):
-                
-                if self.attribute_name == 'OnOff':
-                    if str(value) == 'On':
-                        value = True
-                    elif str(value) == 'Off':
-                        value = False
-                    else:
-                        if self.DEBUG:
-                            print("property: update: OnOff update value: ", value)
-                        
-                elif self.attribute_name == 'CurrentPosition':
-                    if str(value) == 'On':
-                        value = 1
-                    elif str(value) == 'Off':
-                        value = 0
-                    else:
-                        if self.DEBUG:
-                            print("property: update: currentPosition update value: ", value)
-                        
-                if value != None: # None values are allowed and encouraged
+            elif isinstance(value,bool) and self.description['type'] == 'integer':
+                if self.DEBUG:
+                    self.device.adapter.s_print("property: update: forcing boolean to int: ", value, " -> ", bool(value))
+                value = bool(value)
+
+            elif isinstance(value,str) and self.description['type'] == 'integer':
+                if str(value) == 'On':
                     if self.DEBUG:
-                        print("property: update:  type(value),value: ", type(value, value))
-
-
-                    if self.details['attribute_code'] == 'ColorControl.Attributes.CurrentX' and (isinstance(value,int) or str(value).isdigit()):
-                        if self.DEBUG:
-                            print("error: property: update: TODO: provided color was a number, but should become a hex value: ", value)
-                            # TODO: change this to a hex color instead of returning
-                        return
-            
-                    # turn into enum string value
-                    if 'enum' in self.description and isinstance(value,int) and value < len(self.description['enum']):
-                        value = str(self.description['enum'][value])
-                    elif self.details['attribute_code'] in self.device.adapter.enums_lookup and isinstance(value,int) and value >= 0 and value < len(self.device.adapter.enums_lookup[ self.details['attribute_code'] ]) and 'type' in self.description and self.description['type'] == 'string':
-                        value = str(self.device.adapter.enums_lookup[ self.details['attribute_code'] ][value])
-            
-                    # Adjust from percentage back to the range that the matter device expects (likely 0-100 -> 1-254)
-                    elif self.details['attribute_code'] == 'LevelControl.Attributes.CurrentLevel' and isinstance(value,(int,float)):
-                        if value == 255:
-                            value = None
-                        elif value < 0:
-                            value = 0
-                        elif value > 254:
-                            value = 25
-                
-                        if 'minimum' in self.description:
-                            if value < self.description['minimum']:
-                                value = self.description['minimum']
-                
-                        if 'maximum' in self.description:
-                            if value > self.description['maximum']:
-                                value = self.description['maximum']
+                        self.device.adapter.s_print("property: update: WARNING, had to force 'On' to 1")
+                    value = 1
+                elif str(value) == 'Off':
+                    if self.DEBUG:
+                        self.device.adapter.s_print("property: update: WARNING, had to force 'Off' to 0")
+                    value = 0
+                else:
+                    if self.DEBUG:
+                        self.device.adapter.s_print("\nproperty: update: WARNING attempting to cast provided string to integer: ", value)
+                    try:
+                        value = int(value)
+                    except Exception as ex:
+                        print("\nproperty: update: caught ERROR casting provided string value to integer: ", ex)
                     
-                            delta = self.description['maximum'] - self.description['minimum']
-                            #if delta > 100:
-                            percentage_factor = delta / 100
+                    #if value < 0:
+                    #    value = 0
+                    #if value > 100:
+                    #    value = 1
+
+            #if 'attribute_code' in self.details and '.Attributes.' in str(self.details['attribute_code']):
+            elif isinstance(value,str) and self.description['type'] == 'boolean':
+
+                #if self.attribute_name == 'OnOff':
+                if str(value) == 'On':
+                    if self.DEBUG:
+                        self.device.adapter.s_print("property: update: WARNING, had to force 'On' to boolean True for OnOff atribute")
+                    value = True
+                elif str(value) == 'Off':
+                    if self.DEBUG:
+                        self.device.adapter.s_print("property: update: WARNING, had to force 'Off' to boolean False for OnOff atribute")
+                    value = False
+
+                else:
+                    if self.DEBUG:
+                        self.device.adapter.s_print("\nproperty: update: WARNING attempting to cast provided string to boolean: ", value)
+                    try:
+                        value = bool(value)
+                    except Exception as ex:
+                        print("\nproperty: update: caught ERROR casting provided string value to boolean: ", ex)
+                
+                        
+                # TODO: this could depend on how the value is actually stored according to the description's type
+                # elif self.attribute_name == 'CurrentPosition':
+                    
+
+            elif isinstance(value,int) and self.description['type'] == 'string':
+ 
+                # turn into enum string value
+                if 'enum' in self.description and isinstance(value,int) and value < len(self.description['enum']):
+                    if self.DEBUG:
+                        self.device.adapter.s_print("property: update: changing ENUM from in to string: ", value, self.description['enum'], " --> ", self.description['enum'][value])
+                    value = str(self.description['enum'][value])
+                elif 'type' in self.description and self.description['type'] == 'string': # there should always be a type in the description, but just in case..
+                    if self.details['attribute_code'] in self.device.adapter.enums_lookup and isinstance(value,int) and value >= 0 and value < len(self.device.adapter.enums_lookup[ self.details['attribute_code'] ]):
+                        if self.DEBUG:
+                            self.device.adapter.s_print("property: update: WARNING, no enum in property description. Falling back to direct lookup in enums_lookup: ", value, self.device.adapter.enums_lookup[ self.details['attribute_code'] ], " --> ", self.device.adapter.enums_lookup[ self.details['attribute_code'] ][value])
+                        value = str(self.device.adapter.enums_lookup[ self.details['attribute_code'] ][value])
+                    elif self.details['attribute_code'] in self.device.adapter.other_lookup and isinstance(value,int) and value >= 0 and value < len(self.device.adapter.other_lookup[ self.details['attribute_code'] ]):
+                        if self.DEBUG:
+                            self.device.adapter.s_print("property: update: WARNING, no enum in property description. Falling back to direct lookup in OTHER_lookup: ", value, self.device.adapter.other_lookup[ self.details['attribute_code'] ], " --> ", self.device.adapter.other_lookup[ self.details['attribute_code'] ][value])
+                        value = str(self.device.adapter.other_lookup[ self.details['attribute_code'] ][value])
+                    
+            elif isinstance(value,int) and (self.description['type'] == 'integer' or self.description['type'] == 'number'):
+
+                # Adjust from percentage back to the range that the matter device expects (likely 0-100 -> 1-254)
+                # WAIT, what? That translation should only be in set_value, not update.
+                # This should really move to handle_event, when the value comes in.
+                #elif self.details['attribute_code'] == 'LevelControl.Attributes.CurrentLevel' and isinstance(value,(int,float)):
+
+                if 'unit' in self.description and (self.description['unit'] == 'percentage' or self.description['unit'] == '%'):
+                    
+                    # TODO: somehow check if an int8 is used, and if so, then 255 can always be translated to null?
+                    # this should be done when the data first comes in at handle_event
+                    """
+                    
+                    if value == 255:
+                        value = None # Matter convention is to use 255 as null.
+                    elif value < 0:
+                        if self.DEBUG:
+                            self.device.adapter.s_print("\nproperty: update: ERROR, currentLevel value was less than zero: ", value)
+                        value = 0
+                    elif value > 255:
+                        if self.DEBUG:
+                            self.device.adapter.s_print("\nproperty: update: ERROR, currentLevel value was more than 255: ", value)
+                        value = 254
+
+                    
+                    if 'minimum' in self.description:
+                        if value < self.description['minimum']:
                             if self.DEBUG:
-                                print("percentage_factor: ", percentage_factor)
-                            if value < 101: # the value coming from a percentage in the gateway should be between 0 and 100, so this check is superfluous
-                                value = self.description['minimum'] + round(value * percentage_factor)
-        
-                            if value > self.description['maximum']:
-                                if self.DEBUG:
-                                    print("property: update: WARNING, percentage scaled value ended up bigger than the allowed maximum: ", value, self.description['maximum'] )
-                                value = self.description['maximum']
-                            if value < self.description['minimum']:
-                                if self.DEBUG:
-                                    print("property: update: WARNING, percentage scaled value ended up smaller than the allowed minimum: ", value, self.description['minimum'] )
-                                value = self.description['minimum']
+                                self.device.adapter.s_print("property: update: unexpectedly have to limit the value coming from the controller, as it was less than the allowed minimum: ", value, " --> ", self.description['minimum'])
+                            value = self.description['minimum']
             
+                    if 'maximum' in self.description:
+                        if value > self.description['maximum']:
+                            if self.DEBUG:
+                                self.device.adapter.s_print("property: update: unexpectedly have to limit the value coming from the controller, as it was more than the allowed maximum: ", value, " --> ", self.description['maximum'])
+                            value = self.description['maximum']
+                    
+
+                    delta = self.description['maximum'] - self.description['minimum'] # wouldn't this always be 0 and 100 for a percentage?
+                    #if delta > 100:
+                    percentage_factor = delta / 100
+                    if self.DEBUG:
+                        self.device.adapter.s_print("property: update: percentage_factor: ", percentage_factor)
+                    if value < 101: # the value coming from a percentage in the gateway should be between 0 and 100, so in theory this check is superfluous
+                        if self.DEBUG:
+                            self.device.adapter.s_print("property: update: value BEFORE applying percentage_factor scaling: ", value)
+                        value = self.description['minimum'] + round(value * percentage_factor)
+                        if self.DEBUG:
+                            self.device.adapter.s_print("property: update: value _AFTER applying percentage_factor scaling: ", value)
+                    else:
+                        if self.DEBUG:
+                            self.device.adapter.s_print("property: update: not applying percentage factor: value of provided level coming from controller was already more than 100: ", value )
+                    """
+
+                    if value > self.description['maximum']:
+                        if self.DEBUG:
+                            self.device.adapter.s_print("property: update: WARNING, percentage scaled value ended up bigger than the allowed maximum: ", value, self.description['maximum'] )
+                        value = self.description['maximum']
+                    if value < self.description['minimum']:
+                        if self.DEBUG:
+                            self.device.adapter.s_print("property: update: WARNING, percentage scaled value ended up smaller than the allowed minimum: ", value, self.description['minimum'] )
+                        value = self.description['minimum']
+                    
+
         except Exception as ex:
-            print("ERROR: property: update: caught error trying to wrangle value based on attribute_code: ", self.id, ex)
-            print(traceback.format_exc())
+            self.device.adapter.s_print("ERROR: property: update: caught error trying to wrangle value based on attribute_code: ", self.id, ex)
+            self.device.adapter.s_print(traceback.format_exc())
             
         
-        
+        #
+        # TODO: the code below seems to be repeating some earlier code
+        #
         
         try:
             # Make sure color values are in the form of a HEX code with a # at the beginning
-            if self.description and '@type' in self.description and str(self.description['@type']) == 'ColorProperty':
+            if '@type' in self.description and str(self.description['@type']) == 'ColorProperty':
                 if not is_hex_color(value):
                     if self.DEBUG:
-                        print("\nERROR: property: update: aborting, value was not a valid hex color: ", value)
+                        self.device.adapter.s_print("\nERROR: property: update: aborting, provided value was not a valid hex color: ", value)
                     return
                     
             # Make sure values are of the expected type
             elif value != None:
-                if self.description and 'type' in self.description:
-                    if str(self.description['type']) == 'string':
-                        value = str(value)
-                        if 'enum' in self.description and len(self.description['enum']):
-                            if not value in self.description['enum']:
-                                uncameled_value = uncamel(value).replace('_',' ')
-                                if uncameled_value in self.description['enum']:
-                                    if self.DEBUG:
-                                        print("OK, uncameled_value was found in enum: ", uncameled_value)
-                                    value = uncameled_value
-                                else:
-                                    if self.DEBUG:
-                                        print("ERROR, the property has an enum list, but the provided string was not present in that list.  self.id, value, enum: ", self.id, value, self.description['enum'])
-                                    return
-                    elif str(self.description['type']) == 'integer':
-                        value = int(value)
-                    elif str(self.description['type']) == 'boolean':
-                        value = bool(value)
-                        
+                
+                if self.description['type'] == 'string':
+                    
+
+                    value = str(value)
+
+
+                    if 'enum' in self.description and len(self.description['enum']):
+                        if not value in self.description['enum']:
+                            uncameled_value = uncamel(value).replace('_',' ')
+                            if uncameled_value in self.description['enum']:
+                                if self.DEBUG:
+                                    self.device.adapter.s_print("property: update: OK, uncameled_value was found in enum: ", uncameled_value)
+                                value = uncameled_value
+                            else:
+                                if self.DEBUG:
+                                    self.device.adapter.s_print("property: update: ERROR, the property has an enum list, but the provided string was not present in that list.  self.id, value, enum: ", self.id, value, self.description['enum'])
+                                return
+                elif str(self.description['type']) == 'integer':
+                    value = int(value)
+                    # TODO: change 'None' value to 255? Or does the matter.server handle that?
+                elif str(self.description['type']) == 'boolean':
+                    value = bool(value)
+            else:
+                if self.DEBUG:
+                    self.device.adapter.s_print("property: update: value is None")
+                # TODO: change 'None' value to 255? Or does the matter.server handle that?
+
         except Exception as ex:
-            print("ERROR: property: update: caught error while trying ensure value is in correct format: ", self.id, ex)
-            print(traceback.format_exc())
+            self.device.adapter.s_print("ERROR: property: update: caught error while trying ensure value is in correct format: ", self.id, ex)
+            self.device.adapter.s_print(traceback.format_exc())
         
         if self.DEBUG:
-            print("PROPERTY UPDATE: FINAL VALUE: ", type(value), value)
+            self.device.adapter.s_print("PROPERTY UPDATE: FINAL VALUE: ", type(value), value)
         
         
         if value != self.value:

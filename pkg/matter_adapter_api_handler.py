@@ -381,11 +381,7 @@ class MatterAPIHandler(APIHandler):
                                 if self.DEBUG:
                                     print("my_extaddr: -->" + str(my_extaddr) + "<--")
 
-
-                                if my_rloc16.isdigit():
-                                    if self.DEBUG:
-                                        print("OK, my_rloc16 is a digit")
-                                    state = True
+                                state = True
 
                         except Exception as ex:
                             print("caught error handling get_map request: ", ex)
@@ -397,6 +393,7 @@ class MatterAPIHandler(APIHandler):
                           content=json.dumps({
                             'state':state,
                             'thread_diagnostics': self.adapter.thread_diagnostics,
+                            'general_diagnostics': self.adapter.general_diagnostics,
                             'eid_cache':eid_cache,
                             'my_rloc16':my_rloc16,
                             'my_extaddr':my_extaddr,
@@ -603,7 +600,7 @@ class MatterAPIHandler(APIHandler):
                                     self.adapter.persistent_data['vendor_id'] = new_vendor_id
                                     #self.adapter.vendor_id = new_vendor_id
                                     self.adapter.check_onboarding_state()
-                                    self.adapter.should_save_persistent = True
+                                    self.adapter.should_save = True
                                     state = True
 
                         except Exception as ex:
@@ -628,7 +625,7 @@ class MatterAPIHandler(APIHandler):
                                     self.adapter.persistent_data['actual_matter_network_interface'] = request.body['actual_matter_network_interface']
                                 self.adapter.update_network_interfaces()
                                 self.adapter.check_onboarding_state()
-                                self.adapter.should_save_persistent = True
+                                self.adapter.should_save = True
                                 state = True
                                     
                         except Exception as ex:
@@ -696,7 +693,7 @@ class MatterAPIHandler(APIHandler):
                                 if self.DEBUG:
                                     print("debug: importing pairing_codes: ", str(request.body['pairing_codes']))
                                 self.adapter.persistent_data['pairing_codes'] = request.body['pairing_codes']
-                                self.adapter.should_save_persistent = True
+                                self.adapter.should_save = True
                                 state = True
 
                         except Exception as ex:
@@ -753,7 +750,7 @@ class MatterAPIHandler(APIHandler):
                                                     print("Remembering wifi credentials")
                                                 self.adapter.persistent_data['wifi_ssid'] = str(request.body['wifi_ssid'])
                                                 self.adapter.persistent_data['wifi_password'] = str(request.body['wifi_password'])
-                                                self.adapter.should_save_persistent = True
+                                                self.adapter.should_save = True
                                     
                                 
                                 if pairing_type == 'commission_with_code':
@@ -773,7 +770,8 @@ class MatterAPIHandler(APIHandler):
                                         self.adapter.pairing_phase = 0
                                         self.adapter.pairing_phase_message = 'Preparing..'
                                         state = self.adapter.start_matter_pairing(pairing_type) # device data isn't really needed, CHIP brute-force scans all devices on the network.
-                                    
+                                        if self.DEBUG:
+                                            print("API handler got request to commission_with_code. self.adapter.start_matter_pairing returned this state: ", state)
                                 # commission_on_network
                                 elif pairing_type == 'commission_on_network':
                                      if code and isinstance(code,str):
@@ -974,49 +972,62 @@ class MatterAPIHandler(APIHandler):
                         
                         state = False
                         message = "An unknown error has occured."
+                        thing_id = None
                         self.adapter.device_was_deleted = False
                         try:
 
                             # REMOVE THE THING
                             node_id = str(request.body['node_id'])
-                            if node_id.startswith('matter-'):
-                                node_id = node_id.replace('matter-','')
-                            device_id = 'matter-' + str(node_id)
-                            #state = self.delete_item(name) # This method returns True if deletion was succesful
-                            
-                            self.adapter.remove_thing(device_id)
-                            
-                            if device_id in self.adapter.persistent_data['nodez']:
-                                if self.DEBUG:
-                                    print("removing thing from persistent_data: ", device_id)
-                                del self.adapter.persistent_data['nodez'][device_id]
-                                self.adapter.should_save = True
 
-                            # Remove Device object from the adapter
-                            #old_device = self.adapter.get_device(device_id)
-                            #if old_device != None:
-                            #    if self.DEBUG:
-                            #        print("removing thing from adapter")
-                            #    
-                            #else:
-                            #    if self.DEBUG:
-                            #        print("Warning, thing was not present on adapter? Cannot delete thing.")
+                            for existing_thing_id in self.adapter.persistent_data['nodez'].keys():
+                                if 'node_id' in self.adapter.persistent_data['nodez'][existing_thing_id] and self.adapter.persistent_data['nodez'][existing_thing_id]['node_id'] == node_id:
+                                    thing_id = existing_thing_id
+                                    if self.DEBUG:
+                                        print("API: delete_node: found existing thing_id with the node_id: ", thing_id)
+                                    break
+                            #if node_id.startswith('matter-'):
+                            #    node_id = node_id.replace('matter-','')
+                            #thing_id = 'matter-' + str(node_id)
+                        
                             
-                            # Remove the device from the nodez dictionary
-                            """
-                            if device_id in self.adapter.persistent_data['nodez']:
+
+                            #state = self.delete_item(name) # This method returns True if deletion was succesful
+                            if isinstance(thing_id,str):
                                 if self.DEBUG:
-                                    print("removing thing from nodez")
-                                del self.adapter.persistent_data['nodez'][device_id]
-                                message += " Also deleted from persistent data"
-                                #state = True
-                            else:
-                                if self.DEBUG:
-                                    print("device_id was not found in nodez. Already deleted?: " + str(device_id))
-                                message = "Device was not present in data - already deleted?"
-                                if self.DEBUG:
-                                    print("Error: " + message)
-                            """
+                                    print("API: delete_node: asking adapter to remove thing_id: ", thing_id)
+                                self.adapter.remove_thing(thing_id)
+                                
+                                if thing_id in self.adapter.persistent_data['nodez']:
+                                    if self.DEBUG:
+                                        print("API: delete_node: removing thing from persistent_data with thing_id: ", thing_id)
+                                    del self.adapter.persistent_data['nodez'][thing_id]
+                                    self.adapter.should_save = True
+
+                                # Remove Device object from the adapter
+                                #old_device = self.adapter.get_device(thing_id)
+                                #if old_device != None:
+                                #    if self.DEBUG:
+                                #        print("removing thing from adapter")
+                                #    
+                                #else:
+                                #    if self.DEBUG:
+                                #        print("Warning, thing was not present on adapter? Cannot delete thing.")
+                                
+                                # Remove the device from the nodez dictionary
+                                """
+                                if thing_id in self.adapter.persistent_data['nodez']:
+                                    if self.DEBUG:
+                                        print("removing thing from nodez")
+                                    del self.adapter.persistent_data['nodez'][thing_id]
+                                    message += " Also deleted from persistent data"
+                                    #state = True
+                                else:
+                                    if self.DEBUG:
+                                        print("thing_id was not found in nodez. Already deleted?: " + str(thing_id))
+                                    message = "Device was not present in data - already deleted?"
+                                    if self.DEBUG:
+                                        print("Error: " + message)
+                                """
                         except Exception as ex:
                             if self.DEBUG:
                                 print("Error deleting from nodez of things: " + str(ex))
@@ -1028,7 +1039,7 @@ class MatterAPIHandler(APIHandler):
                             
                             # TODO: check how long this actually takes
                             if self.adapter.device_was_deleted == False:
-                                time.sleep(3)
+                                time.sleep(3) #Could this be blocking the web interface?
                             if self.adapter.device_was_deleted == False:
                                 time.sleep(3)
                             if self.adapter.device_was_deleted == False:
@@ -1045,7 +1056,7 @@ class MatterAPIHandler(APIHandler):
                             
                         except Exception as ex:
                             if self.DEBUG:
-                                print("caught error deleting from Matter: " + str(ex))
+                                print("caught error deleting node from Matter: " + str(ex))
                                 print(traceback.format_exc())
                         
                         return APIResponse(
@@ -1058,6 +1069,7 @@ class MatterAPIHandler(APIHandler):
                                           }),
                         )
                     
+
                     
                     elif action == 'share_node':
                         if self.DEBUG:
@@ -1083,7 +1095,7 @@ class MatterAPIHandler(APIHandler):
                                 state = True
                         except Exception as ex:
                             if self.DEBUG:
-                                print("Error in share_node: " + str(ex))
+                                print("cacught error in share_node: " + str(ex))
                                 print(traceback.format_exc())
                         
                         return APIResponse(
@@ -1095,7 +1107,48 @@ class MatterAPIHandler(APIHandler):
                                           }),
                         )
                     
+
+                    elif action == 'refresh_node':
+                        if self.DEBUG:
+                            print("API: in refresh_node")
+                        
+                        state = False
+                        
+                        try:
+                            node_id = str(request.body['node_id'])
+                            for existing_thing_id in self.adapter.persistent_data['nodez'].keys():
+                                if 'node_id' in self.adapter.persistent_data['nodez'][existing_thing_id] and self.adapter.persistent_data['nodez'][existing_thing_id]['node_id'] == node_id:
+                                    thing_id = existing_thing_id
+                                    if self.DEBUG:
+                                        print("API: refresh_node: found existing thing_id based on the node_id: ", node_id, " -> ", thing_id)
+                                    
+                                    if thing_id in self.adapter.persistent_data['nodez']:
+                                        if self.DEBUG:
+                                            print("API: refresh_node: removing thing from persistent_data with thing_id: ", thing_id)
+                                        del self.adapter.persistent_data['nodez'][thing_id]
+                                        self.adapter.should_save = True
+                                        state = True
+
+                                    break
+                            
+                        except Exception as ex:
+                            if self.DEBUG:
+                                print("caught error in refresh_node: " + str(ex))
+                                print(traceback.format_exc())
+                        
+                        return APIResponse(
+                          status=200,
+                          content_type='application/json',
+                          content=json.dumps({'state':state}),
+                        )
                     
+
+
+
+
+
+
+
                     elif action == 'get_mdns':
                         self.adapter.raw_mdns = str(run_command('avahi-browse -rt _trel._udp'))
                         return APIResponse(

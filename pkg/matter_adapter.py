@@ -88,6 +88,7 @@ if 'WEBTHINGS_HOME' in os.environ:
 
 
 
+from math import floor
 
 import logging
 import argparse
@@ -225,7 +226,7 @@ class MatterAdapter(Adapter):
         # set up some variables
         self.DEBUG = False
         self.DEBUG2 = False
-        self.DEVICE_DEBUG = False
+        self.DEVICE_DEBUG = True
 
         self.should_save = False
         self.auto_enable_properties = True
@@ -246,7 +247,7 @@ class MatterAdapter(Adapter):
 
         self.server = None
         self.server_process = None
-        self.matter_server_type = 'Python'
+        self.matter_server_type = 'NodeJS'
         self.matter_collision_detected = False
 
         self.matter_network_interface_found = False
@@ -355,10 +356,129 @@ class MatterAdapter(Adapter):
         self.timeout_delta = 0
 
         self.thread_diagnostics = {}
+        self.general_diagnostics = {}
         self.reconnected_devices = {} # holds node ID's (integers) of reconnected devices
 
         self.enums_lookup = get_enums_lookup()
         self.events_lookup = get_events_lookup()
+        self.other_lookup = {
+            #'roleNames': { 2: 'Sleepy End Device', 3: 'End Device', 4: 'REED', 5: 'Router', 6: 'Leader' };
+
+            # ThreadNetworkDiagnostics - RoutingRole
+            'RoutingRole': ['Unspecified', 'Unassigned', 'SleepyEndDevice', 'EndDevice', 'RouterEligibleEndDevice', 'Router', 'Leader', 'UnknownEnumValue'],
+            'PowerMode': ['Unknown','DC','AC'],
+            'OccupancySensorType': ['PIR','Ultrasonic','PhysicalContact'],
+            #'OccupancySensorTypeBitmap': ['PIR','Ultrasonic','PIRAndUltrasonic','PhysicalContact'],
+            'MeasurementUnit': ['PPM', 'PPB', 'PPT', 'MGM3','UGM3','NGM3','PM3','BQM3'],
+            'MeasurementMedium': ['Air','Water','Soil'],
+            'LevelValue': ['Unknown','Low','Medium','High','Critical'],
+            'AlarmState': ['Normal','Warning','Critical'],
+            'Sensitivity': ['High','Standard','Low'],
+            'ExpressedState': ['Normal','SmokeAlarm','COAlarm','BatteryAlert','Testing','HardwareFault','EndOfService','InterconnectSmoke','InterconnectCO'],
+            'FanMode': ['Off','Low','Medium','High','On','Auto','Start'],
+            'TemperatureDisplayMode': ['Celcius','Fahrenheit'],
+            'ScheduleProgrammingVisibility': ['ScheduleProgrammingPermitted','ScheduleProgrammingDenied'],
+            'DaysMaskBitmap': ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+            #'OperatingModesBitmap': ['Normal','Vacation','Privacy','NoRemoteLockUnlock','Passage'],
+            'OperatingMode': ['Normal','Vacation','Privacy','NoRemoteLockUnlock','Passage'],
+            'AlarmCode': ['LockJammed','LockFactoryReset','LockRadioPowerCycled','WrongCodeEntryLimit','FrontEsceutcheonRemoved','DoorForcedOpen','DoorAjar','ForcedUser'],
+            'DoorState': ['DoorOpen','DoorClosed','DoorJammed','DoorForcedOpen','DoorUnspecifiedError','DoorAjar'],
+            'LockDataType': ['Unspecified','ProgrammingCode','UserIndex','WeekDaySchedule','YearDaySchedule','HolidaySchedule','PIN','RFID','Fingerprint','FingerVein','Face','AliroCredentialIssuerKey','AliroEvictableEndpointKey','AliroNonEvictableEndpointKey'],
+            'LockOperationType': ['Lock','Unlock','NonAccessUserEvent','ForcedUserEvent','Unlatch'],
+            'OperationError': ['Unspecified','InvalidCredential','DisabledUserDenied','Restricted','InsufficientBattery'],
+            'LockState': ['NotFullyLocked','Locked','Unlocked','Unlatched'],
+            'SoundVolume': ['Silent','Low','High','Medium'],
+            'EventType': ['Operation','Programming','Alarm'],
+            'EnergyPriority': ['Comfort','Speed','Efficiency','WaterConsumption'],
+            'BootReason': ['Unspecified','PowerOnReboot','BrownOutReset','SoftwareWatchdogReset','HardwareWatchdogReset','SoftwareUpdateCompleted','SoftwareReset'],
+            'ControlSequenceOfOperation': ['CoolingOnly','CoolingWithReheat','HeatingOnly','HeatingWithReheat','CoolingAndHeating','CoolingAndHeatingWithReheat'],
+            'PresetScenario': ['Occupied','Unoccupied','Sleep','Wake','Vacation','GoingToSleep','UserDefined'],
+            'StartOfWeek': ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+            'SystemMode': ['Off','Auto','Cool','Heat','EmergencyHeat','PreCooling','FanOnly','Dry','Sleep'],
+            'ThermostatRunningMode': ['Off','Cool','Heat'],
+            'TemperatureSetpointHold': ['SetpointHoldOff','SetpointHoldOn'],
+        }
+
+
+        # VALUE MULTIPLIER LOOKUP TABLE
+          
+        # Different matter clusters have different multipliers so measured values can be stored as integers. 
+        # To get the actual values (and actual mininumm and maximum limits) we need to divide by that multiplier again.
+
+        # TODO: this is too coarse, as it scales all attributes of a cluster. Maybe it should be limited to certain attributes only?
+        # - MeasuredValue
+        # - MinMeasuredValue
+        # - MaxMeasuredValue
+
+        # TODO: what then to do with:
+        # - ScaledValue ?
+        # - MinScaledValue ?
+        # - MaxScaledValue ?
+        # ScaledValue = 10 to the power of Scale x Pressure [Pa]
+        # And Scale would then be an int8:   Scale int8 min -127       
+
+
+        self.cluster_multipliers = {
+            #"LevelControl":2.54,
+            "PressureMeasurement":10,
+            "WaterContentMeasurement":100,
+            "TemperatureMeasurement":100,
+            "RelativeHumidityMeasurement":100,
+            #"IlluminanceMeasurement":1,  # where 1 lx <= illuminance <= 3.576 Mlx, corresponding to a MeasuredValue in the range 1 to 0xFFFE
+            "Thermostat":100,
+            "CarbonDioxideConcentrationMeasurement":1000,
+
+
+            #This attribute SHALL indicate the illuminance in Lux (symbol lx) as follows:
+            #• MeasuredValue = 10,000 x log10(illuminance) + 1,
+            #where 1 lx <= illuminance <= 3.576 Mlx, corresponding to a MeasuredValue in the range 1 to 0xFFFE.
+
+            "Flow Measurement":10
+            }
+
+
+            # CurrentHue is in the range from 0 to 254 inclusive.
+            # CurrentSaturation is in the range from 0 to 254 inclusive.
+            # CurrentX is in the range from 0 to 65279 inclusive
+            # CurrentY is in the range from 0 to 65279 inclusive.
+
+
+        #Thermostat
+        self.attribute_multipliers = {
+            "TemperatureDifference":100,
+            "SignedTemperature":10,
+            "UnsignedTemperature":10,
+            "BatVoltage":1000, # millivolts
+            "Voltage":1000, # millivolts
+            "ActiveCurrent":1000,
+            "ReactiveCurrent":1000,
+            "ApparentCurrent":1000,
+            "ActivePower":1000,
+            "ReactivePower":1000,
+            "ApparentPower":1000,
+            "RMSVoltage":1000,
+            "RMSCurrent":1000,
+            "RMSPower":1000,
+            "PowerFactor":100, # Power Factor ratio in +/- 1/100ths of a percent.
+            "NeutralCurrent":1000,
+            "ElectricalEnergy":1000,
+            "ReactiveEnergy":1000,
+            "ApparentEnergy ":1000,
+            "BatPercentRemaining":2.54,
+            }
+
+        # !
+        # MeasurementAccuracyStruct ... "and whether the measurement is directly measured or just estimated from other information." 
+
+
+
+
+
+        # self.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['multiplier'] = 
+
+
+
+
 
         self.completed_command_clusters = [] # Will be filled with cluster_id's that have already been lookup up through get_commands_for_cluster_id
         self.commands_lookup = {} # will be filled as needed by calling get_commands_for_cluster_id(). The first key is the cluster_name
@@ -376,6 +496,7 @@ class MatterAdapter(Adapter):
         self.last_get_ips_timestamp = time.time()
         self.last_matter_ip_check_response_timestamp = 0
         self.should_request_all_nodes_info = True
+        self.last_parsed_matter_event_number = 0
 
         # Matter time sync
         self.matter_devices_with_time_sync = []
@@ -695,8 +816,14 @@ class MatterAdapter(Adapter):
 
         #print("self.nmcli_installed: ", self.nmcli_installed)
 
+        if self.DEBUG:
+            print("self.use_hotspo: ", self.use_hotspot)
         
-        if self.use_hotspot and self.persistent_data['matter_network_interface'] == 'Hotspot (recommended)' and (self.nmcli_installed or self.hotspot_addon_installed):
+        if self.use_hotspot and \
+          (self.persistent_data['matter_network_interface'] == 'Hotspot (recommended)' or \
+            self.persistent_data['matter_network_interface'] == 'All networks' or \
+            self.persistent_data['matter_network_interface'] == 'Advanced' and (self.persistent_data['actual_matter_network_interface'] == 'uap0' or self.persistent_data['actual_matter_network_interface'] == 'wlan1') ) and \
+          (self.nmcli_installed or self.hotspot_addon_installed):
             # Figure out the Hotspot addon's SSID and password
             self.load_hotspot_config()
 
@@ -1166,7 +1293,7 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             print("debug: in update_network_interfaces")
         actual_interfaces = ['uap0']
-        available_interfaces = ['Hotspot (recommended)']
+        available_interfaces = ['Hotspot (recommended)','All networks']
         found_it = False
 
         #interfaces_check = run_command(r"nmcli | grep 'connected' | grep -v 'disconnected' | grep ': ' | grep -v 'p2p-dev-' | grep -v 'lo:' | grep -v 'wpan0:' | sed 's/\://' | awk '{print $1}'")
@@ -1367,28 +1494,101 @@ class MatterAdapter(Adapter):
 
 
 
-    def add_otbr_iptables(self):
+    def ensure_iptables(self):
 
         current_nmcli = str(run_command('nmcli | cat'))
         current_iptables = run_command('sudo iptables -S')
+        current_nat_iptables = run_command('sudo iptables -t nat -L -n -v')
+        
         if isinstance(current_iptables,str):
-            #if 'wpan0' in current_nmcli:
-            if not 'wpan0' in current_iptables:
+            if 'wpan0:' in current_nmcli and 'mark match 0x1001' not in current_nat_iptables:  #and 'wpan0' not in current_iptables: # and '--dport 4443 -m mark --mark 0x2 -j ACCEPT' not in current_iptables:
                 if self.DEBUG:
-                    self.s_print("add_otbr_iptables: adding wpan0 masquerade iptables")
-
+                    self.s_print("ensure_iptables: adding wpan0 masquerade to NAT iptables")
                 # OpenThread NAT64
                 os.system('sudo iptables -t mangle -A PREROUTING -i wpan0 -j MARK --set-mark 0x1001')
                 os.system('sudo iptables -t nat -A POSTROUTING -m mark --mark 0x1001 -j MASQUERADE')
+                
+            # If the user has plugged in a wifi dongle
+            if 'wlan1' in current_nmcli and '-A FORWARD -o wlan1 -j ACCEPT' not in current_iptables:
+                if self.DEBUG:
+                    self.s_print("ensure_iptables: adding wlan1 forward rule to iptables")
+                os.system('sudo iptables -t filter -A FORWARD -o wlan1 -j ACCEPT')
+                os.system('sudo iptables -t filter -A FORWARD -i wlan1 -j ACCEPT')
+            elif 'uap0' in current_nmcli and '-A FORWARD -o uap0 -j ACCEPT' not in current_iptables:
+                if self.DEBUG:
+                    self.s_print("ensure_iptables: adding uap0 forward rule to iptables")
                 os.system('sudo iptables -t filter -A FORWARD -o uap0 -j ACCEPT')
                 os.system('sudo iptables -t filter -A FORWARD -i uap0 -j ACCEPT')
 
-            # If the user has plugged in a wifi dongle
-            if 'wlan1' in current_nmcli and 'wlan1' not in current_iptables:
-                os.system('sudo iptables -t filter -A FORWARD -o wlan1 -j ACCEPT')
-                os.system('sudo iptables -t filter -A FORWARD -i wlan1 -j ACCEPT')
-                
+            if '-p udp -m udp --dport 5353 -j ACCEPT' not in current_iptables:
+                if self.DEBUG:
+                    self.s_print("ensure_iptables: adding accept port 5353 rule to iptables")
+                os.system('sudo iptables -A OUTPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT')
+                os.system('sudo iptables -A INPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT')
+                os.system('sudo ip6tables -A OUTPUT -p udp --dport 5353 -d ff02::fb -j ACCEPT')
+                os.system('sudo ip6tables -A INPUT -p udp --dport 5353 -d ff02::fb -j ACCEPT')
 
+                extra_iptables_rules = False
+                if extra_iptables_rules == True:
+
+                    # The following is from 
+                    # https://github.com/matter-js/matterjs-server/blob/1a4f0e6f9f0723805bab2f7be1adc74fc240ce50/.devcontainer/init-firewall.sh#L21
+
+                    # Allow outbound DNS (UDP + TCP)
+                    os.system('sudo iptables -A OUTPUT -p udp --dport 53 -j ACCEPT')
+                    os.system('sudo iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT')
+                    os.system('sudo ip6tables -A OUTPUT -p udp --dport 53 -j ACCEPT')
+                    os.system('sudo ip6tables -A OUTPUT -p tcp --dport 53 -j ACCEPT')
+
+                    # Allow inbound DNS responses (ESTABLISHED/RELATED only)
+                    os.system('sudo iptables -A INPUT -p udp --sport 53 -m state --state ESTABLISHED,RELATED -j ACCEPT')
+                    os.system('sudo iptables -A INPUT -p tcp --sport 53 -m state --state ESTABLISHED,RELATED -j ACCEPT')
+                    os.system('sudo ip6tables -A INPUT -p udp --sport 53 -m state --state ESTABLISHED,RELATED -j ACCEPT')
+                    os.system('sudo ip6tables -A INPUT -p tcp --sport 53 -m state --state ESTABLISHED,RELATED -j ACCEPT')
+
+                    # Allow outbound SSH
+                    os.system('sudo iptables -A OUTPUT -p tcp --dport 22 -j ACCEPT')
+                    os.system('sudo iptables -A INPUT -p tcp --sport 22 -m state --state ESTABLISHED -j ACCEPT')
+                    os.system('sudo ip6tables -A OUTPUT -p tcp --dport 22 -j ACCEPT')
+                    os.system('sudo ip6tables -A INPUT -p tcp --sport 22 -m state --state ESTABLISHED -j ACCEPT')
+
+                    # Allow localhost
+                    os.system('sudo iptables -A INPUT -i lo -j ACCEPT')
+                    os.system('sudo iptables -A OUTPUT -o lo -j ACCEPT')
+                    os.system('sudo ip6tables -A INPUT -i lo -j ACCEPT')
+                    os.system('sudo ip6tables -A OUTPUT -o lo -j ACCEPT')
+
+                    # Allow ICMPv6 (required for IPv6 neighbor discovery)
+                    os.system('sudo ip6tables -A INPUT -p icmpv6 -j ACCEPT')
+                    os.system('sudo ip6tables -A OUTPUT -p icmpv6 -j ACCEPT')
+
+                    # Allow mDNS (UDP 5353) for Matter device discovery
+                    os.system('sudo iptables -A OUTPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT')
+                    os.system('sudo iptables -A INPUT -p udp --dport 5353 -d 224.0.0.251 -j ACCEPT')
+                    os.system('sudo ip6tables -A OUTPUT -p udp --dport 5353 -d ff02::fb -j ACCEPT')
+                    os.system('sudo ip6tables -A INPUT -p udp --dport 5353 -d ff02::fb -j ACCEPT')
+
+                    # Allow Matter protocol communication (UDP 5540+) on local/Docker networks
+                    # Matter uses UDP for secure channel messaging between devices
+                    os.system('sudo iptables -A OUTPUT -p udp --dport 5540:5560 -j ACCEPT')
+                    os.system('sudo iptables -A INPUT -p udp --dport 5540:5560 -j ACCEPT')
+                    os.system('sudo ip6tables -A OUTPUT -p udp --dport 5540:5560 -j ACCEPT')
+                    os.system('sudo ip6tables -A INPUT -p udp --dport 5540:5560 -j ACCEPT')
+
+                    os.system('sudo ip6tables -A INPUT -s fe80::/10 -j ACCEPT')
+                    os.system('sudo ip6tables -A OUTPUT -d fe80::/10 -j ACCEPT')
+                    os.system('sudo ip6tables -A INPUT -s fd00::/8 -j ACCEPT')
+                    os.system('sudo ip6tables -A OUTPUT -d fd00::/8 -j ACCEPT')
+
+                    # ---------------------------------------------------------------------------
+                    # 5. Build allowed-domains ipsets (IPv4 + IPv6)
+                    # ---------------------------------------------------------------------------
+                    #os.system('sudo ipset create allowed-domains hash:net family inet')
+                    #os.system('sudo ipset create allowed-domains-v6 hash:net family inet6')
+
+                    # should allow outbound traffic to:
+                    # "on.dcl.csa-iot.org"
+                    # "on.test-net.dcl.csa-iot.org"
 
 
 
@@ -1747,6 +1947,10 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             self.s_print("in start_matter_server.  self.matter_server_type: ", self.matter_server_type)
 
+        # Ensure all iptables rules for Matter are added
+        self.ensure_iptables()
+
+
         if not os.path.exists(self.hasdata_dir_path):
             self.s_print("\nERROR, start_matter_server: hasdata_dir_path did not exist yet. Creating it now.")
             os.system('mkdir -p ' + str(self.hasdata_dir_path))
@@ -2028,8 +2232,8 @@ class MatterAdapter(Adapter):
         if os.path.isfile(self.ot_ctl_path) and 'wpan0' in ip_link_show_output:
 
             if self.DEBUG:
-                self.s_print("start_thread_mesh: calling add_otbr_iptables")
-            self.add_otbr_iptables()
+                self.s_print("start_thread_mesh: calling ensure_iptables")
+            self.ensure_iptables()
 
             if self.DEBUG:
                 self.s_print("start_thread_mesh: setting txpower to 8")
@@ -3191,12 +3395,33 @@ class MatterAdapter(Adapter):
                         if self.DEBUG:
                             self.s_print("commission_with_code failed")
                         self.pairing_failed = True
+                        self.pairing_phase = -1
+                        
+
+                        if self.pairing_attempt < 5:
+                            if self.DEBUG:
+                                self.s_print("Pairing failed, but will try again")
+                            if 'details' in message and 'No commissionable device was discovered' in str(message['details']):
+                                self.send_pairing_prompt('No pairable device discovered')
+                                self.pairing_phase_message = 'No pairable device discovered.. Trying again..'
+                            else:
+                                self.send_pairing_prompt("Pairing failed.. Trying again..")
+                                self.pairing_phase_message = 'Pairing failed.. Trying again..'
+                            self.start_matter_pairing()
+                        else:
+                            self.pairing_failed = True
+                            self.busy_pairing = False
+                            self.send_pairing_prompt("Pairing Matter device officially failed")
+                            self.pairing_phase_message = 'Pairing attempts failed'
+                            self.pairing_phase = -1
+
 
                     elif message['message_id'] == 'open_commissioning_window' or message['message_id'] == 'commission_on_network':
                         if self.DEBUG:
                             self.s_print("open_commissioning_window failed")
                         self.share_node_code = ""
                         self.pairing_failed = True
+                        self.pairing_phase = -1
 
                     elif message['message_id'] == 'timesync_command':
                         if self.DEBUG:
@@ -3222,7 +3447,7 @@ class MatterAdapter(Adapter):
 
                     elif message['message_id'].startswith('get_node_ip_addresses_'):
                         if self.DEBUG:
-                            self.s_print("\n\ngetting node IP addresses failed:\n\n", message)
+                            self.s_print("\n\ngetting node IP addresses failed:", message['message_id'], "\n", message)
 
                     elif message['message_id'].startswith('remove_node_'):
                         if self.DEBUG:
@@ -3246,6 +3471,7 @@ class MatterAdapter(Adapter):
 
             elif 'error_code' in message:
                 self.pairing_failed = True
+                self.pairing_phase = -1
                 if self.DEBUG:
                     self.s_print("message contained an error code: ", message['error_code'])
 
@@ -3281,6 +3507,11 @@ class MatterAdapter(Adapter):
 
     def get_nodes(self, forced=False):
         try:
+            if self.busy_pairing:
+                if self.DEBUG:
+                    self.s_print("WARNING: get_nodes: aborting get_nodes: self.busy_pairing is True")
+                return False
+
             if self.matter_client_connected: # and self.matter_running:
                 if forced or self.last_get_nodes_timestamp < time.time() - 30:
                     self.last_get_nodes_timestamp = time.time()
@@ -3442,7 +3673,7 @@ class MatterAdapter(Adapter):
         if time.time() - self.time_between_certificate_downloads > self.persistent_data['last_certificates_download_time']:
             if self.DEBUG:
                 self.s_print("downloading latest certificates")
-            self.pairing_phase_message = 'Updating certificates'
+            self.pairing_phase_message = 'Updating certificates first'
             self.busy_updating_certificates = True
             self.certificates_updated = False
             certificates_download_command = "python3 " + str(self.certs_downloader_path) + " --use-main-net-http --paa-trust-store-path " + str(self.credentials_dir_path)
@@ -3646,7 +3877,7 @@ class MatterAdapter(Adapter):
             if self.turn_wifi_back_on_at > self.last_pairing_start_time:
                 self.turn_wifi_back_on_at = 0
                 if self.DEBUG:
-                    print("start_matter_pairing: turning WiFi back on first")
+                    print("start_matter_pairing: turning WiFi back on first, as in theory it was down!")
                 run_command('nmcli radio wifi on')
 
             self.pairing_failed = False
@@ -3666,6 +3897,9 @@ class MatterAdapter(Adapter):
                 return False
 
             self.pairing_attempt += 1
+            if self.DEBUG:
+                    print("start_matter_pairing: pairing_attempt: ", self.pairing_attempt)
+
             if self.pairing_attempt >= 5:
                 self.pairing_failed = True
                 self.pairing_phase = -1
@@ -3699,17 +3933,22 @@ class MatterAdapter(Adapter):
 
             is_thread_device = False
 
-            if self.wireless_type == 'thread' and self.pairing_attempt < 4:
+            if self.wireless_type == 'thread' and self.pairing_attempt > 1 and self.pairing_attempt < 4:
+                if self.DEBUG:
+                    print("pairing attempt 4: pretending to know it's a thread device, which allows for pairing via CHIP Tool directly. ")
                 is_thread_device = True
             elif self.wireless_type == 'unknown' and self.pairing_attempt == 4:
+                if self.DEBUG:
+                    print("pairing attempt 4: pretending to know it's a thread device")
                 is_thread_device = True
 
+            if self.DEBUG:
+                print("start_matter_pairing: is_thread_device: ", is_thread_device)
 
-            if is_thread_device and self.last_found_pairing_code and len(str(self.thread_dataset)) > 40:
+            if self.pairing_attempt > 1 and is_thread_device and self.last_found_pairing_code and len(str(self.thread_dataset)) > 40:
                 try:
                     if self.DEBUG:
-                        self.s_print("\n\nstart_matter_pairing: attempting to decode self.last_found_pairing_code: \n->" + str(self.last_found_pairing_code) + "<--")
-
+                        self.s_print("\n\nstart_matter_pairing: GOING THE CHIP PAIRING ROUTE!\nattempting to decode self.last_found_pairing_code: \n->" + str(self.last_found_pairing_code) + "<--")
 
                     if isinstance(self.last_decoded_pairing_code,str) and 'Long discriminator:' in self.last_decoded_pairing_code and 'Passcode:' in self.last_decoded_pairing_code:
 
@@ -3722,10 +3961,11 @@ class MatterAdapter(Adapter):
                         discriminator = self.last_decoded_pairing_code.split('Long discriminator:')[1]
                         discriminator = discriminator.split('(')[0].strip().rstrip()
 
-                        passcode = decoded_pairing_code.split('Passcode:')[1]
+                        passcode = self.last_decoded_pairing_code.split('Passcode:')[1]
                         passcode = passcode.strip().rstrip().strip().rstrip()
 
                         if self.DEBUG:
+                            self.s_print('start_matter_pairing:  is_thread_device: ', is_thread_device)
                             self.s_print('start_matter_pairing:  vendor_id: -->' + str(vendor_id) + '<--', len(vendor_id))
                             self.s_print('start_matter_pairing:  discriminator: -->' + str(discriminator) + '<--', len(discriminator))
                             self.s_print('start_matter_pairing:  passcode: -->' + str(passcode) + '<--', len(passcode))
@@ -3733,16 +3973,18 @@ class MatterAdapter(Adapter):
                         if len(discriminator) > 0 and len(passcode) >= 8:
 
                             self.pairing_phase = 6
-                            self.turn_wifi_back_on_at = time.time() + 55
-                            self.pairing_phase_message = 'Turning of WiFi for 60 seconds in an attempt to limit Bluetooth interference'
-                            time.sleep(3)
-                            self.pairing_phase = 8
-                            run_command('nmcli radio wifi off')
-                            time.sleep(1)
-                            self.pairing_phase = 9
+
+                            if self.pairing_attempt > 2:
+                                self.turn_wifi_back_on_at = time.time() + 55
+                                self.pairing_phase_message = 'Turning of WiFi for 60 seconds in an attempt to limit Bluetooth interference'
+                                time.sleep(3)
+                                self.pairing_phase = 8
+                                run_command('nmcli radio wifi off')
+                                time.sleep(1)
+                                self.pairing_phase = 9
 
 
-                            if self.pairing_attempt == 0 or self.pairing_attempt == 2:
+                            if self.pairing_attempt == 0 or self.pairing_attempt == 3:
                                 self.pairing_phase_message = 'Turning Bluetooth off and on again first, perhaps that will help'
                                 os.system('sudo btmgmt -i hci0 power off')
                                 #if self.pairing_attempt == 2:
@@ -3782,7 +4024,7 @@ class MatterAdapter(Adapter):
 
                         else:
                             if self.DEBUG:
-                                self.s_print("discriminator and passcode were of unexpected length: ", len(discriminator), len(passcode))
+                                self.s_print("ERROR, discriminator and passcode were of unexpected length: ", len(discriminator), len(passcode))
 
                     else:
                         if self.DEBUG:
@@ -3790,9 +4032,10 @@ class MatterAdapter(Adapter):
                     # ./chip-tool pairing ble-thread 1301 hex:[LONGHEX] 20202021 3840
 
                 except Exception as ex:
-                    self.s_print("start_matter_pairing: caught error trying to unpack matter pairing code: ", ex)
-
+                    self.s_print("start_matter_pairing: Thread route: caught error trying to unpack matter pairing code or running chip tool command: ", ex)
+                time.sleep(3)
                 self.pairing_failed = True
+                self.pairing_phase = -1
                 return False
 
 
@@ -3816,6 +4059,7 @@ class MatterAdapter(Adapter):
 
                     self.pairing_phase = 6
 
+                    """
                     if self.pairing_attempt == 0:
                         self.pairing_phase_message = 'Turning of WiFi for 60 seconds in an attempt to limit Bluetooth interference'
                         self.turn_wifi_back_on_at = time.time() + 60
@@ -3831,16 +4075,20 @@ class MatterAdapter(Adapter):
                         self.pairing_phase_message = 'Turning of WiFi for 20 seconds in an attempt to limit Bluetooth interference'
                         self.turn_wifi_back_on_at = time.time() + 20
                         time.sleep(3) # TODO: Dodgy
-
+                    """
 
 
                     self.pairing_phase = 6
-                    if self.pairing_attempt == 0 or self.pairing_attempt == 3:
+                    #if self.pairing_attempt == 0 or self.pairing_attempt == 3:
+                    if self.pairing_attempt == 3:
+                        self.pairing_phase_message = 'Turning of WiFi for 40 seconds in an attempt to limit Bluetooth interference'
+                        self.turn_wifi_back_on_at = time.time() + 40
+                        time.sleep(3) # TODO: Dodgy
                         run_command('nmcli radio wifi off')
-                        time.sleep(1)
+                        #time.sleep(1)
                     self.pairing_phase = 8
 
-                    if self.pairing_attempt == 0 or self.pairing_attempt == 2:
+                    if self.pairing_attempt == 2 or self.pairing_attempt == 4:
                         self.pairing_phase_message = 'Turning Bluetooth off and on again first, perhaps that will help'
                         os.system('sudo btmgmt -i hci0 power off')
                         if self.pairing_attempt == 2:
@@ -3848,8 +4096,8 @@ class MatterAdapter(Adapter):
                         time.sleep(1)
                         os.system('sudo btmgmt -i hci0 power on')
                         time.sleep(1)
-                        if self.pairing_attempt == 2:
-                            time.sleep(5)
+                        #if self.pairing_attempt == 2:
+                        #    time.sleep(5)
                     self.pairing_phase = 10
 
                     # create pairing message
@@ -3873,9 +4121,8 @@ class MatterAdapter(Adapter):
                                 }
                             }
 
-
                     if self.DEBUG:
-                        self.s_print("\nstart_matter_pairing: sending this message: \n", json.dumps(message,indent=4))
+                        self.s_print("\nstart_matter_pairing: sending this message to matter.server: \n", json.dumps(message,indent=4))
 
                     # Send pairing message
                     if message != None:
@@ -3893,7 +4140,7 @@ class MatterAdapter(Adapter):
 
             except Exception as ex:
                 self.s_print("caught error in start_pairing: " + str(ex))
-                self.pairing_phase_message = 'An unexpected error occured trying to start pairing'
+                self.pairing_phase_message = 'An unexpected error occured while trying to start pairing'
 
         except Exception as ex:
             self.s_print("start_matter_pairing: caught error: ", ex)
@@ -3932,122 +4179,131 @@ class MatterAdapter(Adapter):
                 if self.thread_radio_is_alive_count > 999990:
                     self.thread_radio_is_alive_count = 0
 
-                if self.last_get_ips_timestamp + self.get_ips_interval < now_stamp:
+
+                if self.busy_pairing:
                     if self.DEBUG:
-                        print("Clock: get_ips_interval has passed. Calling get_node_ips() to update all node IP addresses")
-                    self.last_get_ips_timestamp = now_stamp
-                    
-                    get_ips_thread = threading.Thread(target=self.get_node_ips)
-                    get_ips_thread.daemon = True
-                    get_ips_thread.start()
-
-                if seconds_counter > 5:
-                    seconds_counter = 0
-                    self.noise_delta = self.noise_counter - self.previous_noise_counter
-                    self.previous_noise_counter = self.noise_counter
-
-                    self.timeout_delta = self.timeout_counter - self.previous_timeout_counter
-                    self.previous_timeout_counter = self.timeout_counter
-                    
-                    if self.thread_dataset_loaded and self.thread_radio_went_missing == False and self.thread_running == False:
-                        state_check = str(self.run_ot_ctl_command('state'))
-                        if 'leader' in state_check or 'router' in state_check or 'child' in state_check:
-                            if self.DEBUG:
-                                print("Clock: self.thread_running was False, but it actually seems to be running. Setting it to True")
-                            self.thread_running = True
-                            self.should_start_thread_mesh = False
-                    
-
-                    if self.should_request_all_nodes_info:
-                        self.should_request_all_nodes_info = False
-
-
-                    if self.DEBUG:
-                        self.s_print("*")
-                        self.s_print("* 5 SECOND LOOP")
-                        self.s_print("* self.thread_radio_went_missing: ", self.thread_radio_went_missing)
-                        self.s_print("* self.found_new_thread_radio   : ", self.found_new_thread_radio)
-                        self.s_print("* self.found_thread_radio_again :  ", self.found_thread_radio_again)
-                        self.s_print("* self.should_start_otbr        : ", self.should_start_otbr)
-                        self.s_print("* self.otbr_started             :  ", self.otbr_started)
-                        self.s_print("* should_create_thread_mesh     : ", self.should_create_thread_mesh)
-                        self.s_print("* self.should_start_thread_mesh : ", self.should_start_thread_mesh)
-                        self.s_print("* self.thread_running           :  ", self.thread_running)
-                        self.s_print("* self.should_start_matter_time :  ", self.should_start_matter_time)
-                        self.s_print("* self.should_start_matter      : ", self.should_start_matter)
-                        self.s_print("* self.matter_server_running    :  ", self.matter_server_running)
-                        self.s_print("* self.matter_client_connected  :  ", self.matter_client_connected)
-
-
-                    if self.thread_radio_went_missing or (self.found_thread_radio_again == False and self.found_new_thread_radio == False): # or self.should_start_otbr 
-                        if self.DEBUG:
-                            self.s_print("clock: calling self.find_thread_radio")
-                            self.s_print("clock: self.should_start_otbr, self.otbr_started, self.found_thread_radio_again: ", self.should_start_otbr, self.otbr_started, self.found_thread_radio_again)
-                        self.find_thread_radio()
-
-
-                    # Load the Thread dataset once OTBR is ready
-                    elif self.should_start_thread_mesh == True and self.otbr_started == True and self.thread_dataset_loaded == False and (self.found_thread_radio_again or self.found_new_thread_radio) and self.thread_radio_went_missing == False:
-                        if self.DEBUG:
-                            self.s_print("clock 5 second loop: conditions are perfect for the next step. calling self.start_thread_mesh")
-                        self.start_thread_mesh()
-                        if self.DEBUG:
-                             self.s_print("clock 5 second loop: beyond start_thread_mesh")
-
-                        time.sleep(2)
-                        if self.thread_dataset_loaded == True and self.thread_running == True:
-                            if self.DEBUG:
-                                self.s_print("clock 5 second loop: thread dataset was loaded/created succesfully. Setting should_start_thread_mesh to false.")
-                            self.should_start_thread_mesh = False
-                        else:
-                            if self.DEBUG:
-                                self.s_print("ERROR: clock 5 second loop: start_thread_mesh failed?")
-                                self.s_print(" - self.should_start_thread_mesh: ", self.should_start_thread_mesh)
-                                self.s_print(" - self.thread_dataset_loaded: ", self.thread_dataset_loaded)
-                                self.s_print(" - self.thread_running: ", self.thread_running)
-                            if self.thread_error == '':
-                                self.thread_error = 'Radio ready, but loading network code failed'
-
-
-                    elif self.thread_radio_went_missing == False and self.thread_running == True:
-                        state_check = str(self.run_ot_ctl_command('state'))
-                        if 'Done' in state_check and 'leader' not in state_check:
-                            if self.DEBUG:
-                                self.s_print("\nWARNING: clock 5 second loop: Not a thread leader. Requesting to become it again.  state_check was:", state_check)
-                            self.run_ot_ctl_command('leaderweight ' + str(self.persistent_data['leaderweight']))
-                            self.run_ot_ctl_command('state leader')
-                            time.sleep(1)
-                            state_check = str(self.run_ot_ctl_command('state'))
-
-                        if 'Done' in state_check and 'leader' in state_check:
-                            commissioner_check = str(self.run_ot_ctl_command('commissioner state'))
-                            if 'Done' in commissioner_check and 'active' not in commissioner_check:
-                                if self.DEBUG:
-                                    self.s_print("\nWARNING: clock 5 second loop: leader, but not commissioner. Petitioning to become commissioner again.  commissioner_check was: ", commissioner_check)
-                                self.run_ot_ctl_command('commissioner start')
-
-                    
-                    if isinstance(self.persistent_data['thread_radio_serial_port'], str) and len(self.persistent_data['thread_radio_serial_port']) > 5:
-                        if self.thread_radio_went_missing == False:
-                            if not os.path.exists('/dev/serial/by-id/' + str(self.persistent_data['thread_radio_serial_port'])):
-                                if self.DEBUG:
-                                    self.s_print("\nERROR: clock 5 second loop: thread radio USB stick has disappeared?:  thread_radio_serial_port: ", str(self.persistent_data['thread_radio_serial_port']))
-                                self.thread_radio_is_alive_count = 0
-                                self.found_new_thread_radio = False
-                                self.found_thread_radio_again = False
-                                if self.found_a_thread_radio_once:
-                                    if self.DEBUG:
-                                        self.s_print("clock 5 second loop: found a Thread radio once, so setting self.thread_radio_went_missing to True")
-                                    self.thread_radio_went_missing = True
-                                if self.otbr_started or self.thread_running:
-                                    if self.DEBUG:
-                                        self.s_print("clock 5 second loop: WARNING, Thread radio went missing while OTBR was started or Thread was running. calling self.really_stop_otbr()")
-                                        self.s_print("- self.otbr_started: ", self.otbr_started)
-                                        self.s_print("- self.thread_running: ", self.thread_running)
-                                    self.really_stop_otbr()
+                        print("Clock: busy_pairing is True")
+                
+                else:
                         
-                    if self.DEBUG:
-                        self.s_print("*")
+                    if self.last_get_ips_timestamp + self.get_ips_interval < now_stamp:
+                        if self.DEBUG:
+                            print("Clock: get_ips_interval has passed. Calling get_node_ips() to update all node IP addresses")
+                        self.last_get_ips_timestamp = now_stamp
+                        
+                        get_ips_thread = threading.Thread(target=self.get_node_ips)
+                        get_ips_thread.daemon = True
+                        get_ips_thread.start()
+
+                    if seconds_counter > 5:
+                        seconds_counter = 0
+                        self.noise_delta = self.noise_counter - self.previous_noise_counter
+                        self.previous_noise_counter = self.noise_counter
+
+                        self.timeout_delta = self.timeout_counter - self.previous_timeout_counter
+                        self.previous_timeout_counter = self.timeout_counter
+                        
+                        
+
+                        if self.thread_dataset_loaded and self.thread_radio_went_missing == False and self.thread_running == False:
+                            state_check = str(self.run_ot_ctl_command('state'))
+                            if 'leader' in state_check or 'router' in state_check or 'child' in state_check:
+                                if self.DEBUG:
+                                    print("Clock: self.thread_running was False, but it actually seems to be running. Setting it to True")
+                                self.thread_running = True
+                                self.should_start_thread_mesh = False
+                        
+
+                        if self.should_request_all_nodes_info:
+                            self.should_request_all_nodes_info = False
+
+
+                        if self.DEBUG:
+                            self.s_print("*")
+                            self.s_print("* 5 SECOND LOOP")
+                            self.s_print("* self.thread_radio_went_missing: ", self.thread_radio_went_missing)
+                            self.s_print("* self.found_new_thread_radio   : ", self.found_new_thread_radio)
+                            self.s_print("* self.found_thread_radio_again :  ", self.found_thread_radio_again)
+                            self.s_print("* self.should_start_otbr        : ", self.should_start_otbr)
+                            self.s_print("* self.otbr_started             :  ", self.otbr_started)
+                            self.s_print("* should_create_thread_mesh     : ", self.should_create_thread_mesh)
+                            self.s_print("* self.should_start_thread_mesh : ", self.should_start_thread_mesh)
+                            self.s_print("* self.thread_running           :  ", self.thread_running)
+                            self.s_print("* self.should_start_matter_time :  ", self.should_start_matter_time)
+                            self.s_print("* self.should_start_matter      : ", self.should_start_matter)
+                            self.s_print("* self.matter_server_running    :  ", self.matter_server_running)
+                            self.s_print("* self.matter_client_connected  :  ", self.matter_client_connected)
+
+
+                        if self.thread_radio_went_missing or (self.found_thread_radio_again == False and self.found_new_thread_radio == False): # or self.should_start_otbr 
+                            if self.DEBUG:
+                                self.s_print("clock: calling self.find_thread_radio")
+                                self.s_print("clock: self.should_start_otbr, self.otbr_started, self.found_thread_radio_again: ", self.should_start_otbr, self.otbr_started, self.found_thread_radio_again)
+                            self.find_thread_radio()
+
+
+                        # Load the Thread dataset once OTBR is ready
+                        elif self.should_start_thread_mesh == True and self.otbr_started == True and self.thread_dataset_loaded == False and (self.found_thread_radio_again or self.found_new_thread_radio) and self.thread_radio_went_missing == False:
+                            if self.DEBUG:
+                                self.s_print("clock 5 second loop: conditions are perfect for the next step. calling self.start_thread_mesh")
+                            self.start_thread_mesh()
+                            if self.DEBUG:
+                                self.s_print("clock 5 second loop: beyond start_thread_mesh")
+
+                            time.sleep(2)
+                            if self.thread_dataset_loaded == True and self.thread_running == True:
+                                if self.DEBUG:
+                                    self.s_print("clock 5 second loop: thread dataset was loaded/created succesfully. Setting should_start_thread_mesh to false.")
+                                self.should_start_thread_mesh = False
+                            else:
+                                if self.DEBUG:
+                                    self.s_print("ERROR: clock 5 second loop: start_thread_mesh failed?")
+                                    self.s_print(" - self.should_start_thread_mesh: ", self.should_start_thread_mesh)
+                                    self.s_print(" - self.thread_dataset_loaded: ", self.thread_dataset_loaded)
+                                    self.s_print(" - self.thread_running: ", self.thread_running)
+                                if self.thread_error == '':
+                                    self.thread_error = 'Radio ready, but loading network code failed'
+
+
+                        elif self.thread_radio_went_missing == False and self.thread_running == True:
+                            state_check = str(self.run_ot_ctl_command('state'))
+                            if 'Done' in state_check and 'leader' not in state_check:
+                                if self.DEBUG:
+                                    self.s_print("\nWARNING: clock 5 second loop: Not a thread leader. Requesting to become it again.  state_check was:", state_check)
+                                self.run_ot_ctl_command('leaderweight ' + str(self.persistent_data['leaderweight']))
+                                self.run_ot_ctl_command('state leader')
+                                time.sleep(1)
+                                state_check = str(self.run_ot_ctl_command('state'))
+
+                            if 'Done' in state_check and 'leader' in state_check:
+                                commissioner_check = str(self.run_ot_ctl_command('commissioner state'))
+                                if 'Done' in commissioner_check and 'active' not in commissioner_check:
+                                    if self.DEBUG:
+                                        self.s_print("\nWARNING: clock 5 second loop: leader, but not commissioner. Petitioning to become commissioner again.  commissioner_check was: ", commissioner_check)
+                                    self.run_ot_ctl_command('commissioner start')
+
+                        
+                        if isinstance(self.persistent_data['thread_radio_serial_port'], str) and len(self.persistent_data['thread_radio_serial_port']) > 5:
+                            if self.thread_radio_went_missing == False:
+                                if not os.path.exists('/dev/serial/by-id/' + str(self.persistent_data['thread_radio_serial_port'])):
+                                    if self.DEBUG:
+                                        self.s_print("\nERROR: clock 5 second loop: thread radio USB stick has disappeared?:  thread_radio_serial_port: ", str(self.persistent_data['thread_radio_serial_port']))
+                                    self.thread_radio_is_alive_count = 0
+                                    self.found_new_thread_radio = False
+                                    self.found_thread_radio_again = False
+                                    if self.found_a_thread_radio_once:
+                                        if self.DEBUG:
+                                            self.s_print("clock 5 second loop: found a Thread radio once, so setting self.thread_radio_went_missing to True")
+                                        self.thread_radio_went_missing = True
+                                    if self.otbr_started or self.thread_running:
+                                        if self.DEBUG:
+                                            self.s_print("clock 5 second loop: WARNING, Thread radio went missing while OTBR was started or Thread was running. calling self.really_stop_otbr()")
+                                            self.s_print("- self.otbr_started: ", self.otbr_started)
+                                            self.s_print("- self.thread_running: ", self.thread_running)
+                                        self.really_stop_otbr()
+                            
+                        if self.DEBUG:
+                            self.s_print("*")
 
 
 
@@ -4065,61 +4321,62 @@ class MatterAdapter(Adapter):
 
 
 
-                # Check if the thread radio was unplugged
-                if self.found_a_thread_radio_once == True and self.thread_radio_went_missing == False and 'thread_radio_serial_port' in self.persistent_data and isinstance(self.persistent_data['thread_radio_serial_port'],str) and len(str(self.persistent_data['thread_radio_serial_port'])) > 3:
+                if self.busy_pairing == False:
+                    # Check if the thread radio was unplugged
+                    if self.found_a_thread_radio_once == True and self.thread_radio_went_missing == False and 'thread_radio_serial_port' in self.persistent_data and isinstance(self.persistent_data['thread_radio_serial_port'],str) and len(str(self.persistent_data['thread_radio_serial_port'])) > 3:
 
-                    if self.thread_running == True:
-                        if os.path.isdir('/dev/serial/by-id'):
-                            serial_by_id_output = run_command('ls /dev/serial/by-id')
-                        else:
-                            serial_by_id_output = ''
-                            
-                        if isinstance(serial_by_id_output,str):  # and len(str(serial_by_id_output)) > 5
-                            if not str(self.persistent_data['thread_radio_serial_port']) in serial_by_id_output:
-                                if self.DEBUG:
-                                    self.s_print("Thread radio was just unplugged? did not spot radio in serial ports list: ", self.persistent_data['thread_radio_serial_port'])
-                                self.found_thread_radio_again == False
-                                self.found_new_thread_radio == False
-                                if self.thread_radio_went_missing == False:
-                                    self.send_pairing_prompt("Thread radio was unplugged")
-                                    self.found_thread_radio_again = False
-                                    self.found_new_thread_radio = False
-                                    self.really_stop_otbr()
+                        if self.thread_running == True:
+                            if os.path.isdir('/dev/serial/by-id'):
+                                serial_by_id_output = run_command('ls /dev/serial/by-id')
+                            else:
+                                serial_by_id_output = ''
                                 
-                                    if self.busy_pairing:
-                                        if self.DEBUG:
-                                            self.s_print("Thread radio was uplugged during pairing.")
-                                        self.busy_pairing = False
-                                        if self.turn_wifi_back_on_at > 0:
-                                            self.turn_wifi_back_on_at = 0
+                            if isinstance(serial_by_id_output,str):  # and len(str(serial_by_id_output)) > 5
+                                if not str(self.persistent_data['thread_radio_serial_port']) in serial_by_id_output:
+                                    if self.DEBUG:
+                                        self.s_print("Thread radio was just unplugged? did not spot radio in serial ports list: ", self.persistent_data['thread_radio_serial_port'])
+                                    self.found_thread_radio_again == False
+                                    self.found_new_thread_radio == False
+                                    if self.thread_radio_went_missing == False:
+                                        self.send_pairing_prompt("Thread radio was unplugged")
+                                        self.found_thread_radio_again = False
+                                        self.found_new_thread_radio = False
+                                        self.really_stop_otbr()
+                                    
+                                        if self.busy_pairing:
                                             if self.DEBUG:
-                                                self.s_print("Thread radio was uplugged during pairing -> Forcing WiFi back on.")
-                                            run_command('nmcli radio wifi on')
+                                                self.s_print("Thread radio was uplugged during pairing.")
+                                            self.busy_pairing = False
+                                            if self.turn_wifi_back_on_at > 0:
+                                                self.turn_wifi_back_on_at = 0
+                                                if self.DEBUG:
+                                                    self.s_print("Thread radio was uplugged during pairing -> Forcing WiFi back on.")
+                                                run_command('nmcli radio wifi on')
 
-                                        self.pairing_failed = True
-                                        self.pairing_phase = -1
-                                
-                                self.thread_radio_went_missing = True
+                                            self.pairing_failed = True
+                                            self.pairing_phase = -1
+                                    
+                                    self.thread_radio_went_missing = True
 
-                        if self.thread_radio_went_missing == False:
-                            wpan0_check = run_command('ip link show')
-                            if isinstance(wpan0_check,str) and not 'wpan0' in wpan0_check:
-                                if self.DEBUG:
-                                    self.s_print("\nERROR: wpan0 no longer seems to exist even though in theory Thread is running")
-                                self.thread_error = "The Thread network was not created. Try rebooting."
-                                self.really_stop_otbr()
-                                self.should_start_otbr = True
+                            if self.thread_radio_went_missing == False:
+                                wpan0_check = run_command('ip link show')
+                                if isinstance(wpan0_check,str) and not 'wpan0' in wpan0_check:
+                                    if self.DEBUG:
+                                        self.s_print("\nERROR: wpan0 no longer seems to exist even though in theory Thread is running")
+                                    self.thread_error = "The Thread network was not created. Try rebooting."
+                                    self.really_stop_otbr()
+                                    self.should_start_otbr = True
 
 
-                    #if self.thread_radio_went_missing == False:
-                    #    self.ensure_bridge()
+                        #if self.thread_radio_went_missing == False:
+                        #    self.ensure_bridge()
 
-                #if self.found_a_thread_radio_once == True and self.thread_radio_went_missing == False:
+                    #if self.found_a_thread_radio_once == True and self.thread_radio_went_missing == False:
 
-                
-                if self.should_start_matter_time != 0 and self.should_start_matter_time < time.time():
-                    self.should_start_matter = True
-                    self.should_start_matter_time = 0
+                    
+                    if self.should_start_matter_time != 0 and self.should_start_matter_time < time.time():
+                        self.should_start_matter = True
+                        self.should_start_matter_time = 0
 
 
 
@@ -4269,6 +4526,8 @@ class MatterAdapter(Adapter):
                         if 'Commission with code failed for node' in line:
                             if self.DEBUG:
                                 self.s_print("\nPairing attempt: ", self.pairing_attempt, " failed:\n", line,"\n")
+                            """
+                            # Should let this be handled by 'official' failure response from API
                             if self.pairing_attempt < 5:
                                 if self.DEBUG:
                                     self.s_print("Pairing failed, but will try again")
@@ -4281,6 +4540,7 @@ class MatterAdapter(Adapter):
                                 self.send_pairing_prompt("Interviewing Matter device officially failed")
                                 self.pairing_phase_message = 'Pairing attempts failed'
                                 self.pairing_phase = -1
+                            """
                         if 'Established secure session with Device' in line:
                             self.send_pairing_prompt("Connected to new device...")
                             self.pairing_phase_message = 'Secure connection to Matter device established'
@@ -4614,6 +4874,15 @@ class MatterAdapter(Adapter):
         if self.DEBUG:
             self.s_print("in handle_event.  event,data: ", event,"\n", data)
 
+
+        if 'event_number' in data:
+            if data['event_number'] == self.last_parsed_matter_event_number:
+                if self.DEBUG:
+                    self.s_print("handle_event: ERROR, ABORTING: this event_number has already been parsed: ", data['event_number'])
+                return
+            self.last_parsed_matter_event_number = data['event_number']
+
+
         try:
 
             node_id = None
@@ -4638,7 +4907,7 @@ class MatterAdapter(Adapter):
                         print("handle_event: found thing_id in node_thing_id_lookup: ", node_id ," -> ", thing_id)
                 else:
                     if self.DEBUG:
-                        print("\n\nhandle_event: ERROR, ABORTING: node_id not found in node_thing_id_lookup: ", node_id, self.node_thing_id_lookup, "\n\n")
+                        self.s_print("\n\nhandle_event: ERROR, ABORTING: node_id not found in node_thing_id_lookup: ", node_id, self.node_thing_id_lookup, "\n\n")
                     self.get_nodes()
                     return
                     #thing_id = 'matter-' + md5_hash(str(node_id))
@@ -4660,8 +4929,13 @@ class MatterAdapter(Adapter):
                         self.thread_diagnostics[thing_id] = {}
                     self.thread_diagnostics[thing_id][attribute_name] = value
                     if self.DEBUG:
-                        print("handle_event: self.thread_diagnostics is now: ", self.thread_diagnostics)
+                        self.s_print("handle_event: self.thread_diagnostics is now: ", self.thread_diagnostics)
                     return
+
+                elif cluster_name == 'GeneralNetworkDiagnostics' and attribute_name == '':
+                    if not thing_id in self.general_network_diagnostics:
+                        self.general_network_diagnostics[thing_id] = {}
+                
 
                 """
 
@@ -4730,10 +5004,10 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                 if str(node_id) in self.node_thing_id_lookup:
                     thing_id = 'matter-' + self.node_thing_id_lookup[str(node_id)]
                     if self.DEBUG:
-                        print("handle_event: found thing_id in node_thing_id_lookup: ", node_id ," -> ", thing_id)
+                        self.s_print("handle_event: found thing_id in node_thing_id_lookup: ", node_id ," -> ", thing_id)
                 else:
                     if self.DEBUG:
-                        print("handle_event: ERROR, ABORTING: node_id not found in node_thing_id_lookup: ", node_id, self.node_thing_id_lookup)
+                        self.s_print("handle_event: ERROR, ABORTING: node_id not fou nd in node_thing_id_lookup: ", node_id, self.node_thing_id_lookup)
                     self.get_nodes()
                     return
                     #thing_id = 'matter-' + md5_hash(str(node_id))
@@ -4742,8 +5016,10 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                 endpoint = data['endpoint_id']
                 endpoint_name = 'Endpoint' + str(endpoint)
 
-            # handling data['data'] data, like 'totalNumberOfPressesCounted''
-            elif self.add_hacky_properties and 'node_id' in data and 'endpoint_id' in data and 'cluster_id' in data and 'data' in data:
+            # handling data['data'] data, like 'totalNumberOfPressesCounted' or currentNumberOfPressesCounted
+            # Normally these wouldn't be exposed as properties, but surfacing this data to the user as a property can be useful in some cases
+            elif self.add_hacky_properties and 'node_id' in data and 'endpoint_id' in data and 'cluster_id' in data and 'data' in data and data['data'] != None:
+
                 for data_attribute in data['data']:
                     if not 'previous' in data_attribute.lower() and isinstance(data['data'][data_attribute],(str,int,float,bool)):
                         if self.DEBUG:
@@ -4756,13 +5032,13 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                         if str(node_id) in self.node_thing_id_lookup:
                             thing_id = 'matter-' + self.node_thing_id_lookup[str(node_id)]
                             if self.DEBUG:
-                                print("handle_event: found thing_id in node_thing_id_lookup: ", node_id ," -> ", thing_id)
+                                self.s_print("handle_event: found thing_id in node_thing_id_lookup: ", node_id ," -> ", thing_id)
                         else:
                             if self.DEBUG:
-                                print("handle_event: ERROR, ABORTING: hacky node_id not found in node_thing_id_lookup: ", node_id, self.node_thing_id_lookup)
+                                self.s_print("handle_event: ERROR, ABORTING: hacky node_id not found in node_thing_id_lookup: ", node_id, self.node_thing_id_lookup)
                             self.get_nodes()
                             return
-                        #device_id = 'matter-' + str(node_id)
+                        #thing_id = 'matter-' + str(node_id)
                         endpoint = data['endpoint_id']
                         endpoint_name = 'Endpoint' + str(endpoint)
                         value = data['data'][data_attribute]
@@ -4770,13 +5046,14 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
                         if clusters_to_ignore and cluster_name in clusters_to_ignore:
                             if self.DEBUG:
-                                self.s_print("handle_event: skipping because cluster_name was in list of clusters_to_ignore: ", cluster_name)
+                                self.s_print("handle_event: skipping because cluster_name was in list of clusters_to_ignore (BLOCKED): ", cluster_name)
 
-                        hacky_attribute_code = str(cluster_name) + '.Attributes.' + str(data_attribute)
+                        #hacky_attribute_code = str(cluster_name) + '.Attributes.' + str(data_attribute)
+                        hacky_attribute_code = str(cluster_name) + 'Candle.Attributes.' + str(data_attribute)
                         attribute_name = str(data_attribute)
 
                         if self.DEBUG:
-                            self.s_print("handle_event: hacky device_id: ", device_id)
+                            self.s_print("handle_event: hacky thing_id: ", thing_id)
                             self.s_print("handle_event: hacky endpoint_name: ", endpoint_name)
 
                         if not thing_id in self.persistent_data['nodez']:
@@ -4785,10 +5062,139 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                         else:
                             if not endpoint_name in self.persistent_data['nodez'][thing_id]['attributes']:
                                 if self.DEBUG:
-                                    self.s_print("handle_event: unexpectedly, missing endpoint_name in persistent data? ", endpoint_name)
+                                    self.s_print("\nhandle_event: ERROR, unexpectedly, missing endpoint_name in persistent data? ", endpoint_name)
 
                             else:
-                                if hacky_attribute_code in self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name]:
+
+                                fancy_indexes = ['First','Second','Third']
+
+                                # IKEA BILRESA SCROLL WHEEL - SPECIAL CASE
+                                if str(self.persistent_data['nodez'][thing_id]['product_name']) == 'BILRESA scroll wheel':
+                                    target_device = self.get_device(thing_id)
+                                    if target_device:
+                                        if self.DEBUG:
+                                            self.s_print("handle_event: found Bilresa scroll wheel thing")
+                                            self.s_print("handle_event: Bilresa message: \n", json.dumps(message,indent=4), "\n")
+                                            self.s_print("BILRESA: endpoint,cluster_name,attribute_name: ", endpoint,cluster_name,attribute_name)
+
+                                        # 0 =>  UP 1, DOWN 2,  BUTTON PRESS 3
+
+                                        # 1 =>  UP 4, DOWN 5,  BUTTON PRESS 6
+
+                                        # 2 =>  UP 7, DOWN 8,  BUTTON PRESS 9
+
+                                        bilresa_index = math.floor((int(endpoint) - 1)/3)
+                                        if self.DEBUG:
+                                            self.s_print("handle_event: >> >> >> bilresa_index: ", bilresa_index)
+                                            self.s_print("handle_event: >> >> >> endpoint: ", endpoint)
+                                        if bilresa_index >= 0 and bilresa_index < 4 and 'data' in data and data['data'] != None:
+                                            if self.DEBUG:
+                                                self.s_print("handle_event: OK, bilresa_index is valid and 'data' is in data")
+                                            if endpoint in [3,6,9]: # and 'currentNumberOfPressesCounted' not in data['data']:
+                                                if self.DEBUG:
+                                                    self.s_print("\n __|---|__ bilresa button press at endpoint: ", endpoint)
+                                                if 'newPosition' in data['data']:
+                                                    if self.DEBUG:
+                                                        self.s_print("OK, newPosition is in data.data")
+                                                        self.s_print("fancy index: ", str(fancy_indexes[bilresa_index]))
+                                                        
+                                                    hacky_boolean_property_id = 'property-Endpoint0-BasicInformation-' + str(fancy_indexes[bilresa_index]) + 'State'
+                                                    hacky_boolean_attribute_code = 'BasicInformation.Attributes.' + str(fancy_indexes[bilresa_index]) + 'State'
+                                                    if self.DEBUG:
+                                                        self.s_print("bilresa hacky_boolean_property_id: ", hacky_boolean_property_id)
+                                                        self.s_print("bilresa hacky_boolean_attribute_code: ", hacky_boolean_attribute_code)
+                                                    hacky_boolean_target_property = target_device.find_property(hacky_boolean_property_id)
+                                                    if hacky_boolean_target_property:
+                                                        if self.DEBUG:
+                                                            self.s_print("handle_event: OK, found hacky Bilresa boolean property. Will toggle it.")
+                                                        original_target_boolean_property_value = hacky_boolean_target_property.get_value()
+                                                        if self.DEBUG:
+                                                            self.s_print("original_target_boolean_property_value: ", original_target_boolean_property_value)
+                                                        if isinstance(original_target_boolean_property_value,bool):
+                                                            opposite_target_boolean_property_value = not original_target_boolean_property_value
+                                                            if self.DEBUG:
+                                                                self.s_print("opposite_target_boolean_property_value: ", opposite_target_boolean_property_value)
+                                                            #hacky_boolean_target_property.toggle()
+                                                            hacky_boolean_target_property.update(opposite_target_boolean_property_value)
+                                                            if hacky_boolean_attribute_code in self.persistent_data['nodez'][thing_id]['attributes']['Endpoint0']:
+                                                                if self.DEBUG:
+                                                                    self.s_print("handle_event: saving new Bilresa scrollwheel opposite_target_boolean_property_value to persistent data: ", opposite_target_boolean_property_value)
+                                                                self.persistent_data['nodez'][thing_id]['attributes']['Endpoint0'][hacky_boolean_attribute_code]['value'] = opposite_target_boolean_property_value
+                                                                self.should_save = True
+                                                        else:
+                                                            if self.DEBUG:
+                                                                self.s_print("handle_event: ERROR, original_target_boolean_property_value is not a boolean")
+
+                                                    else:
+                                                        if self.DEBUG:
+                                                            self.s_print("handle_event: ERROR, hacky Bilresa boolean property not found.  hacky_boolean_property_id: ", hacky_boolean_property_id)
+                                                #else:
+                                                #    if self.DEBUG:
+                                                #        self.s_print("handle_event: ERROR, no 'newPosition' found in boolean event data for virtual Bilresa toggle")
+
+
+                                            elif 'currentNumberOfPressesCounted' in data['data'] or 'totalNumberOfPressesCounted' in data['data']:
+                                                hacky_property_id = 'property-Endpoint0-BasicInformation-' + str(fancy_indexes[bilresa_index]) + 'Level'
+                                                hacky_attribute_code = 'BasicInformation.Attributes.' + str(fancy_indexes[bilresa_index]) + 'Level'
+                                                if self.DEBUG:
+                                                    self.s_print("bilresa level hacky_property_id: ", hacky_property_id)
+                                                    self.s_print("bilresa level hacky_attribute_code: ", hacky_attribute_code)
+                                                hacky_target_property = target_device.find_property(hacky_property_id)
+                                                if hacky_target_property:
+                                                    if self.DEBUG:
+                                                        self.s_print("handle_event: OK, found hacky Bilresa level property. It's current value is: ", hacky_target_property.value)
+
+                                                    original_target_property_value = int(hacky_target_property.get_value())
+                                                    hacky_target_property_value = original_target_property_value
+                                                    if self.DEBUG:
+                                                        self.s_print("handle_event: initial hacky_target_property_value: ", hacky_target_property_value)
+
+
+                                                    if int(endpoint) in [1,4,7]:
+                                                        # increase
+                                                        if 'currentNumberOfPressesCounted' in data['data']:
+                                                            hacky_target_property_value = hacky_target_property_value + int(data['data']['currentNumberOfPressesCounted'])
+                                                        elif 'totalNumberOfPressesCounted' in data['data']:
+                                                            hacky_target_property_value = hacky_target_property_value + int(data['data']['totalNumberOfPressesCounted'])
+                                                        elif 'newPosition' in data['data']: # 1 small step
+                                                            hacky_target_property_value = hacky_target_property_value + int(data['data']['newPosition'])
+                                                        if hacky_target_property_value > 100:
+                                                            hacky_target_property_value = 100
+                                                        
+                                                    else:
+                                                        # decrease
+                                                        if 'currentNumberOfPressesCounted' in data['data']:
+                                                            hacky_target_property_value = hacky_target_property_value - int(data['data']['currentNumberOfPressesCounted'])
+                                                        elif 'totalNumberOfPressesCounted' in data['data']:
+                                                            hacky_target_property_value = hacky_target_property_value - int(data['data']['totalNumberOfPressesCounted'])
+                                                        elif 'newPosition' in data['data']: # 1 small step
+                                                            hacky_target_property_value = hacky_target_property_value - int(data['data']['newPosition'])
+                                                        if hacky_target_property_value < 0:
+                                                            hacky_target_property_value = 0
+                                                        
+                                                    if hacky_target_property_value != original_target_property_value:
+                                                        if self.DEBUG:
+                                                            self.s_print("handle_event: Updating Bilresa scroll wheel level to: ", hacky_target_property_value)
+                                                        hacky_target_property.update( hacky_target_property_value )
+                                                        #print("looking for hacky_attribute_code: ", hacky_attribute_code, ' .. in: ', self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name].keys())
+                                                        if hacky_attribute_code in self.persistent_data['nodez'][thing_id]['attributes']['Endpoint0']:
+                                                            if self.DEBUG:
+                                                                self.s_print("handle_event: saving new Bilresa scrollwheel hacky_target_property_value to persistent data: ", hacky_target_property_value)
+                                                            self.persistent_data['nodez'][thing_id]['attributes']['Endpoint0'][hacky_attribute_code]['value'] = hacky_target_property_value
+                                                            self.should_save = True
+                                                    else:
+                                                        if self.DEBUG:
+                                                            self.s_print("handle_event Bilresa level was already at this minimum/maximum: ", hacky_target_property_value)
+
+                                                else:
+                                                    if self.DEBUG:
+                                                        self.s_print("handle_event: ERROR, hacky Bilresa level property not found")
+                                            else:
+                                                if self.DEBUG:
+                                                    self.s_print("handle_event: ERROR, bilresa property update fell through")
+
+
+                                elif hacky_attribute_code in self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name]:
                                     if self.DEBUG:
                                         self.s_print("handle_event: surprisingly, there is already an attribute with this hacky code: ", self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code])
                                 else:
@@ -4798,7 +5204,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                                         if self.DEBUG:
                                             self.s_print("handle_event: this hacky property has already been created in persistent data: ", self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code])
 
-                                        #device_id = 'matter-' + str(node_id)
+                                        #thing_id = 'matter-' + str(node_id)
                                         target_device = self.get_device(thing_id)
                                         if target_device:
                                             hacky_property_id = 'property-' + str(endpoint_name) + '-'+ str(cluster_name) + 'Candle-' + str(data_attribute)
@@ -4817,6 +5223,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                                         self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code] = {'enabled':True,'property':{'description':{'title':uncamel(data_attribute).replace('_',' ') + ' ' + str(endpoint),'readOnly':True}},'hacky':True,'value': value, 'received_values':[value]}
                                         if isinstance(value,int):
                                             self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['type'] = 'number'
+                                            self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['multipleOf'] = 1
                                         elif isinstance(value,str):
                                             self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['type'] = 'string'
                                         elif isinstance(value,bool):
@@ -4824,7 +5231,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
                                         self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['attribute_code'] = attribute_code
 
-                                        #device_id = 'matter-' + str(node_id)
+                                        #thing_id = 'matter-' + str(node_id)
                                         target_device = self.get_device(thing_id)
                                         if target_device:
                                             if self.DEBUG:
@@ -4846,10 +5253,10 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                 if str(node_id) in self.node_thing_id_lookup:
                     thing_id = 'matter-' + self.node_thing_id_lookup[str(node_id)]
                     if self.DEBUG:
-                        print("handle_event: part 2: found thing_id in node_thing_id_lookup: ", node_id ," -> ", thing_id)
+                        self.s_print("handle_event: part 2: found thing_id in node_thing_id_lookup: ", node_id ," -> ", thing_id)
                 else:
                     if self.DEBUG:
-                        print("handle_event: part 2: ERROR, ABORTING: hacky node_id not found in node_thing_id_lookup: ", node_id, self.node_thing_id_lookup)
+                        self.s_print("handle_event: part 2: ERROR, ABORTING: hacky node_id not found in node_thing_id_lookup: ", node_id, self.node_thing_id_lookup)
                     return
 
                 target_device = self.get_device(thing_id)
@@ -4934,7 +5341,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                     if not thing_id in self.missing_devices:
                         self.missing_devices.append(thing_id)
                         if self.DEBUG:
-                            print("self.missing_devices is now: ", self.missing_devices)
+                            self.s_print("self.missing_devices is now: ", self.missing_devices)
 
                 else:
                     property_id = 'property-' + str(endpoint_name) + '-'+ str(cluster_name) + '-' + str(attribute_name)
@@ -4944,7 +5351,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
                     if target_property == None:
                         if self.DEBUG:
-                            self.s_print("handle_event: found thing, but missing property: ", property_id)
+                            self.s_print("\nhandle_event: WARNING, found thing, but property does not exist (yet): ", property_id)
                         if 'attributes' in data and len(data['attributes'].keys()) > 2 and 'Endpoint' in str(list(data['attributes'].keys())): # TODO: Very hacky, should check these assumptions too
                             if self.DEBUG:
                                 self.s_print("handle_event: attempting update_from_node... with potential node data: ", data)
@@ -4955,7 +5362,73 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                             self.should_save = True
                     else:
                         if self.DEBUG:
-                            self.s_print("handle_event: found existing property. calling property.update with value: ", value)
+                            self.s_print("handle_event: found existing property")
+
+
+                        if hasattr(target_property, 'details'):
+                            if self.DEBUG:
+                                self.s_print("handle_event: OK, found 'details' dict in existing property: ", target_property.details)
+
+                            if 'attribute_code' in target_property.details and '.Attributes.' in str(target_property.details['attribute_code']):
+                                if self.DEBUG:
+                                    self.s_print("handle_event: OK, found 'acctribute_code' in property's details dict: ", target_property.details['attribute_code'])
+                                
+                                # TODO: match more situations there 255 (of an int8) should become None
+
+                                if target_property.details['attribute_code'] == 'LevelControl.Attributes.CurrentLevel' and isinstance(value,(int,float)):
+                                    if self.DEBUG:
+                                        self.s_print("handle_event: should massage percentage value: ", value)
+                                    if value == 255:
+                                        value = None # Matter convention is to use 255 as null.
+                                    elif value < 0:
+                                        if self.DEBUG:
+                                            self.s_print("\nproperty: update: ERROR, currentLevel value was less than zero: ", value)
+                                        value = 0
+                                    elif value > 255:
+                                        if self.DEBUG:
+                                            self.s_print("\nproperty: update: ERROR, currentLevel value was more than 255: ", value)
+                                        value = 254
+                                    
+                                    value = int(value / 2.54)
+                                    if self.DEBUG:
+                                        self.s_print("handle_event: massaged percentage value: ", value)
+
+                                else:
+                                    if isinstance(value,(int,float)) and isinstance(cluster_name,str) and isinstance(attribute_name,str):
+
+                                        #
+                                        # DIVIDE BY MULTIPLIER
+                                        #
+                                        if attribute_name in self.attribute_multipliers and isinstance(value,(int,float)):
+                                            multiplier = self.attribute_multipliers[attribute_name]
+                                            if self.DEBUG:
+                                                self.s_print("property: update: applying attribute multiplier (divide by).  multiplier, value before: ", multiplier, value)
+                                            value = value / multiplier
+                                            if self.DEBUG:
+                                                self.s_print("property: update: value after applying attribute multiplier: ", value)
+
+                                        elif cluster_name in self.cluster_multipliers and isinstance(value,(int,float)) and 'MeasuredValue' in attribute_name:
+                                            multiplier = self.cluster_multipliers[cluster_name]
+                                            if self.DEBUG:
+                                                self.s_print("property: update: applying cluster multiplier (divide by).  multiplier, value before: ", multiplier, value)
+                                            value = value / multiplier
+                                            if self.DEBUG:
+                                                self.s_print("property: update: value after applying cluster multiplier: ", value)
+                                        else:
+                                            if self.DEBUG:
+                                                self.s_print("property: update: WARNING, no multiplier found for cluster_name,attribute_name: ", cluster_name, attribute_name)
+                                    
+                            else:
+                                if self.DEBUG:
+                                    self.s_print("\nhandle_event: ERROR, missing attribute_code in target_property.details: ", target_property.details)
+                        else:
+                            if self.DEBUG:
+                                self.s_print("\nhandle_event: ERROR, no 'details' in target_property")
+
+
+                            
+                        if self.DEBUG:
+                            self.s_print("handle_event: calling property.update with value: ", value)
                         target_property.update( value )
 
 
@@ -5042,7 +5515,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                 improved_node = self.parse_node(node)
                 self.nodes.append(improved_node)
             except Exception as ex:
-                print("caught error in parse_nodes while looping over a node: ", ex)
+                self.s_print("caught error in parse_nodes while looping over a node: ", ex)
             
         if os.path.isdir('/home/pi'):
             with open("/home/pi/matter_nodes.json", "w") as json_file:
@@ -5163,14 +5636,14 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                 #  This util function add human-readable attribute codes
                 #
 
-                if self.DEBUG:
-                    self.s_print("parse_node: node before: \n", json.dumps(node,indent=2))
-                    print("\n\n-------------------\n\n")
+                #if self.DEBUG:
+                #    self.s_print("parse_node: node before: \n", json.dumps(node,indent=2))
+                #    print("\n\n-------------------\n\n")
 
-                process_node(node) # util function that adds human readable attributes
+                process_node(node,self.DEBUG) # util function that adds human readable attributes
 
-                if self.DEBUG:
-                    self.s_print("parse_node: node after: \n", json.dumps(node,indent=2))
+                #if self.DEBUG:
+                #    self.s_print("parse_node: node after: \n", json.dumps(node,indent=2))
 
                 
 
@@ -5212,53 +5685,101 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                     unique_id = md5_hash(str(node['attributes']['Endpoint0']['BasicInformation']['UniqueID']))
                     if unique_id == self.node_thing_id_lookup[str(node_id)]:
                         if self.DEBUG:
-                            print("OK, unique_id is still the same for node_id: ", node_id, " --> ", unique_id)
+                            self.s_print("OK, unique_id is still the same for node_id: ", node_id, " --> ", unique_id)
                     else:
                         if self.DEBUG:
-                            print("\n\nERROR, clashing unique_ID's!! UPDATING node_thing_id_lookup!\n", node_id, " --> ", unique_id , "\n\n")
+                            self.s_print("\n\nERROR, clashing unique_ID's!! UPDATING node_thing_id_lookup!\n", node_id, " --> ", unique_id , "\n\n")
                         self.node_thing_id_lookup[str(node_id)] = str(unique_id)
                     thing_id = 'matter-' + str(unique_id)
                 else:
                     if self.DEBUG:
-                        print("\n\nERROR, no longer a UniqueID attribute found in parse_node for  node_id, node: ", node_id, node)
+                        self.s_print("\n\nWARNING, no longer a UniqueID attribute found in parse_node for node_id: ", node_id)
                     if str(node_id) in self.node_thing_id_lookup:
                         if self.DEBUG:
-                            print("FALLING BACK TO LOOKUP TABLE IN PARSE_NODE\n\n")
+                            self.s_print("FALLING BACK TO LOOKUP TABLE IN PARSE_NODE\n\n")
                         thing_id = 'matter-' + self.node_thing_id_lookup[str(node_id)]
                     else:
                         if self.DEBUG:
-                            print("\n\nERROR!\n\nERROR: parse_node: there is no way to get the thing_id: no UniqueID and node_id was not found in self.node_thing_id_lookup: ", node_id, "\n", json.dumps(self.node_thing_id_lookup,indent=2), "\n\n")
+                            self.s_print("\n\nERROR!\n\nERROR: parse_node: there is no way to get the thing_id: no UniqueID and node_id to fall back on in self.node_thing_id_lookup: ", node_id, "\n", json.dumps(self.node_thing_id_lookup,indent=2), "\n\n node:", node)
                         return
 
 
             if self.DEBUG:
-                print("\nself.node_thing_id_lookup: \n", json.dumps(self.node_thing_id_lookup,indent=2))
-                print("\nparse_node:  node_id,thing_id: \n", node_id, " --> ", thing_id, "\n")
+                self.s_print("\nself.node_thing_id_lookup: \n", json.dumps(self.node_thing_id_lookup,indent=2))
+                self.s_print("\nparse_node:  node_id,thing_id: \n", node_id, " --> ", thing_id, "\n")
 
 
             if available and 'attributes' in node and 'Endpoint0' in node['attributes']:
-                print("ThreadNetworkDiagnostics:  well, attributes exists..")
-                print("node['attributes'] keys: ", node['attributes']['Endpoint0'].keys())
-            if available and 'attributes' in node and 'Endpoint0' in node['attributes'] and 'ThreadNetworkDiagnostics' in node['attributes']['Endpoint0']:
                 if self.DEBUG:
-                    print("parse_node: spotted ThreadNetworkDiagnostics, adding it to self.thread_diagnostics for thing_id: ", thing_id)
-                self.thread_diagnostics[thing_id] = node['attributes']['Endpoint0']['ThreadNetworkDiagnostics']
-                self.thread_diagnostics[thing_id]['is_bridge'] = is_bridge
+                    self.s_print("ThreadNetworkDiagnostics:  endpoint 0 exists")
+                    self.s_print("node['attributes'] keys: ", node['attributes']['Endpoint0'].keys())
+            if available and 'attributes' in node and 'Endpoint0' in node['attributes']:
+                
+                if 'ThreadNetworkDiagnostics' in node['attributes']['Endpoint0']:
+                    if self.DEBUG:
+                        self.s_print("parse_node: spotted ThreadNetworkDiagnostics, adding it to self.thread_diagnostics for thing_id: ", thing_id)
+                    self.thread_diagnostics[thing_id] = node['attributes']['Endpoint0']['ThreadNetworkDiagnostics']
+                    self.thread_diagnostics[thing_id]['is_bridge'] = is_bridge
+                
                 if 'GeneralDiagnostics' in node['attributes']['Endpoint0'] and 'NetworkInterfaces' in node['attributes']['Endpoint0']['GeneralDiagnostics']:
                     if self.DEBUG:
-                        print("parse_node: spotted GeneralDiagnostics, adding it to self.general_diagnostics for thing_id: ", thing_id)
-                    self.thread_diagnostics[thing_id]['NetworkInterfaces'] = node['attributes']['Endpoint0']['GeneralDiagnostics']['NetworkInterfaces']
-            
+                        self.s_print("parse_node: spotted GeneralDiagnostics, adding it to self.general_network_diagnostics for thing_id: ", thing_id)
+                    if thing_id not in self.general_diagnostics:
+                        self.general_diagnostics[thing_id] = {}
+                    self.general_diagnostics[thing_id]['NetworkInterfaces'] = node['attributes']['Endpoint0']['GeneralDiagnostics']['NetworkInterfaces']
+                    self.general_diagnostics[thing_id]['is_bridge'] = is_bridge
+
+                    self.persistent_data['nodez'][thing_id]['is_bridge'] = is_bridge
+                    
+                    if 'network_interface_types' not in self.persistent_data['nodez'][thing_id]:
+                        self.persistent_data['nodez'][thing_id]['network_interface_types'] = []
+
+                    # figure out if this is a Thread or WiFi device
+                    for ni in node['attributes']['Endpoint0']['GeneralDiagnostics']['NetworkInterfaces']:
+                        print("ni! : ", ni)
+                        if "7" in ni: #node['attributes']['Endpoint0']['GeneralDiagnostics']['NetworkInterfaces']:
+                            if self.DEBUG:
+                                #self.s_print("'7' was spotted in GeneralDiagnostics.NetworkInterfaces: ", node['attributes']['Endpoint0']['GeneralDiagnostics']['NetworkInterfaces']['7'])
+                                self.s_print("'7' was spotted in GeneralDiagnostics.NetworkInterfaces: ", ni['7'])
+                            
+                            if ni['7'] == 4:
+                                if 'Thread' not in self.persistent_data['nodez'][thing_id]['network_interface_types']:
+                                    self.persistent_data['nodez'][thing_id]['network_interface_types'].append('Thread')
+                            else:
+                                if 'WiFi' not in self.persistent_data['nodez'][thing_id]['network_interface_types']:
+                                    self.persistent_data['nodez'][thing_id]['network_interface_types'].append('WiFi')
+                            
+                            
+                            
+                            """
+                            if thing_id in self.persistent_data['nodez'] and 'network_interface_type' not in self.persistent_data['nodez'][thing_id]:
+                                if node['attributes']['Endpoint0']['GeneralDiagnostics']['NetworkInterfaces']['7'] == 4:
+                                    self.persistent_data['nodez'][thing_id]['network_interface_type'] = 'Thread'
+                                else:
+                                    self.persistent_data['nodez'][thing_id]['network_interface_type'] = 'WiFi'
+                                self.should_save = True
+                                if self.DEBUG:
+                                    self.s_print("parse_node: network_interface_type has been set to: ", self.persistent_data['nodez'][thing_id]['network_interface_type'])
+                            """
+                            
+                        else:
+                            if self.DEBUG:
+                                self.s_print("\nERROR, '7' was NOT spotted in GeneralDiagnostics.NetworkInterfaces:  ni: ", ni)
+                        
+
+                #if self.DEBUG:
+                #    self.s_print("parse_node: self.thread_diagnostics is now: ", json.dumps(self.thread_diagnostics,indent=2))
+
             
             if available and thing_id not in self.reconnected_devices:
                 self.reconnected_devices[thing_id] = {'node_id': int(node_id), 'thing_id':thing_id, 'reconnected_timestamp':int(time.time()), 'available':available}
                 if self.DEBUG:
-                    print("self.reconnected_devices is now: ", json.dumps(self.reconnected_devices,indent=2))
+                    self.s_print("self.reconnected_devices is now: ", json.dumps(self.reconnected_devices,indent=2))
                 self.get_node_ip(node_id)
 
             if self.DEBUG:
                 self.s_print("\n\nparse_node: thing_id: " + str(thing_id))
-                #print("node: \n", json.dumps(dataclass_to_dict(node),indent=2))
+                #self.s_print("node: \n", json.dumps(dataclass_to_dict(node),indent=2))
 
 
             
@@ -5267,15 +5788,22 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                 if target_device == None:
                     if self.DEBUG:
                         self.s_print("parse_node: this device does not exist yet. Creating it now.")
+                        if self.DEVICE_DEBUG == False:
+                            self.s_print("\n\n\nNOT SHOWING DEVICE CREATING DEBUG BECAUSE SELF.DEVICE_DEBUG IS FALSE\n\n\n")
 
                     # pass along the pairing code so that it will be stored in the pairing codes library
                     # TODO: there is room for error here. What if self.last_found_pairing_code doesn't actually match the device being created?
                     pairing_code = None
                     if isinstance(self.last_found_pairing_code,str) and self.last_found_pairing_code not in self.persistent_data['pairing_codes'] and self.last_pairing_start_time > time.time() - 120:
                         pairing_code = "" + str(self.last_found_pairing_code)
-
-                    new_device = MatterDevice(self, thing_id, node, pairing_code)
-                    self.handle_device_added(new_device)
+                    try:
+                        new_device = MatterDevice(self, thing_id, node, pairing_code)
+                        self.handle_device_added(new_device)
+                        if self.DEBUG:
+                            self.s_print("parse_node: Device should now exist.  thing_id: ", thing_id)
+                    except Exception as ex:
+                        self.s_print("parse_node: caught error creating MatterDevice instance: ", ex)
+                    
                     
                 else:
                     if self.DEBUG:
@@ -5284,7 +5812,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                     self.handle_device_added(target_device)
 
             else:
-                print("Not creating thing because matter node says it's not actually available yet")
+                print("Not creating thing because matter node says it's not actually available yet.  thing_id: " + str(thing_id))
             
             if 'available' in node and isinstance(node['available'],bool):
                 target_device = self.get_device(thing_id)
@@ -5294,12 +5822,12 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                     target_device.connected_notify(node['available'])
                 else:
                     if self.DEBUG:
-                        self.s_print("\nWARNING: parse_node: unexpectedly device was still not created.  thing_id: ", thing_id)
+                        self.s_print("\nWARNING: parse_node: unexpectedly thing was still not created.  thing_id: ", thing_id)
 
 
         except Exception as ex:
             if self.DEBUG:
-                self.s_print("error in parse_node: " + str(ex))
+                self.s_print("\ncaught ERROR in parse_node: " + str(ex))
 
 
 
@@ -5379,7 +5907,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
         except Exception as ex:
             if self.DEBUG:
-                print("caught error in get_matter_fabrics: ", ex)
+                self.s_print("caught error in get_matter_fabrics: ", ex)
 
 
 
@@ -5404,7 +5932,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
         except Exception as ex:
             if self.DEBUG:
-                print("caught error in get_diagnostics: ", ex)
+                self.s_print("caught error in get_diagnostics: ", ex)
 
 
 
@@ -5432,7 +5960,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                                 }
 
                         if self.DEBUG:
-                            self.s_print("\nget_node_ips: sending message to Matter.server: \n", json.dumps(message,indent=4))
+                            self.s_print("\ndebug: get_node_ips: sending message to Matter.server: \n", json.dumps(message,indent=4))
 
                         json_message = json.dumps(message)
                         self.ws.send(json_message)
@@ -5443,7 +5971,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                 
         except Exception as ex:
             if self.DEBUG:
-                print("caught error in get_node_ips: ", ex)
+                self.s_print("caught error in get_node_ips: ", ex)
 
 
     def get_node_ip(self, node_id):
@@ -5474,7 +6002,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                         break
         except Exception as ex:
             if self.DEBUG:
-                print("caught error in get_node_ip: ", ex)
+                self.s_print("caught error in get_node_ip: ", ex)
 
 
 
@@ -5512,12 +6040,12 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                             self.s_print("\nERROR: check_for_node_updates: invalid node_id for thing_id: ", thing_id)
                 
         except Exception as ex:
-            print("caught error in check_for_node_updates: ", ex)
+            self.s_print("caught error in check_for_node_updates: ", ex)
         
 
     def update_node(self,node_id):
         if self.DEBUG:
-            print("\nin UPDATE_NODE:  node_id: ", node_id, "\n")
+            self.s_print("\nin UPDATE_NODE:  node_id: ", node_id, "\n")
         
         try:
             if isinstance(node_id,(str,int)):
@@ -5546,7 +6074,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
             self.missing_vendor_id = False
             if isinstance(self.persistent_data['matter_network_interface'],str) and len(self.persistent_data['matter_network_interface']) > 1:
                 if self.persistent_data['onboarding_complete'] == False:
-                    self.should_save_persistent = True
+                    self.should_save = True
                 self.persistent_data['onboarding_complete'] = True
             else:
                 self.persistent_data['onboarding_complete'] = False
@@ -5623,7 +6151,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
         self.save_persistent_data()
 
         if self.DEBUG:
-            print("\nreset_matter: ls /data/: \n", run_command('ls ' + str(self.data_dir_path)))
+            self.s_print("\nreset_matter: ls /data/: \n", run_command('ls ' + str(self.data_dir_path)))
             self.s_print("\nreset_matter: done\n")
 
         #time.sleep(1)

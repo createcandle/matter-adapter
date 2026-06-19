@@ -511,6 +511,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
     font-weight:bold;
     display:inline-block;
     margin-bottom:.5rem;
+	margin-right: 5rem;
 }
 .extension-matter-adapter-item-description{
     color:#eee;
@@ -562,15 +563,21 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	margin-bottom:1.5rem;
 }
 
+#extension-matter-adapter-view .extension-matter-adapter-item-network-type,
 #extension-matter-adapter-view .extension-matter-adapter-item-node-id{
 	opacity:.2;
 	position:absolute;
-    right: 1rem;
-    top: 0rem;
-	font-size:5rem;
+    right: 2rem;
+    top: 2rem;
 	pointer-events:none;
 	background-color:transparent;
 }
+#extension-matter-adapter-view .extension-matter-adapter-item-node-id{
+	font-size:5rem;
+    right: 5rem;
+	top: 0.5rem;
+}
+
 
 
 .extension-matter-adapter-item:not(.extension-matter-adapter-item-reconnected){
@@ -612,6 +619,16 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 .extension-matter-adapter-item-header > div{
     padding:2rem;
 }
+
+
+.extension-matter-adapter-item-network-type{
+	width:4rem;
+	height:4rem;
+	background-size: 3rem;
+	background-position:center;
+}
+
+
 
 
 .extension-matter-adapter-item-menu{
@@ -663,6 +680,13 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
     margin-left:2rem;
 }
 
+
+/*  REFRESH  */
+
+
+.extension-matter-adapter-item.extension-matter-adapter-item-refreshed{
+	background-color:#1c6195;
+}
 
 
 /*  DEVICE ATTRIBUTES LIST  */
@@ -2109,8 +2133,17 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 		padding:4rem 4rem 2rem 4rem;
 	}
 
+	#extension-matter-adapter-view .extension-matter-adapter-item-network-type{
+		right: 16rem;
+	}
+
 	#extension-matter-adapter-view .extension-matter-adapter-item-node-id{
-		right: 14rem;
+		right: 21rem;
+	}
+	
+
+	.extension-matter-adapter-item-refresh-button{
+		margin-top:2rem;
 	}
 }
 

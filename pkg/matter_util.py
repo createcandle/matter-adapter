@@ -364,35 +364,44 @@ def hsv_to_hex(h,s,v=1,a=1):
 
 
 def humanize_cluster_id(cluster_id):
-    if str(cluster_id).isdigit():
-        cluster_id = int(cluster_id)
-        cluster = f"{ALL_CLUSTERS[cluster_id].__name__}"
-        return cluster
+    try:
+        if str(cluster_id).isdigit():
+            cluster_id = int(cluster_id)
+            cluster = f"{ALL_CLUSTERS[cluster_id].__name__}"
+            return cluster
+    except Exception as ex:
+        print("matter_util.py: caught ERROR in humanize_cluster_id: ", ex)
     return str(cluster_id)
     
 def humanize_attribute_id(cluster_id,attribute_id):
-    if str(cluster_id).isdigit() and str(attribute_id).isdigit():
-        cluster_id = int(cluster_id)
-        attribute_id = int(attribute_id)
-        attribute = f"{ALL_ATTRIBUTES[cluster_id][attribute_id].__name__}"
-        return attribute
+    try:
+        if str(cluster_id).isdigit() and str(attribute_id).isdigit():
+            cluster_id = int(cluster_id)
+            attribute_id = int(attribute_id)
+            attribute = f"{ALL_ATTRIBUTES[cluster_id][attribute_id].__name__}"
+            return attribute
+    except Exception as ex:
+        print("matter_util.py: caught ERROR in humanize_attribute_id: ", ex)
     return str(attribute_id)
 
 def humanize(code):
-    if '/' in str(code):
-        parts = str(code).split('/')
-        #print("humanize: parts: ", parts)
-        if len(parts) == 3:
-            cluster_id = int(parts[1])
-            attribute_id = int(parts[2])
-            #cluster = f"{ALL_CLUSTERS[cluster_id].__name__}"
-            #print("humanize: cluster: ", cluster)
-            #attribute = f"{ALL_ATTRIBUTES[cluster_id][attribute_id].__name__}"
-            #print("humanize: attribute: ", cluster)
-            code = humanize_cluster_id(cluster_id) + '.Attributes.' + humanize_attribute_id(cluster_id,attribute_id)
-            #print("humanize: final code: ", code)
-    return str(code)
+    try:
+        if '/' in str(code):
+            parts = str(code).split('/')
+            #print("humanize: parts: ", parts)
+            if len(parts) == 3:
+                cluster_id = int(parts[1])
+                attribute_id = int(parts[2])
+                #cluster = f"{ALL_CLUSTERS[cluster_id].__name__}"
+                #print("humanize: cluster: ", cluster)
+                #attribute = f"{ALL_ATTRIBUTES[cluster_id][attribute_id].__name__}"
+                #print("humanize: attribute: ", cluster)
+                code = humanize_cluster_id(cluster_id) + '.Attributes.' + humanize_attribute_id(cluster_id,attribute_id)
+                #print("humanize: final code: ", code)
 
+    except Exception as ex:
+        print("matter_util.py: caught ERROR in humanize: ", ex)
+    return str(code)
 
 
 
@@ -407,43 +416,44 @@ def humanize(code):
 
 def get_commands_for_cluster_id(cluster_id):
     commands_lookup = {}
-    #print("in get_commands_for_cluster.  cluster_id: ", cluster_id)
-    if str(cluster_id).isdigit():
-        cluster_id = int(cluster_id)
-        try:
-            
+    try:
+        #print("in get_commands_for_cluster.  cluster_id: ", cluster_id)
+        if str(cluster_id).isdigit():
+            cluster_id = int(cluster_id)
+                
             if cluster_id in ALL_CLUSTERS:
                 cluster_name = f"{ALL_CLUSTERS[cluster_id].__name__}"
-                commands = getattr(ALL_CLUSTERS[cluster_id], 'Commands')
-                commands_dir_list = dir(commands)
-                for key in commands_dir_list:
-                    if str(key).startswith('__'):
-                        continue
-                    if str(key) == 'TestEventTrigger':
-                        continue
-                    elif str(key) == 'TimeSnapshot':
-                        continue
-                    command = getattr(ALL_CLUSTERS[cluster_id].Commands, key)
-                    command_dict = command.__dict__
-                    command_id = command_dict['command_id']
+                if hasattr(ALL_CLUSTERS[cluster_id], 'Commands'):
+                    commands = getattr(ALL_CLUSTERS[cluster_id], 'Commands')
+                    commands_dir_list = dir(commands)
+                    for key in commands_dir_list:
+                        if str(key).startswith('__'):
+                            continue
+                        if str(key) == 'TestEventTrigger':
+                            continue
+                        elif str(key) == 'TimeSnapshot':
+                            continue
+                        command = getattr(ALL_CLUSTERS[cluster_id].Commands, key)
+                        command_dict = command.__dict__
+                        command_id = command_dict['command_id']
+                        
+                        if not cluster_name in commands_lookup:
+                            commands_lookup[cluster_name] = {}
+                            
+                            
+                        if not str(key) in commands_lookup[cluster_name]:
+                            commands_lookup[cluster_name][str(key)] = {'id':command_id,'name':str(key)}
+                            #commands_lookup[cluster_name]['id_from_name'][str(key)] = command_id
+                            #commands_lookup[cluster_name]['name_from_id'][str(command_id)] = str(key)
+                            
+                            # commands instance:  ColorControl.Commands.MoveColorTemperature(moveMode=0, rate=0, colorTemperatureMinimumMireds=0, colorTemperatureMaximumMireds=0, optionsMask=0, optionsOverride=0)
+                            # TODO: if need be, in the future the individual parameters could also be added
                     
-                    if not cluster_name in commands_lookup:
-                        commands_lookup[cluster_name] = {}
-                        
-                        
-                    if not str(key) in commands_lookup[cluster_name]:
-                        commands_lookup[cluster_name][str(key)] = {'id':command_id,'name':str(key)}
-                        #commands_lookup[cluster_name]['id_from_name'][str(key)] = command_id
-                        #commands_lookup[cluster_name]['name_from_id'][str(command_id)] = str(key)
-                        
-                        # commands instance:  ColorControl.Commands.MoveColorTemperature(moveMode=0, rate=0, colorTemperatureMinimumMireds=0, colorTemperatureMaximumMireds=0, optionsMask=0, optionsOverride=0)
-                        # TODO: if need be, in the future the individual parameters could also be added
-                        
-            #else:
-            #    print("\nERROR: get_commands_for_cluster: cluster_id not spotted in ALL_CLUSTERS: ", cluster_id)
-        except Exception as ex:
-            pass
-            #print("\nERROR, get_commands_for_cluster: caught error trying to get commands: ", ex)
+        #else:
+        #    print("\nERROR: get_commands_for_cluster: cluster_id not spotted in ALL_CLUSTERS: ", cluster_id)
+    
+    except Exception as ex:
+        print("matter_util.py: caught ERROR in humanize: ", ex)
     
     #print("FINAL commands_lookup: ", commands_lookup)   
     return commands_lookup 
@@ -465,17 +475,21 @@ def get_events_lookup():
     events_lookup = {}
     for key, value in ALL_EVENTS.items():
         #print("+", key)
-        events_list = []
-        for key2 in value:
-            #print("key2: ", key2, value[key2].__name__)
-            events_list.append(value[key2].__name__)
-            #print("type(value[key2]): ", type(value[key2]), value[key2].__dict__)
-            #for key3 in value[key2].__dict__:
-            #    if(str(key3).startswith('__')):
-            #        continue
-            #    print("---> key3: ", key3)
-        if len(events_list):
-            events_lookup[humanize_cluster_id(int(key))] = events_list
+        try:
+            events_list = []
+            for key2 in value:
+                #print("key2: ", key2, value[key2].__name__)
+                events_list.append(value[key2].__name__)
+                #print("type(value[key2]): ", type(value[key2]), value[key2].__dict__)
+                #for key3 in value[key2].__dict__:
+                #    if(str(key3).startswith('__')):
+                #        continue
+                #    print("---> key3: ", key3)
+            if len(events_list):
+                events_lookup[humanize_cluster_id(int(key))] = events_list
+        except Exception as ex:
+            print("matter_util.py: caught ERROR in get_events_lookup for-loop: ", ex)
+        
         #print("")
         #print(">>", dir(value))
         #for key2, value2 in value:
@@ -554,7 +568,7 @@ def get_enums_lookup():
 
 
 # Turns numbered attributes style list into human readable attributes tree
-def process_node(node):
+def process_node(node, debug=False):
     """Process a node."""
     endpoints = {}
     cluster_warn = set()
@@ -563,96 +577,125 @@ def process_node(node):
     
     #clusters_to_ignore = ['OtaSoftwareUpdateRequestor','AccessControl','Descriptor','IcdManagement','OperationalCredentials','WiFiNetworkDiagnostics','ThreadNetworkDiagnostics','AdministratorCommissioning','NetworkCommissioning','GeneralCommissioning','GroupKeyManagement','Identify','Groups']
 
+    last_ignored_cluster_name = None
+
     for attr_path, value in node["attributes"].items():
-        endpoint_id, cluster_id, attr_id = attr_path.split("/")
-        cluster_id = int(cluster_id)
-        endpoint_id = int(endpoint_id)
-        attr_id = int(attr_id)
-        
-        
-        if cluster_id == 5: # "Scenes" cluster is not officially supported anymore. Even though IKEA still uses it?
-            continue
-        
-        attribute_path=''
-        if cluster_id in ALL_CLUSTERS:
-            cluster_name = f"{ALL_CLUSTERS[cluster_id].__name__}"
-            if cluster_name in clusters_to_ignore:
-                continue
+        try:
+            endpoint_id, cluster_id, attr_id = attr_path.split("/")
+            cluster_id = int(cluster_id)
+            endpoint_id = int(endpoint_id)
+            attr_id = int(attr_id)
+            attribute_path=''
+            
+            # Seems it's still around in Matter 1.5?
+            #if cluster_id == 5: # "Scenes" cluster is not officially supported anymore. Even though IKEA still uses it?
+            #    if debug:
+            #        print("process_node: spotted Scenes cluster, though it's not officially supported anymore?")
+            #    continue
+            
+            if cluster_id in ALL_CLUSTERS:
+                if isinstance(ALL_CLUSTERS[cluster_id],str):
+                    if debug:
+                        print("ERROR, ALL_CLUSTERS[cluster_id] was a string and not an object")
+                elif hasattr(ALL_CLUSTERS[cluster_id],'__name__'):
+                    cluster_name = f"{ALL_CLUSTERS[cluster_id].__name__}"
+                    if cluster_name in clusters_to_ignore:
+                        if debug:
+                            if cluster_name != last_ignored_cluster_name:
+                                print("process_node: ignoring cluster: ", cluster_name)
+                                last_ignored_cluster_name = cluster_name
+                        continue
+                    #print("process_node:  cluster_id,cluster_name: ", cluster_id, cluster_name)
+                    attribute_path = f"{ALL_CLUSTERS[cluster_id].__name__}.Attributes."
+                else:
+                    print('ERROR: ALL_CLUSTERS[cluster_id] does not have __name__ attribute: ', ALL_CLUSTERS[cluster_id])
+                    
                 
-            #print("process_node:  cluster_id,cluster_name: ", cluster_id, cluster_name)
-            attribute_path = f"{ALL_CLUSTERS[cluster_id].__name__}.Attributes."
-        else:
-            if cluster_id not in cluster_warn:
-                print("util: process_node: unknown cluster ID: {}".format(cluster_id))
-                cluster_warn.add(cluster_id)
-            cluster_name = f"{cluster_id} (unknown)"
-            attribute_path = f"{cluster_id}.Attributes."
+            else:
+                if cluster_id not in cluster_warn:
+                    if debug:
+                        print("util: process_node: unknown cluster ID: {}".format(cluster_id))
+                    cluster_warn.add(cluster_id)
+                cluster_name = f"{cluster_id} (unknown)"
+                attribute_path = f"{cluster_id}.Attributes."
 
-        if attr_id == 65530:
-            if cluster_id in ALL_ATTRIBUTES:
-                ALL_ATTRIBUTES[cluster_id][attr_id] = 'eventList'
-        """
-            ('attrib_id', 65531, 'attributeList', True),
-            ('event_id', 65530, 'eventList', True),
-            ('command_id', 65529, 'acceptedCommandList', True),
-            ('command_id', 65528, 'generatedCommandList', True),
-            ('bitmap32', 65532, 'featureMap', False),
-        """
+            if cluster_id in ALL_ATTRIBUTES and attr_id == 65530:
+                if debug:
+                    print("spotted attr_id 65530 (eventList)")
+                attr_name = 'eventList'
+                attribute_path += attr_name
+                
+                """
+                    ('attrib_id', 65531, 'attributeList', True),
+                    ('event_id', 65530, 'eventList', True),
+                    ('command_id', 65529, 'acceptedCommandList', True),
+                    ('command_id', 65528, 'generatedCommandList', True),
+                    ('bitmap32', 65532, 'featureMap', False),
+                """
 
 
-        if cluster_id in ALL_ATTRIBUTES and attr_id in ALL_ATTRIBUTES[cluster_id]:
-            attr_name = f"{ALL_ATTRIBUTES[cluster_id][attr_id].__name__}"
-            attribute_path += attr_name
-        else:
-            if cluster_id not in cluster_warn:
-                print(
-                    "Unknown attribute ID: {} in cluster {} ({})".format(
-                        attr_id, cluster_name, cluster_id
-                    )
-                )
-            attr_name = f"{attr_id} (unknown)"
-            attribute_path += f"{attr_id}"
-        
-        endpoint_name = 'Endpoint' + str(endpoint_id)
-        if not endpoint_name in new_attributes:
-            new_attributes[endpoint_name] = {}
+            elif cluster_id in ALL_ATTRIBUTES and attr_id in ALL_ATTRIBUTES[cluster_id]:
+                attr_name = f"{ALL_ATTRIBUTES[cluster_id][attr_id].__name__}"
+                attribute_path += attr_name
+            else:
+                if cluster_id not in cluster_warn:
+                    if debug:
+                        print("Unknown attribute ID: {} in cluster {} ({})".format(attr_id, cluster_name, cluster_id))
+                attr_name = f"{attr_id} (unknown)"
+                attribute_path += f"{attr_id}"
             
-        
-        if endpoint_id not in endpoints:
-            endpoints[endpoint_id] = {}
 
-        if cluster_name not in endpoints[endpoint_id]:
-            endpoints[endpoint_id][cluster_name] = {}
+            # protect privacy by filtering out some attributes
+            # GeneralDiagnostics.attributes.
+            #attribute_path == 'GeneralDiagnostics.attributes.BootReason' \
+            if attribute_path == 'GeneralDiagnostics.attributes.UpTime'or \
+              attribute_path  == 'GeneralDiagnostics.attributes.RebootCount' or \
+              attribute_path  == 'GeneralDiagnostics.attributes.TotalOperationalHours':
+                if debug:
+                    print("skipping privacy-sensitive GeneralDiagnostics attribute_path: ", attribute_path)
+                continue
+              
 
-        if attribute_path not in new_attributes[endpoint_name]:
-            new_attributes[endpoint_name][attribute_path] = value
+            endpoint_name = 'Endpoint' + str(endpoint_id)
+            if not endpoint_name in new_attributes:
+                new_attributes[endpoint_name] = {}
+                
+            
+            if endpoint_id not in endpoints:
+                endpoints[endpoint_id] = {}
 
-        endpoints[endpoint_id][cluster_name][attr_name] = value
-        if attr_name == 'AcceptedCommandList' and isinstance(value,list):
-            accepted_commands = get_commands_for_cluster_id(cluster_id)
-            if accepted_commands and attr_name in accepted_commands:
-                humanized_commands_list = {}
-                for command_name in list(accepted_commands[attr_name].keys()):
-                    if self.DEBUG:
-                        print("checking if command is supported: ", command_name)
-                    if 'id' in accepted_commands[attr_name] and accepted_commands[attr_name]['id'] in value:
+            if cluster_name not in endpoints[endpoint_id]:
+                endpoints[endpoint_id][cluster_name] = {}
+
+            if attribute_path not in new_attributes[endpoint_name]:
+                new_attributes[endpoint_name][attribute_path] = value
+
+            endpoints[endpoint_id][cluster_name][attr_name] = value
+            if attr_name == 'AcceptedCommandList' and isinstance(value,list):
+                accepted_commands = get_commands_for_cluster_id(cluster_id)
+                if accepted_commands and attr_name in accepted_commands:
+                    humanized_commands_list = {}
+                    for command_name in list(accepted_commands[attr_name].keys()):
                         if self.DEBUG:
-                            print("process_node: COMMAND IS ACCEPTED: ", attribute_path, command_name)
-                        humanized_commands_list[str(accepted_commands[attr_name]['id'])] = command_name
-                    else:
-                        if self.DEBUG:
-                            print("process_node: COMMAND IS _NOT_ ACCEPTED: ", attribute_path, command_name)
+                            print("checking if command is supported: ", command_name)
+                        if 'id' in accepted_commands[attr_name] and accepted_commands[attr_name]['id'] in value:
+                            if self.DEBUG:
+                                print("process_node: COMMAND IS ACCEPTED: ", attribute_path, command_name)
+                            humanized_commands_list[str(accepted_commands[attr_name]['id'])] = command_name
+                        else:
+                            if self.DEBUG:
+                                print("process_node: COMMAND IS _NOT_ ACCEPTED: ", attribute_path, command_name)
+        except Exception as ex:
+            print("matter_util.py: caught ERROR in process_node for-loop: ", ex)
+
+        
             
-            
-        
-        
-        
+    
 
     # Augment device types
     for endpoint in endpoints.values():
         if not (descriptor_cls := endpoint.get("Descriptor")):
             continue
-
         if not (device_types := descriptor_cls.get("DeviceTypeList")):
             continue
         try:
@@ -675,8 +718,6 @@ def process_node(node):
         f"Endpoint{endpoint_id}": clusters
         for endpoint_id, clusters in endpoints.items()
     }
-    
-
 
 
 
@@ -699,7 +740,6 @@ def uncamel(value):
     return output
 
 
-
 def boolean_list_to_number(bools):
     return ((1 if bools[0] else 0) << 0) | \
            ((1 if bools[1] else 0) << 1) | \
@@ -717,8 +757,6 @@ def number_to_boolean_list(num):
 def md5_hash(text):
     res = hashlib.md5(str(text).encode())
     return res.hexdigest()
-
-
 
 
 
@@ -752,185 +790,5 @@ def get_env():
             if user_index.isdigit():
                 my_env["XDG_RUNTIME_DIR"] = "/run/user/" + str(user_index)
 
-    #if os.path.isdir('/home/pi/.dbus/session-bus'):
-    #    dbus_session_lines = run_command('cat /home/pi/.dbus/session-bus/* | grep -v ^# ')
-    #    if isinstance(dbus_session_lines,str):
-    #        for line in dbus_session_lines.splitlines():
-    #            #print("DBUS line: -->" + str(line) + "<--" )
-    #            if '=' in line and line.startswith('DBUS_SESSION_BUS'):
-    #                dbus_value = re.escape(str(line.split('=', 1)[1]))
-    #                #print("dbus_value: -->" + str(dbus_value) + "<--")
-    #                dbus_value = dbus_value.replace("'","")
-    #                my_env[ str(line.split('=', 1)[0]).strip() ] = dbus_value
-
     return my_env
 
-
-
-
-
-"""
-From Zigbee2MQTT addon
-        
-# thanks to https://stackoverflow.com/questions/20283401/php-how-to-convert-rgb-color-to-cie-1931-color-specification
-def HEXtoXY(hex) { 
-	hex = hex.replace(/^#/, '')
-	aRgbHex = hex.match(/.{1,2}/g)
-	red = int(aRgbHex[0], 16);
-	green = int(aRgbHex[1], 16);
-	blue = int(aRgbHex[2], 16);
-
-	red = (red > 0.04045) ? Math.pow((red + 0.055) / (1.0 + 0.055), 2.4) : (red / 12.92);
-	green = (green > 0.04045) ? Math.pow((green + 0.055) / (1.0 + 0.055), 2.4) : (green / 12.92);
-	blue = (blue > 0.04045) ? Math.pow((blue + 0.055) / (1.0 + 0.055), 2.4) : (blue / 12.92);
-	var X = red * 0.664511 + green * 0.154324 + blue * 0.162028;
-	var Y = red * 0.283881 + green * 0.668433 + blue * 0.047685;
-	var Z = red * 0.000088 + green * 0.072310 + blue * 0.986039;
-	var fx = X / (X + Y + Z);
-	var fy = Y / (X + Y + Z);
-
-	return [fx.toPrecision(2), fy.toPrecision(2)];
-}
-
-
-
-function XYtoHEX(x, y, bri) { // and needs brightness too
-	const z = 1.0 - x - y;
-	if (x == 0) {
-		x = 0.00001
-	};
-	if (y == 0) {
-		y = 0.00001
-	};
-	if (bri == 0) {
-		bri = 1
-	};
-	const Y = bri / 255.0; // Brightness of lamp
-	const X = (Y / y) * x;
-	const Z = (Y / y) * z;
-	var r = X * 1.612 - Y * 0.203 - Z * 0.302;
-	var g = -X * 0.509 + Y * 1.412 + Z * 0.066;
-	var b = X * 0.026 - Y * 0.072 + Z * 0.962;
-
-	r = r <= 0.0031308 ? 12.92 * r : (1.0 + 0.055) * Math.pow(r, (1.0 / 2.4)) - 0.055;
-	g = g <= 0.0031308 ? 12.92 * g : (1.0 + 0.055) * Math.pow(g, (1.0 / 2.4)) - 0.055;
-	b = b <= 0.0031308 ? 12.92 * b : (1.0 + 0.055) * Math.pow(b, (1.0 / 2.4)) - 0.055;
-
-	const maxValue = Math.max(r, g, b);
-	r /= maxValue;
-	g /= maxValue;
-	b /= maxValue;
-	r = r * 255;
-	if (r < 0) {
-		r = 0
-	};
-	if (r > 255) {
-		r = 255
-	};
-	g = g * 255;
-	if (g < 0) {
-		g = 0
-	};
-	if (g > 255) {
-		g = 255
-	};
-	b = b * 255;
-	if (b < 0) {
-		b = 0
-	};
-	if (b > 255) {
-		b = 255
-	};
-
-	r = Math.floor(r).toString(16);
-	g = Math.floor(g).toString(16);
-	b = Math.floor(b).toString(16);
-
-	if (r.length < 2)
-		r = "0" + r;
-	if (g.length < 2)
-		g = "0" + g;
-	if (b.length < 2)
-		b = "0" + b;
-
-	return "#" + r + g + b;
-}
-"""
-
-
-
-
-
-
-"""
-def process_node_old(node):
-    endpoints = {}
-    cluster_warn = set()
-
-    for attr_path, value in node["attributes"].items():
-        endpoint_id, cluster_id, attr_id = attr_path.split("/")
-        cluster_id = int(cluster_id)
-        endpoint_id = int(endpoint_id)
-        attr_id = int(attr_id)
-
-        if cluster_id in ALL_CLUSTERS:
-            cluster_name = f"{ALL_CLUSTERS[cluster_id].__name__} ({cluster_id} / 0x{cluster_id:04x})"
-        else:
-            if cluster_id not in cluster_warn:
-                print("Unknown cluster ID: {}".format(cluster_id))
-                cluster_warn.add(cluster_id)
-            cluster_name = f"{cluster_id} (unknown)"
-
-        if cluster_id in ALL_ATTRIBUTES and attr_id in ALL_ATTRIBUTES[cluster_id]:
-            attr_name = f"{ALL_ATTRIBUTES[cluster_id][attr_id].__name__} ({attr_id} / 0x{attr_id:04x})"
-        else:
-            if cluster_id not in cluster_warn:
-                print(
-                    "Unknown attribute ID: {} in cluster {} ({})".format(
-                        attr_id, cluster_name, cluster_id
-                    )
-                )
-            attr_name = f"{attr_id} (unknown)"
-
-        if endpoint_id not in endpoints:
-            endpoints[endpoint_id] = {}
-
-        if cluster_name not in endpoints[endpoint_id]:
-            endpoints[endpoint_id][cluster_name] = {}
-
-        endpoints[endpoint_id][cluster_name][attr_name] = value
-
-    # Augment device types
-    for endpoint in endpoints.values():
-        if not (descriptor_cls := endpoint.get("Descriptor (29 / 0x001d)")):
-            continue
-
-        if not (device_types := descriptor_cls.get("DeviceTypeList (0 / 0x0000)")):
-            continue
-        try:
-            for device_type in device_types:
-                if "deviceType" in device_type:
-                    device_type_id = device_type["deviceType"]
-                    if device_type_id in ALL_TYPES:
-                        device_type_name = ALL_TYPES[device_type_id].__name__
-                    else:
-                        device_type_name = f"{device_type} (unknown)"
-
-                    device_type["name"] = device_type_name
-                    device_type["hex"] = f"0x{device_type_id:04x}"
-        except Exception as ex:
-            print("matter_util.py: caught error in process_node: ", ex)
-        
-
-    node["attributes"] = {
-        f"Endpoint {endpoint_id}": clusters
-        for endpoint_id, clusters in endpoints.items()
-    }
-
-"""
-
-
-
-
-
-        

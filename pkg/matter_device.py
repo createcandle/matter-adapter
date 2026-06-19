@@ -35,14 +35,16 @@ import traceback
 
 
 # For TimeSynchronization
+import tzdata
 from zoneinfo import ZoneInfo
 from datetime import timezone, datetime, timedelta
-import tzdata
+
+
+
 
 #
 # DEVICE
 #
-
 
 
 class MatterDevice(Device):
@@ -137,8 +139,13 @@ class MatterDevice(Device):
                 'BasicInformation.Attributes.ProductName':{'readOnly':True, 'type':'string'},   # Product name
                 'BasicInformation.Attributes.UniqueID':{'readOnly':True, 'type':'string'},      # Unique ID
                 'BasicInformation.Attributes.HardwareVersionString':{'readOnly':True, 'type':'string'}, # Hardware version string
-                'BasicInformation.Attributes.SoftwareVersionString':{'readOnly':True, 'type':'string'}, # Software version string
-                'BasicInformation.Attributes.SoftwareVersion':{'readOnly':True, 'type':'string'},
+                'BasicInformation.Attributes.SoftwareVersionString':{ # Software version string
+                    'readOnly':True, 
+                    'type':'string'}, 
+                'BasicInformation.Attributes.SoftwareVersion':{
+                    'readOnly':True, 
+                    'type':'integer', 
+                    'multipleOf':1},
 
                 'OnOff.Attributes.OnOff':{
                     'title':'State',
@@ -169,6 +176,7 @@ class MatterDevice(Device):
                     'title':'Battery level',
                     'readOnly': True,
                     'percent':True,
+                    'unit':'percent',
                     'minimum':0,
                     'maximum':100,
                     'type':'integer'},
@@ -183,9 +191,14 @@ class MatterDevice(Device):
                     'readOnly':True,
                     'type':'integer',
                     'percent':True,
+                    'minimum':0,
+                    'maximum':100,
+                    'unit':'percent',
+                    'multipleOf':0.1,
                     '@type':'HumidityProperty',
                     'dev@type':'HumiditySensor'}, # humidity
                 'TemperatureMeasurement.Attributes.MeasuredValue':{
+                    'title':'Temperature',
                     'readOnly': True,
                     'type': 'number',
                     'multipleOf':0.1,
@@ -214,7 +227,11 @@ class MatterDevice(Device):
                 'LevelControl.Attributes.CurrentLevel':{ # Could be for a light, but also for audio
                     'readOnly': False,
                     'type':'integer',
-                    'percent':True},
+                    'percent':True,
+                    'minimum':0,
+                    'maximum':100,
+                    'unit':'percent',
+                    'multipleOf':0.1},
 
                 'ColorControl.Attributes.CurrentHue':{
                     'title':'Color',
@@ -305,23 +322,24 @@ class MatterDevice(Device):
                     },
 
                 'Pm1ConcentrationMeasurement.Attributes.MeasuredValue':{
-                    'title':'PM 1 concentration',
+                    'title':'Very fine dust concentration',
                     'readOnly': True,
                     'type': 'number',
                     },
                 'Pm1ConcentrationMeasurement.Attributes.LevelValue':{
-                    'title':'PM 1 opinion',
+                    'title':'Very fine dust opinion',
                     'readOnly': True,
                     'type': 'string',
                     'enum': ['Unknown','Low','Medium','High','Critical']
                     },
                 'Pm25ConcentrationMeasurement.Attributes.MeasuredValue':{
-                    'title':'PM 2.5 concentration',
+                    'title':'Fine dust concentration',
                     'readOnly': True,
-                    'type': 'number'
+                    'type': 'number',
+                    'multipleOf':0.1
                     },
                 'Pm25ConcentrationMeasurement.Attributes.LevelValue':{
-                    'title':'PM 2.5 opinion',
+                    'title':'Fine dust opinion',
                     'readOnly': True,
                     'type': 'string',
                     'enum': ['Unknown','Low','Medium','High','Critical'],
@@ -329,12 +347,12 @@ class MatterDevice(Device):
                     'dev@type':'AirQualitySensor'
                     },
                 'Pm10ConcentrationMeasurement.Attributes.MeasuredValue':{
-                    'title':'PM 10 concentration',
+                    'title':'Dust concentration',
                     'readOnly': True,
                     'type': 'number'
                     },
                  'Pm10ConcentrationMeasurement.Attributes.LevelValue':{
-                    'title':'PM 10 opinion',
+                    'title':'Dust opinion',
                     'readOnly': True,
                     'type': 'string',
                     'enum': ['Unknown','Low','Medium','High','Critical']
@@ -342,7 +360,7 @@ class MatterDevice(Device):
 
 
                 'CarbonDioxideConcentrationMeasurement.Attributes.MeasuredValue':{
-                    'title':'Carbon dioxide',
+                    'title':'Carbon dioxide concentration',
                     'readOnly': True,
                     'type': 'integer',
                     'multipleOf':1,
@@ -351,7 +369,7 @@ class MatterDevice(Device):
                     'dev@type':'AirQualitySensor'
                     },
                 'CarbonDioxideConcentrationMeasurement.Attributes.LevelValue':{
-                    'title':'Carbon dioxide level',
+                    'title':'Carbon dioxide opinion',
                     'readOnly': True,
                     'type': 'string',
                     'enum':['Unknown','Low','Medium','High','Critical'],
@@ -377,8 +395,8 @@ class MatterDevice(Device):
                     'dev@type':'AirQualitySensor'
                     },
                 
-                'TotalVolatileOrganicCompoundsConcentration Measurement':{
-                    'title':'Formaldehyde concentration',
+                'TotalVolatileOrganicCompoundsConcentrationMeasurement':{
+                    'title':'VOC concentration',
                     'readOnly': True,
                     'type': 'integer',
                     'multipleOf':1,
@@ -544,6 +562,7 @@ class MatterDevice(Device):
                             attribute_name = str(attribute_code.split('.Attributes.')[1])
 
                             if attribute_name == 'FeatureMap':
+                                # TODO: handle FeatureMap better, as it contains very useful information
                                 if self.DEBUG:
                                     print("skipping FeatureMap")
                                 continue
@@ -587,24 +606,12 @@ class MatterDevice(Device):
                                         print("  this attribute seems to have a useable simple value: ", node['attributes_list'][endpoint_name][attribute_code])
                                     early_value = node['attributes_list'][endpoint_name][attribute_code]
 
-                                    if isinstance(early_value,int):
-                                        # Switch value to an enums string
-                                        if attribute_name in self.adapter.enums_lookup:
-                                            if self.DEBUG:
-                                                print("  enum available: ", attribute_name, self.adapter.enums_lookup[attribute_name])
-
-                                            if isinstance(early_value,int) and early_value >=0 and early_value < len(self.adapter.enums_lookup[attribute_name]):
-                                                early_value = self.adapter.enums_lookup[attribute_name][early_value]
-                                                if self.DEBUG:
-                                                    print("  early switch of property value from number to string from enums_lookup: ", early_value)
-                                        
-                                        
-                                        elif attribute_name in self.adapter.other_lookup:
-                                            early_value = self.adapter.other_lookup[attribute_name][early_value]
-                                            if self.DEBUG:
-                                                print("  early switch of property value from number to string from self.OTHER_lookup: ", early_value)
-
-
+                                    if isinstance(early_value,(int,float)):
+                                        if self.DEBUG:
+                                            print("Device: early_value BEFORE calling divide_incoming_value_by_multiplier:", early_value)
+                                        early_value = self.adapter.divide_incoming_value_by_multiplier(early_value, cluster_name, attribute_name)
+                                        if self.DEBUG:
+                                            print("Device: early_value _AFTER calling divide_incoming_value_by_multiplier:", early_value)
 
                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['value'] = early_value
                                     #if self.DEBUG:
@@ -701,9 +708,12 @@ class MatterDevice(Device):
 
                                                         bilresa_state_attribute_name = str(fancy_indexes[i]) + "State"
                                                         bilresa_level_attribute_name = str(fancy_indexes[i]) + "Level"
+                                                        bilresa_event_attribute_name = str(fancy_indexes[i]) + "Event"
+
                                                         if self.DEBUG:
                                                             print("device: bilresa_state_attribute_name: ", bilresa_state_attribute_name)
                                                             print("device: bilresa_level_attribute_name: ",  bilresa_level_attribute_name)
+                                                            print("device: bilresa_event_attribute_name: ",  bilresa_event_attribute_name)
 
                                                         self.adapter.persistent_data['nodez'][device_id]['attributes']['Endpoint0']['BasicInformation.Attributes.' + bilresa_state_attribute_name] = {"supported":True, "enabled":True, "value":False, "hacky": True, "property": {
                                                                             "attribute_code": "BasicInformation.Attributes." + bilresa_state_attribute_name,
@@ -721,6 +731,24 @@ class MatterDevice(Device):
                                                                             "endpoint": 0
                                                                         }
                                                                     }
+
+
+                                                        self.adapter.persistent_data['nodez'][device_id]['attributes']['Endpoint0']['BasicInformation.Attributes.' + bilresa_event_attribute_name] = {"supported":True, "enabled":True, "value":"None", "hacky": True, "property": {
+                                                                            "attribute_code": "BasicInformation.Attributes." + bilresa_event_attribute_name,
+                                                                            "id": "property-Endpoint0-BasicInformation-" + bilresa_event_attribute_name,
+                                                                            "cluster_name": "BasicInformation",
+                                                                            "attribute_name": bilresa_event_attribute_name,
+                                                                            "description": {
+                                                                                "title": str(fancy_indexes[i]) + " event",
+                                                                                "description": "Ikea Bilresa remote control wheel virtual switch event",
+                                                                                "readOnly":True,
+                                                                                "type": "string",
+                                                                                "enum": ["None","Click","DoubleClick","TripleClick","LongPress"]
+                                                                            },
+                                                                            "endpoint": 0
+                                                                        }
+                                                                    }
+                                                    
                                                         
                                                         self.adapter.persistent_data['nodez'][device_id]['attributes']['Endpoint0']['BasicInformation.Attributes.' + bilresa_level_attribute_name] = {"supported":True, "enabled":True, "value":0, "hacky": True, "property": {
                                                                             "attribute_code": "BasicInformation.Attributes." + bilresa_level_attribute_name,
@@ -979,6 +1007,11 @@ class MatterDevice(Device):
 
                                     if isinstance(node['attributes_list'][endpoint_name][attribute_code],(str,int,float,bool)):
                                         property_value = node['attributes_list'][endpoint_name][attribute_code]
+                                        if self.DEBUG:
+                                            print("Device: get initial value: raw received value BEFORE divide_incoming_value_by_multiplier: ", property_value)
+                                        property_value = self.adapter.divide_incoming_value_by_multiplier(property_value, cluster_name, attribute_name)
+                                        if self.DEBUG:
+                                            print("Device: get initial value: raw received value _AFTER divide_incoming_value_by_multiplier: ", property_value)
 
                                     else:
                                         if self.DEBUG:
@@ -1568,11 +1601,11 @@ class MatterDevice(Device):
                                                     print("CLUSTER_NAME,UNIT: ", cluster_name, unit)
                                                 measured_value_attribute_code = str(cluster_name) + '.attributes.MeasuredValue'
                                                 if self.DEBUG:
-                                                    print("trying to find MeasuredValue: ", measured_value_attribute_code)
+                                                    print("trying to find MeasuredValue:  measured_value_attribute_code: ", measured_value_attribute_code)
                                                 if measured_value_attribute_code in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name]:
                                                     self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][measured_value_attribute_code]['property']['description']['unit'] = unit
                                                     if self.DEBUG:
-                                                        print("OK, UNIT ADDED:  attribute_code,unit:", measured_value_attribute_code, unit)
+                                                        print("OK, FOUND IT! UNIT ADDED:  attribute_code,unit:", measured_value_attribute_code, unit)
                                     else:
                                         if cluster_name in self.adapter.enums_lookup:
                                             if self.DEBUG:
@@ -1602,6 +1635,8 @@ class MatterDevice(Device):
                                           isinstance(node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MinMeasuredValue')],(int,float)) and \
                                           attribute_code.replace('.MeasuredValue','.MaxMeasuredValue') in node['attributes_list'][endpoint_name] and \
                                           isinstance(node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MaxMeasuredValue')],(int,float)):
+                                            if self.DEBUG:
+                                                print("OK, while parsing MeasuredValue attribute the MinMeasuredValue and MaxMeasuredValue were also spotted. Will attempt to apply multiplier (if available) to them too")
                                             if attribute_name in self.adapter.attribute_multipliers:
                                                 self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code.replace('.MeasuredValue','.MinMeasuredValue')] / self.adapter.attribute_multipliers[attribute_name]
                                             elif cluster_name in self.adapter.cluster_multipliers:
@@ -2078,22 +2113,28 @@ class MatterDevice(Device):
 
     def sync_time(self):
         if self.DEBUG:
-            print("Device: in sync_time")
+            print("Device: in sync_time.  self.adapter.timezone_name: ", self.adapter.timezone_name)
             # https://github.com/project-chip/connectedhomeip/blob/master/src/python_testing/matter_testing_infrastructure/matter/testing/timeoperations.py
         try:
             matter_epoch_start = datetime(2000, 1, 1, tzinfo=timezone.utc)
-
+            if self.DEBUG:
+                print("matter_epoch_start: ", matter_epoch_start)
             #utc_native = datetime.now(tz=timezone.utc)
 
             #utc_th_delta = utc_native - datetime(2000, 1, 1, 0, 0, 0, 0, timezone.utc)
             #utc_th_delta_micros = int(utc_th_delta.total_seconds() * 1000000)
-
+            current_tz = None
             try:
-                tz = ZoneInfo(self.adapter.timezone_name)
+                current_tz = ZoneInfo(str(self.adapter.timezone_name))
             except Exception as ex:
                 if self.DEBUG:
-                    print("caught error getting timezone info: ", ex)
-                tz = ZoneInfo("UTC")
+                    print("\nsync_time: caught ERROR getting timezone info: ", ex)
+                try:
+                    current_tz = ZoneInfo("UTC")
+                except Exception as ex:
+                    if self.DEBUG:
+                        print("\nsync_time: also caught ERROR getting timezone info for UTC: ", ex)
+                
 
             #utc_native = datetime.now(tz=timezone.utc)
             #utc_th_delta = utc_native - datetime(2000, 1, 1, 0, 0, 0, 0, timezone.utc)
@@ -2101,90 +2142,93 @@ class MatterDevice(Device):
 
 
 
-
-            now = datetime.now(tz)
-            utc_now = now.astimezone(ZoneInfo("UTC"))
-
-            total_offset = int(now.utcoffset().total_seconds()) if now.utcoffset() else 0
-            utc_offset = total_offset
-            dst_offset = 0
-            dt_utc = utc_now.astimezone(timezone.utc)
-            microstamp = int((dt_utc - matter_epoch_start).total_seconds() * 1000000)
-            a_year_later = microstamp + 31536000000000
-
-            for command_id in ['SetTimeZone','SetDSTOffset','SetUTCTime']:
+            if current_tz == None:
                 if self.DEBUG:
-                    print("\nsync_time: command_id: ", command_id)
+                    print("\nERROR: sync_time: current_tz is None. Aborting.")
+            else:
+                now = datetime.now(current_tz)
+                utc_now = now.astimezone(ZoneInfo("UTC"))
 
-                command_name = None
-                command = None
+                total_offset = int(now.utcoffset().total_seconds()) if now.utcoffset() else 0
+                utc_offset = total_offset
+                dst_offset = 0
+                dt_utc = utc_now.astimezone(timezone.utc)
+                microstamp = int((dt_utc - matter_epoch_start).total_seconds() * 1000000)
+                a_year_later = microstamp + 31536000000000
 
-                if command_id == 'SetTimeZone':
-                    command = clusters.TimeSynchronization.Commands.SetTimeZone()
-                elif command_id == 'SetDSTOffset':
-                    command = clusters.TimeSynchronization.Commands.SetDSTOffset()
-                elif command_id == 'SetUTCTime':
-                    command = clusters.TimeSynchronization.Commands.SetUTCTime()
-
-                if not command:
+                for command_id in ['SetTimeZone','SetDSTOffset','SetUTCTime']:
                     if self.DEBUG:
-                        print("error: sync_time: no command")
-                    continue
+                        print("\nsync_time: command_id: ", command_id)
 
-                try:
-                    command_name = command.__class__.__name__
-                except:
-                    try:
-                        command_name = command.__name__
-                    except:
-                        if self.DEBUG:
-                            print("\nERROR: device sync_time: getting command_name failed twice")
+                    command_name = None
+                    command = None
 
-                if command_name:
-                    if self.DEBUG:
-                        print("sync_time: command_name: ", command_name)
-                    #command = clusters.OnOff.Commands.Toggle() # test
-                    payload = dataclass_to_dict(command)
                     if command_id == 'SetTimeZone':
-                        payload["timeZone"] = [{"offset": utc_offset, "validAt": 0}]
+                        command = clusters.TimeSynchronization.Commands.SetTimeZone()
                     elif command_id == 'SetDSTOffset':
-                        payload["DSTOffset"] = [{"offset": dst_offset, "validStarting": 0, "validUntil": a_year_later,}]
+                        command = clusters.TimeSynchronization.Commands.SetDSTOffset()
                     elif command_id == 'SetUTCTime':
-                        payload["SetUTCTime"] = {"UTCTime": microstamp,"granularity": 4,}
+                        command = clusters.TimeSynchronization.Commands.SetUTCTime()
 
-                    message = {
-                        "message_id": "timesync_command",
-                        "command": "device_command",
-                        "args": {
-                            "node_id": int(self.node_id),
-                            "endpoint_id": self.timesync_endpoint_id,
-                            "payload": payload,
-                            "cluster_id": int(command.cluster_id),
-                            "command_name": str(command_name)
-                        }
-                      }
-
-
-                    if message != None:
-
-                        # send device command
+                    if not command:
                         if self.DEBUG:
-                            dump = json.dumps(message, sort_keys=True, indent=4, separators=(',', ': '))
-                            if self.DEBUG:
-                                print("\n.\n) ) )\n.\ndebug: sync_time: sending change value message to the Matter network: " + str(dump))
-                        json_message = json.dumps(message)
+                            print("error: sync_time: no command")
+                        continue
 
-                        if self.adapter.ws:
-                            was_sent = self.adapter.ws.send(json_message)
+                    try:
+                        command_name = command.__class__.__name__
+                    except:
+                        try:
+                            command_name = command.__name__
+                        except:
                             if self.DEBUG:
-                                print("debug: sync_time: message sent? was_sent: ", was_sent)
+                                print("\nERROR: device sync_time: getting command_name failed twice")
 
-                            # This should always be true:
-                            if self.id in self.adapter.reconnected_devices:
-                                self.adapter.reconnected_devices[self.id]['last_time_sync_attempt_timestamp'] = int(time.time())
-                            else:
+                    if command_name:
+                        if self.DEBUG:
+                            print("sync_time: command_name: ", command_name)
+                        #command = clusters.OnOff.Commands.Toggle() # test
+                        payload = dataclass_to_dict(command)
+                        if command_id == 'SetTimeZone':
+                            payload["timeZone"] = [{"offset": utc_offset, "validAt": 0}]
+                        elif command_id == 'SetDSTOffset':
+                            payload["DSTOffset"] = [{"offset": dst_offset, "validStarting": 0, "validUntil": a_year_later,}]
+                        elif command_id == 'SetUTCTime':
+                            payload["SetUTCTime"] = {"UTCTime": microstamp,"granularity": 4,}
+
+                        message = {
+                            "message_id": "timesync_command",
+                            "command": "device_command",
+                            "args": {
+                                "node_id": int(self.node_id),
+                                "endpoint_id": self.timesync_endpoint_id,
+                                "payload": payload,
+                                "cluster_id": int(command.cluster_id),
+                                "command_name": str(command_name)
+                            }
+                        }
+
+
+                        if message != None:
+
+                            # send device command
+                            if self.DEBUG:
+                                dump = json.dumps(message, sort_keys=True, indent=4, separators=(',', ': '))
                                 if self.DEBUG:
-                                    print("Error: Device: sync_time: thing_id was not in self.adapter.reconnected_devices, cannot update last_time_sync_attempt_timestamp")
+                                    print("\n.\n) ) )\n.\ndebug: sync_time: sending change value message to the Matter network: " + str(dump))
+                            json_message = json.dumps(message)
+
+                            if self.adapter.ws:
+                                was_sent = self.adapter.ws.send(json_message)
+                                if self.DEBUG:
+                                    print("debug: sync_time: message sent? was_sent: ", was_sent)
+
+                                # This should always be true:
+                                if self.id in self.adapter.reconnected_devices:
+                                    self.adapter.reconnected_devices[self.id]['last_time_sync_attempt_timestamp'] = int(time.time())
+                                else:
+                                    if self.DEBUG:
+                                        print("Error: Device: sync_time: thing_id was not in self.adapter.reconnected_devices, cannot update last_time_sync_attempt_timestamp")
 
         except Exception as ex:
             if self.DEBUG:

@@ -104,7 +104,7 @@ class MatterProperty(Property):
         
         if self.DEBUG:
             print("property: initiated: " + str(self.title) + ", with value: " + str(value))
-            self.device.adapter.should_save = True
+        self.device.adapter.should_save = True
 
             
         

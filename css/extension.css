@@ -565,7 +565,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 
 #extension-matter-adapter-view .extension-matter-adapter-item-network-type,
 #extension-matter-adapter-view .extension-matter-adapter-item-node-id{
-	opacity:.2;
+	opacity:.5;
 	position:absolute;
     right: 2rem;
     top: 2rem;
@@ -573,11 +573,16 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	background-color:transparent;
 }
 #extension-matter-adapter-view .extension-matter-adapter-item-node-id{
+	opacity:.2;
 	font-size:5rem;
     right: 5rem;
 	top: 0.5rem;
 }
 
+#extension-matter-adapter-view .extension-matter-adapter-item-network-type{
+	display:flex;
+	flex-direction:column;
+}
 
 
 .extension-matter-adapter-item:not(.extension-matter-adapter-item-reconnected){
@@ -622,10 +627,8 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 
 
 .extension-matter-adapter-item-network-type{
-	width:4rem;
-	height:4rem;
-	background-size: 3rem;
-	background-position:center;
+	width:3rem;
+	min-height:3rem;
 }
 
 
@@ -2141,6 +2144,9 @@ body:not(.developer) .extension-matter-adapter-show-if-developer{
 		right: 21rem;
 	}
 	
+	.extension-matter-adapter-item-reveal-share-button{
+		width:100%;
+	}
 
 	.extension-matter-adapter-item-refresh-button{
 		margin-top:2rem;

@@ -228,6 +228,8 @@ class MatterAdapter(Adapter):
         self.DEBUG2 = False
         self.DEVICE_DEBUG = True
 
+        self.create_extra_properties = False
+
         self.should_save = False
         self.auto_enable_properties = True
 
@@ -270,6 +272,8 @@ class MatterAdapter(Adapter):
 
         self.discovered = []
         self.nodes = []
+
+        
 
         self.raw_mdns = ''
         self.last_get_nodes_timestamp = 0
@@ -397,6 +401,8 @@ class MatterAdapter(Adapter):
             'SystemMode': ['Off','Auto','Cool','Heat','EmergencyHeat','PreCooling','FanOnly','Dry','Sleep'],
             'ThermostatRunningMode': ['Off','Cool','Heat'],
             'TemperatureSetpointHold': ['SetpointHoldOff','SetpointHoldOn'],
+            'UpdateState': ['Unknown','Idle','Querying','DelayedOnQuery','Downloading','Applying','DelayedOnApply','RollingBack','DelayedOnUserConsent'],
+            'ChangeReason': ['Unknown','Success','Failure','TimeOut','DelayByProvider']
         }
 
 
@@ -426,7 +432,7 @@ class MatterAdapter(Adapter):
             "RelativeHumidityMeasurement":100,
             #"IlluminanceMeasurement":1,  # where 1 lx <= illuminance <= 3.576 Mlx, corresponding to a MeasuredValue in the range 1 to 0xFFFE
             "Thermostat":100,
-            "CarbonDioxideConcentrationMeasurement":1000,
+            #"CarbonDioxideConcentrationMeasurement":1000, # IKEA's Alpstuga delivers a measurement that does not need to be multiplied
 
 
             #This attribute SHALL indicate the illuminance in Lux (symbol lx) as follows:
@@ -1169,6 +1175,11 @@ class MatterAdapter(Adapter):
 
             if "Days between updating certificates" in config:
                 self.time_between_certificate_downloads = int(config["Days between updating certificates"]) * 86400
+
+            if "Create extra properties" in config:
+                self.create_extra_properties = bool(config["Create extra properties"])
+                if self.DEBUG:
+                    self.s_print("Create extra properties preference was in settings: " + str(self.create_extra_properties))
 
             #if "Do not use Hotspot as WiFi network for devices" in config:
             #    self.use_hotspot = not bool(config["Do not use Hotspot as WiFi network for devices"])
@@ -3064,18 +3075,51 @@ class MatterAdapter(Adapter):
                 #        self.s_print("\nADAPTER: INCOMING NODE EVENT\n")
 
                 elif message['event'] == 'attribute_updated':
+                    if self.DEBUG:
+                        self.s_print("\nADAPTER: INCOMING attribute_updated\n", message['event'], "\n", message)
                     self.handle_event(message)
 
                 elif message['event'] == 'node_event':
                     if self.DEBUG:
-                        self.s_print("\nADAPTER: INCOMING NODE OR PROPERTY CHANGE\n", message['event'], "\n", message)
+                        self.s_print("\nADAPTER: INCOMING node_event\n", message['event'], "\n", message)
                     #if 'attributes' in message['data']:
                     #    process_node(message['data'])
                     self.handle_event(message)
 
                 elif message['event'] == 'node_updated':
                     if self.DEBUG:
-                        self.s_print("attempting to feed node data into self.parse_node")
+                        self.s_print("\nNODE UPDATED\n\nreceived node_updated event. attempting to feed updated node data into self.parse_node")
+
+                    try:
+                        if 'result' in message and 'node_id' in message['result']:
+                            
+                            node_id = message['result']['node_id']
+                            if self.DEBUG:
+                                self.s_print("node_updated: node_id: ", node_id)
+                            
+                            thing_id = 'matter-' + str(node_id)
+                            if str(node_id) in self.node_thing_id_lookup:
+                                thing_id = 'matter-' + self.node_thing_id_lookup[str(node_id)]
+                                if self.DEBUG:
+                                    print("update_node succes: found thing_id in node_thing_id_lookup: ", node_id ," -> ", thing_id)
+                            else:
+                                #thing_id = 'matter-' + md5_hash(str(node_id)) # small chance, as this would only be a valid thing_id if the device did not have a UniqueID matter property
+                                for nodez_thing_id in self.persistent_data['nodez']:
+                                    if 'node_id' in self.persistent_data['nodez'][str(nodez_thing_id)] and isinstance(self.persistent_data['nodez'][str(nodez_thing_id)]['node_id'],int) and self.persistent_data['nodez'][str(nodez_thing_id)]['node_id'] == node_id:
+                                        thing_id = nodez_thing_id
+                                        if self.DEBUG:
+                                            print("update_node succes: WARNING, could not find node_id in node_thing_id_lookup, but it was found in self.persistent_data['nodez']: ", node_id ," -> ", thing_id)
+                                        break
+                            
+                            if self.DEBUG:
+                                self.s_print("node_updated: found thing_id of node that was just updated: ", thing_id)
+                            if str(thing_id) in self.persistent_data['nodez']:
+                                self.persistent_data['nodez'][thing_id]['last_update_done_timestamp'] = int(time.time())
+
+
+                    except Exception as ex:
+                        print("caught error while looking for thing_id of node_updated event: ", ex)
+
                     self.parse_node(message)
 
 
@@ -3206,7 +3250,7 @@ class MatterAdapter(Adapter):
                     elif message['message_id'].startswith('get_node_ip_addresses_'):
                         if self.DEBUG:
                             self.s_print("\n\nreceived successful get_node_ip_addresses information\n\n")
-                            self.s_print("successful check_node_update message: ", message)
+                            self.s_print("successful get_node_ip_addresses message: ", message)
                         if 'result' in message:
                             node_id = str(message['message_id']).replace('get_node_ip_addresses_','')
                             if node_id.isdigit():
@@ -3263,10 +3307,31 @@ class MatterAdapter(Adapter):
 
                     elif message['message_id'].startswith('update_node_'):
                         if self.DEBUG:
-                            self.s_print("\n\nUPDATE NODE successful\n\n")
+                            self.s_print("\n\nUPDATE NODE --START-- successful\n\n")
                         if self.DEBUG:
-                            self.s_print("SUCCESFUL UPDATE MESSAGE: \n" + str(json.dumps(message,indent=4)))
-
+                            self.s_print("SUCCESFUL UPDATE_NODE MESSAGE: \n" + str(json.dumps(message,indent=4)))
+                        
+                        node_id = message['message_id'].replace('update_node_','')
+                        
+                        thing_id = 'matter-' + str(node_id)
+                        if str(node_id) in self.node_thing_id_lookup:
+                            thing_id = 'matter-' + self.node_thing_id_lookup[str(node_id)]
+                            if self.DEBUG:
+                                print("update_node succes: found thing_id in node_thing_id_lookup: ", node_id ," -> ", thing_id)
+                        else:
+                            #thing_id = 'matter-' + md5_hash(str(node_id)) # small chance, as this would only be a valid thing_id if the device did not have a UniqueID matter property
+                            for nodez_thing_id in self.persistent_data['nodez']:
+                                if 'node_id' in self.persistent_data['nodez'][str(nodez_thing_id)] and isinstance(self.persistent_data['nodez'][str(nodez_thing_id)]['node_id'],int) and self.persistent_data['nodez'][str(nodez_thing_id)]['node_id'] == node_id:
+                                    thing_id = nodez_thing_id
+                                    if self.DEBUG:
+                                        print("update_node succes: WARNING, could not find node_id in node_thing_id_lookup, but it was found in self.persistent_data['nodez']: ", node_id ," -> ", thing_id)
+                                    break
+                        
+                        
+                        if thing_id in self.persistent_data['nodez']:
+                            if self.DEBUG:
+                                self.s_print("update_node: started succesfully:  thing_id: ",  thing_id)
+                            self.persistent_data['nodez'][thing_id]['last_update_start_timestamp'] = int(time.time())
 
 
                     elif message['message_id'].startswith('remove_node_'):
@@ -3325,7 +3390,7 @@ class MatterAdapter(Adapter):
                                     if self.DEBUG:
                                         print("setting update details:  thing_id:", str(thing_id))
                                     self.persistent_data['nodez'][str(thing_id)]['update'] = message
-                                    self.persistent_data['nodez'][str(thing_id)]['update']['last_update_check_timestamp'] = int(time.time())
+                                    self.persistent_data['nodez'][str(thing_id)]['last_update_check_timestamp'] = int(time.time())
                                     break
                         self.last_matter_update_check_response_timestamp = int(time.time())
 
@@ -4935,6 +5000,19 @@ class MatterAdapter(Adapter):
                 elif cluster_name == 'GeneralNetworkDiagnostics' and attribute_name == '':
                     if not thing_id in self.general_network_diagnostics:
                         self.general_network_diagnostics[thing_id] = {}
+
+                    return
+
+                elif cluster_name == 'OtaSoftwareUpdateRequestor':
+                    if attribute_name == 'RecentEvent':
+                        if self.DEBUG:
+                            self.s_print("handle_event: received a firmware update RecentEvent message: \n",  json.dumps(message,indent=2))
+                        #if 'targetSoftwareVersion' in 
+                    elif attribute_name == 'UpdateState':
+                        if self.DEBUG:
+                            self.s_print("handle_event: received a firmware update UpdateState message: \n", json.dumps(message,indent=2))
+                
+                    return
                 
 
                 """
@@ -5007,7 +5085,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                         self.s_print("handle_event: found thing_id in node_thing_id_lookup: ", node_id ," -> ", thing_id)
                 else:
                     if self.DEBUG:
-                        self.s_print("handle_event: ERROR, ABORTING: node_id not fou nd in node_thing_id_lookup: ", node_id, self.node_thing_id_lookup)
+                        self.s_print("\nhandle_event: ERROR, ABORTING: node_id not found in node_thing_id_lookup: ", node_id, self.node_thing_id_lookup)
                     self.get_nodes()
                     return
                     #thing_id = 'matter-' + md5_hash(str(node_id))
@@ -5128,6 +5206,31 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                                                     else:
                                                         if self.DEBUG:
                                                             self.s_print("handle_event: ERROR, hacky Bilresa boolean property not found.  hacky_boolean_property_id: ", hacky_boolean_property_id)
+                                                
+
+                                                elif 'totalNumberOfPressesCounted' in data['data']:
+                                                    if self.DEBUG:
+                                                        self.s_print("OK, totalNumberOfPressesCounted in data.data: ")
+                                                        self.s_print("fancy index: ", str(fancy_indexes[bilresa_index]))
+
+                                                    hacky_event_property_id = 'property-Endpoint0-BasicInformation-' + str(fancy_indexes[bilresa_index]) + 'Event'
+                                                    hacky_event_attribute_code = 'BasicInformation.Attributes.' + str(fancy_indexes[bilresa_index]) + 'Event'
+                                                    if self.DEBUG:
+                                                        self.s_print("bilresa hacky_event_property_id: ", hacky_event_property_id)
+                                                        self.s_print("bilresa hacky_event_attribute_code: ", hacky_event_attribute_code)
+                                                    hacky_event_target_property = target_device.find_property(hacky_event_property_id)
+                                                    if hacky_event_target_property:
+                                                        if self.DEBUG:
+                                                            self.s_print("handle_event: OK, found hacky Bilresa event property. Will try to set it's enum.")
+                                                        if data['data']['totalNumberOfPressesCounted'] == 1:
+                                                            hacky_event_target_property.update('Click')
+                                                        if data['data']['totalNumberOfPressesCounted'] == 2:
+                                                            hacky_event_target_property.update('DoubleClick')
+                                                        elif data['data']['totalNumberOfPressesCounted'] == 3:
+                                                            hacky_event_target_property.update('TripleClick')
+                                                    
+                                                
+                                                
                                                 #else:
                                                 #    if self.DEBUG:
                                                 #        self.s_print("handle_event: ERROR, no 'newPosition' found in boolean event data for virtual Bilresa toggle")
@@ -5193,50 +5296,50 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                                                 if self.DEBUG:
                                                     self.s_print("handle_event: ERROR, bilresa property update fell through")
 
-
-                                elif hacky_attribute_code in self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name]:
-                                    if self.DEBUG:
-                                        self.s_print("handle_event: surprisingly, there is already an attribute with this hacky code: ", self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code])
-                                else:
-                                    hacky_attribute_code = str(cluster_name) + 'Candle.Attributes.' + str(data_attribute)
-
+                                elif self.create_extra_properties:
                                     if hacky_attribute_code in self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name]:
                                         if self.DEBUG:
-                                            self.s_print("handle_event: this hacky property has already been created in persistent data: ", self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code])
-
-                                        #thing_id = 'matter-' + str(node_id)
-                                        target_device = self.get_device(thing_id)
-                                        if target_device:
-                                            hacky_property_id = 'property-' + str(endpoint_name) + '-'+ str(cluster_name) + 'Candle-' + str(data_attribute)
-                                            if self.DEBUG:
-                                                self.s_print("handle_event: hacky_property_id: ", hacky_property_id)
-                                            hacky_target_property = target_device.find_property(hacky_property_id)
-                                            if hacky_target_property:
-                                                if self.DEBUG:
-                                                    self.s_print("handle_event: OK, found hacky property. Will update it to: ", value)
-                                                hacky_target_property.update( value )
-
+                                            self.s_print("handle_event: surprisingly, there is already an attribute with this hacky code: ", self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code])
                                     else:
-                                        attribute_code = hacky_attribute_code
-                                        if self.DEBUG:
-                                            self.s_print("\nhandle_event: creating new hacky property\n")
-                                        self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code] = {'enabled':True,'property':{'description':{'title':uncamel(data_attribute).replace('_',' ') + ' ' + str(endpoint),'readOnly':True}},'hacky':True,'value': value, 'received_values':[value]}
-                                        if isinstance(value,int):
-                                            self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['type'] = 'number'
-                                            self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['multipleOf'] = 1
-                                        elif isinstance(value,str):
-                                            self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['type'] = 'string'
-                                        elif isinstance(value,bool):
-                                            self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['type'] = 'boolean'
+                                        hacky_attribute_code = str(cluster_name) + 'Candle.Attributes.' + str(data_attribute)
 
-                                        self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['attribute_code'] = attribute_code
-
-                                        #thing_id = 'matter-' + str(node_id)
-                                        target_device = self.get_device(thing_id)
-                                        if target_device:
+                                        if hacky_attribute_code in self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name]:
                                             if self.DEBUG:
-                                                self.s_print("handle_event: calling reparse_node so that the new hacky property will immediately be created")
-                                            target_device.reparse_node()
+                                                self.s_print("handle_event: this hacky property has already been created in persistent data: ", self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code])
+
+                                            #thing_id = 'matter-' + str(node_id)
+                                            target_device = self.get_device(thing_id)
+                                            if target_device:
+                                                hacky_property_id = 'property-' + str(endpoint_name) + '-'+ str(cluster_name) + 'Candle-' + str(data_attribute)
+                                                if self.DEBUG:
+                                                    self.s_print("handle_event: hacky_property_id: ", hacky_property_id)
+                                                hacky_target_property = target_device.find_property(hacky_property_id)
+                                                if hacky_target_property:
+                                                    if self.DEBUG:
+                                                        self.s_print("handle_event: OK, found hacky property. Will update it to: ", value)
+                                                    hacky_target_property.update( value )
+
+                                        else:
+                                            attribute_code = hacky_attribute_code
+                                            if self.DEBUG:
+                                                self.s_print("\nhandle_event: creating new hacky property\n")
+                                            self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code] = {'enabled':True,'property':{'description':{'title':uncamel(data_attribute).replace('_',' ') + ' ' + str(endpoint),'readOnly':True}},'hacky':True,'value': value, 'received_values':[value]}
+                                            if isinstance(value,int):
+                                                self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['type'] = 'number'
+                                                self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['multipleOf'] = 1
+                                            elif isinstance(value,str):
+                                                self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['type'] = 'string'
+                                            elif isinstance(value,bool):
+                                                self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['description']['type'] = 'boolean'
+
+                                            self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code]['property']['attribute_code'] = attribute_code
+
+                                            #thing_id = 'matter-' + str(node_id)
+                                            target_device = self.get_device(thing_id)
+                                            if target_device:
+                                                if self.DEBUG:
+                                                    self.s_print("handle_event: calling reparse_node so that the new hacky property will immediately be created")
+                                                target_device.reparse_node()
 
 
 
@@ -5371,52 +5474,25 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
                             if 'attribute_code' in target_property.details and '.Attributes.' in str(target_property.details['attribute_code']):
                                 if self.DEBUG:
-                                    self.s_print("handle_event: OK, found 'acctribute_code' in property's details dict: ", target_property.details['attribute_code'])
+                                    self.s_print("handle_event: OK, found 'attribute_code' in property's details dict: ", target_property.details['attribute_code'])
                                 
                                 # TODO: match more situations there 255 (of an int8) should become None
-
-                                if target_property.details['attribute_code'] == 'LevelControl.Attributes.CurrentLevel' and isinstance(value,(int,float)):
-                                    if self.DEBUG:
-                                        self.s_print("handle_event: should massage percentage value: ", value)
-                                    if value == 255:
-                                        value = None # Matter convention is to use 255 as null.
-                                    elif value < 0:
+                                if isinstance(value,int) and hasattr(target_property, 'type'):
+                                    if target_property.type == 'string':
                                         if self.DEBUG:
-                                            self.s_print("\nproperty: update: ERROR, currentLevel value was less than zero: ", value)
-                                        value = 0
-                                    elif value > 255:
-                                        if self.DEBUG:
-                                            self.s_print("\nproperty: update: ERROR, currentLevel value was more than 255: ", value)
-                                        value = 254
-                                    
-                                    value = int(value / 2.54)
+                                            self.s_print("handle_event: the value should eventually become a string.  value: ", value)
+                                        if hasattr(target_property, 'enum'):
+                                            if self.DEBUG:
+                                                self.s_print("handle_event: property has an enum list: ", target_property.enum)
+                                            if target_property.enum != None and value >= 0 and value < len(target_property.enum):
+                                                if self.DEBUG:
+                                                    self.s_print("handle_event: DOING INT TO ENUM FROM PROPERTY DESCRIPTION: ", value, " --> ", target_property.enum[value])
+                                                value = str(target_property.enum[value])
+
+                                if isinstance(value,(int,float)):
                                     if self.DEBUG:
-                                        self.s_print("handle_event: massaged percentage value: ", value)
-
-                                else:
-                                    if isinstance(value,(int,float)) and isinstance(cluster_name,str) and isinstance(attribute_name,str):
-
-                                        #
-                                        # DIVIDE BY MULTIPLIER
-                                        #
-                                        if attribute_name in self.attribute_multipliers and isinstance(value,(int,float)):
-                                            multiplier = self.attribute_multipliers[attribute_name]
-                                            if self.DEBUG:
-                                                self.s_print("property: update: applying attribute multiplier (divide by).  multiplier, value before: ", multiplier, value)
-                                            value = value / multiplier
-                                            if self.DEBUG:
-                                                self.s_print("property: update: value after applying attribute multiplier: ", value)
-
-                                        elif cluster_name in self.cluster_multipliers and isinstance(value,(int,float)) and 'MeasuredValue' in attribute_name:
-                                            multiplier = self.cluster_multipliers[cluster_name]
-                                            if self.DEBUG:
-                                                self.s_print("property: update: applying cluster multiplier (divide by).  multiplier, value before: ", multiplier, value)
-                                            value = value / multiplier
-                                            if self.DEBUG:
-                                                self.s_print("property: update: value after applying cluster multiplier: ", value)
-                                        else:
-                                            if self.DEBUG:
-                                                self.s_print("property: update: WARNING, no multiplier found for cluster_name,attribute_name: ", cluster_name, attribute_name)
+                                        self.s_print("handle_event: applying divide_incoming_value_by_multiplier")
+                                    value = self.divide_incoming_value_by_multiplier(value,cluster_name,attribute_name)
                                     
                             else:
                                 if self.DEBUG:
@@ -5500,6 +5576,83 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
         }
 
         """
+
+    def divide_incoming_value_by_multiplier(self, value=None, cluster_name=None, attribute_name=None):
+        if self.DEBUG:
+            print("in divide_incoming_value_by_multiplier.  value, cluster_name, attribute_name: ", value, cluster_name, attribute_name)
+        if isinstance(cluster_name,str) and isinstance(attribute_name,str):
+
+            if cluster_name == 'LevelControl' and attribute_name == 'CurrentLevel' and isinstance(value,(int,float)):
+                if self.DEBUG:
+                    self.s_print("divide_incoming_value_by_multiplier: should massage percentage value: ", value)
+                if value == 255:
+                    value = None # Matter convention is to use 255 as null.
+                elif value < 0:
+                    if self.DEBUG:
+                        self.s_print("\ndivide_incoming_value_by_multiplier: ERROR, currentLevel value was less than zero: ", value)
+                    value = 0
+                elif value > 255:
+                    if self.DEBUG:
+                        self.s_print("\ndivide_incoming_value_by_multiplier: ERROR, currentLevel value was more than 255: ", value)
+                    value = 254
+                
+                value = int(value / 2.54)
+                if self.DEBUG:
+                    self.s_print("divide_incoming_value_by_multiplier: massaged percentage value: ", value)
+
+
+
+            # Switch value to an enums string
+            elif attribute_name in self.enums_lookup:
+                if self.DEBUG:
+                    print("  enum available: ", attribute_name, self.enums_lookup[attribute_name])
+
+                if isinstance(value,int) and value >=0 and value < len(self.enums_lookup[attribute_name]):
+                    value = self.enums_lookup[attribute_name][value]
+                    if self.DEBUG:
+                        print("divide_incoming_value_by_multiplier:  early switch of property value from number to string from enums_lookup: ", value)
+            
+            elif attribute_name in self.other_lookup:
+                value = self.other_lookup[attribute_name][value]
+                if self.DEBUG:
+                    print("divide_incoming_value_by_multiplier:  early switch of property value from number to string from self.OTHER_lookup: ", value)
+
+            elif attribute_name.endswith('LevelValue') and str(cluster_name) in self.enums_lookup:
+                if self.DEBUG:
+                    print("divide_incoming_value_by_multiplier:  enum LevelValue available via clusterName: ", cluster_name, self.enums_lookup[cluster_name])
+
+                if isinstance(value,int) and value >=0 and value < len(self.enums_lookup[cluster_name]):
+                    value = self.enums_lookup[cluster_name][value]
+                    if self.DEBUG:
+                        print("divide_incoming_value_by_multiplier:  early switch of LevelValue from number to string from enums_lookup via cluster_name: ", value)
+
+            else:
+                if isinstance(value,(int,float)):
+
+                    #
+                    # DIVIDE BY MULTIPLIER
+                    #
+                    if attribute_name in self.attribute_multipliers and isinstance(value,(int,float)):
+                        multiplier = self.attribute_multipliers[attribute_name]
+                        if self.DEBUG:
+                            self.s_print("divide_incoming_value_by_multiplier: applying attribute multiplier (divide by).  value before, multiplier: ", value, " / ", multiplier)
+                        value = value / multiplier
+                        if self.DEBUG:
+                            self.s_print("divide_incoming_value_by_multiplier: value after applying attribute multiplier: ", value)
+
+                    # This catches MeasuredValue, MinMeasuredValue and MaxMeasuredValue for a couple of sensor clusters, such as humidity
+                    elif cluster_name in self.cluster_multipliers and isinstance(value,(int,float)) and 'MeasuredValue' in attribute_name:
+                        multiplier = self.cluster_multipliers[cluster_name]
+                        if self.DEBUG:
+                            self.s_print("divide_incoming_value_by_multiplier: applying cluster multiplier (divide by).  value before, multiplier: ", value, " / ", multiplier,)
+                        value = value / multiplier
+                        if self.DEBUG:
+                            self.s_print("divide_incoming_value_by_multiplier: value after applying cluster multiplier: ", value)
+                    else:
+                        if self.DEBUG:
+                            self.s_print("divide_incoming_value_by_multiplier: WARNING, no multiplier found for cluster_name,attribute_name: ", cluster_name, attribute_name)
+
+        return value
 
 
 
@@ -6043,18 +6196,19 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
             self.s_print("caught error in check_for_node_updates: ", ex)
         
 
-    def update_node(self,node_id):
+    def update_node(self,node_id,software_version=None):
         if self.DEBUG:
-            self.s_print("\nin UPDATE_NODE:  node_id: ", node_id, "\n")
+            self.s_print("\nin UPDATE_NODE:  node_id: ", node_id, "\n target software_version:", software_version)
         
         try:
-            if isinstance(node_id,(str,int)):
+            if isinstance(node_id,(str,int)) and isinstance(software_version,int):
                 if self.matter_client_connected and self.matter_running and 'nodez' in self.persistent_data:
                     message = {
                                 "message_id": "update_node_" + str(node_id),
                                 "command": "update_node",
                                 "args": {
-                                    "node_id": int(node_id)
+                                    "node_id": int(node_id),
+                                    "software_version": int(software_version)
                                 }
                             }
 

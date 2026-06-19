@@ -3896,7 +3896,7 @@
 
 
 
-                        // CANCEL UPDATE BUTTON
+                        // CANCEL AND START UPDATE BUTTONS
 
                         
 
@@ -3912,7 +3912,8 @@
                                 item_el.classList.remove("extension-matter-adapter-update");
                                 //clone.classList.remove("extension-matter-adapter-update");
                             });
-
+                            
+                            
                             start_update_button.dataset.node_id = item_data['node_id'];
                             start_update_button.addEventListener('click', (event) => {
                                 if(this.debug){
@@ -3922,51 +3923,61 @@
                                 //console.log("data attribute: ", event.target.dataset);
                                 //console.log("data attribute: ", event.target.dataset.node_id);
                 
+                                let target_software_version = null;
                                 let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-                                item_el.classList.remove("extension-matter-adapter-update");
-                                item_el.classList.add("extension-matter-adapter-updating");
-                
-                                //setTimeout(() => hideBtn(0), 1000);
-                
-                                //setTimeout(function(){ 
-                                //	parent3.classList.remove("updating");
-                                //}, 600000); // after 10 minutes, remove updating styling no matter what
-                
-                
-                                // Disable all update buttons if one has been clicked
-                                var update_buttons = document.getElementsByClassName("extension-matter-adapter-item-update-button");
-                                for(var i = 0; i < update_buttons.length; i++)
-                                {
-                                    update_buttons[i].disabled = true;
-                                }
-                                //pre.innerText = "Please wait 10 minutes before you start another update!";
-                                
-                                if(this.debug){
-                                    console.warn("matter debug: regenerate_items: calling update_node with my_node_id: ", my_node_id);
-                                }
-                                
-                                
-                                // Send node_update request to backend
-                                window.API.postJson(
-                                    `/extensions/${this.id}/api/ajax`,
-                                    {'action':'update_node','node_id':my_node_id}
-
-                                ).then((body) => { 
-                                    if(this.debug){
-                                        console.log("matter debug: regenerate_items: update_node response.  node_id,body: ", my_node_id, body);
+                                if(item_el){
+                                    target_software_version = item_el.getAttribute('data-latest-firmware-version');
+                                    if(typeof target_software_version == 'string'){
+                                        target_software_version = parseInt(target_software_version);
+                                        console.log("UPDATE: target_software_version: ", target_software_version);
                                     }
-                                    if(typeof body['state'] == 'boolean' && body['state'] == true){
-                                        this.updating_firmware = true;
-                                        this.flash_message("Succesfully requested firmware update");
+                                }
+                                
+                                if(typeof target_software_version == 'number'){
+                                    item_el.classList.remove("extension-matter-adapter-update");
+                                    item_el.classList.add("extension-matter-adapter-updating");
+                    
+                                    //setTimeout(() => hideBtn(0), 1000);
+                    
+                                    //setTimeout(function(){ 
+                                    //	parent3.classList.remove("updating");
+                                    //}, 600000); // after 10 minutes, remove updating styling no matter what
+                    
+                    
+                                    // Disable all update buttons if one has been clicked
+                                    var update_buttons = document.getElementsByClassName("extension-matter-adapter-item-update-button");
+                                    for(var i = 0; i < update_buttons.length; i++)
+                                    {
+                                        update_buttons[i].disabled = true;
+                                    }
+                                    //pre.innerText = "Please wait 10 minutes before you start another update!";
+                                    
+                                    if(this.debug){
+                                        console.warn("matter debug: regenerate_items: calling update_node with:  my_node_id,target_software_version: ", my_node_id, target_software_version);
                                     }
                                     
+                                    
+                                    // Send node_update request to backend
+                                    window.API.postJson(
+                                        `/extensions/${this.id}/api/ajax`,
+                                        {'action':'update_node','node_id':my_node_id, 'software_version':target_software_version}
 
-                                }).catch((err) => {
-                                    if(this.debug){
-                                        console.error("matter debug: regenerate_items: caught error calling update_node: ", err);
-                                    }
-                                });
-                                
+                                    ).then((body) => { 
+                                        if(this.debug){
+                                            console.log("matter debug: regenerate_items: update_node response.  node_id,body: ", my_node_id, body);
+                                        }
+                                        if(typeof body['state'] == 'boolean' && body['state'] == true){
+                                            this.updating_firmware = true;
+                                            this.flash_message("Succesfully requested firmware update");
+                                        }
+                                        
+
+                                    }).catch((err) => {
+                                        if(this.debug){
+                                            console.error("matter debug: regenerate_items: caught error calling update_node: ", err);
+                                        }
+                                    });
+                                }
                             });
                         }
                         /*
@@ -4171,13 +4182,13 @@
 
 
                             if(typeof item_data['update'] != "undefined"){
-                                if(typeof item_data['update']['result'] != "undefined" && typeof item_data['update']['last_update_check_timestamp'] == 'number'){
+                                if(typeof item_data['update']['result'] != "undefined" && typeof item_data['last_update_check_timestamp'] == 'number'){
                                     const line3_el = clone.querySelector('.extension-matter-adapter-line3');
                                     if(line3_el){
                                         const week_ago_timestamp = Math.round(Date.now() / 1000) - (38400 * 7);
                                         //console.log("week_ago_timestamp: ", week_ago_timestamp);
                                         //console.log("last_update_check_timestamp: ", item_data['update']['last_update_check_timestamp']);
-                                        if(item_data['update']['last_update_check_timestamp'] > week_ago_timestamp){ // 7 days
+                                        if(item_data['last_update_check_timestamp'] > week_ago_timestamp){ // 7 days
                                             if(this.debug && location.pathname == '/extensions/matter-adapter'){
                                                 console.log("matter debug: regenerate_items: regenerate_items: recent update info is available: ", item_data['update']);
                                             }
@@ -4204,14 +4215,23 @@
                                                 update_button_el.classList.add('extension-matter-adapter-item-update-button');
                                                 update_button_el.classList.add('text-button');
                                                 
-                                                if(typeof item_data['update']['result']['software_version_string'] == 'string'){
-                                                    update_button_el.textContent = 'Update to v' + item_data['update']['result']['software_version_string'];
-                                                    //line3_el.innerHTML = '<button class="extension-matter-adapter-item-update-container extension-matter-adapter-item-update-available"> + '</button>';
+                                                
+                                                
+                                                
+                                                if(typeof item_data['update']['result']['software_version'] == 'number'){
+                                                    
+                                                    if(typeof item_data['update']['result']['software_version_string'] == 'string'){
+                                                        update_button_el.textContent = 'Update to v' + item_data['update']['result']['software_version_string'];
+                                                        //line3_el.innerHTML = '<button class="extension-matter-adapter-item-update-container extension-matter-adapter-item-update-available"> + '</button>';
+                                                    }
+                                                    else{
+                                                        update_button_el.textContent = 'Update';
+                                                        //line3_el.innerHTML = '<button class="extension-matter-adapter-item-update-container extension-matter-adapter-item-update-available">Update</button>';
+                                                    }
+
+                                                    clone.setAttribute('data-latest-firmware-version', item_data['update']['result']['software_version'])
                                                 }
-                                                else{
-                                                    update_button_el.textContent = 'Update';
-                                                    //line3_el.innerHTML = '<button class="extension-matter-adapter-item-update-container extension-matter-adapter-item-update-available">Update</button>';
-                                                }
+                                                
 
                                                 update_button_el.addEventListener('click', () => {
                                                     //let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
@@ -4219,6 +4239,7 @@
                                                     clone.classList.add("extension-matter-adapter-update");
                                                     
                                                     update_button_el.classList.add('extension-matter-adapter-faded');
+                                                    /*
                                                     window.API.postJson(
                                                         `/extensions/${this.id}/api/ajax`,
                                                         {'action':'update_node','node_id':item_data['node_id']}
@@ -4233,6 +4254,7 @@
                                                             console.log("matter debug: regenerate_items:  caught error calling update_node: ", err);
                                                         }
                                                     });
+                                                    */
                                                 })
                                                 
                                                 line3_el.appendChild(update_button_el);
@@ -4464,7 +4486,7 @@
                                 // REFRESH
                         
 		                        // Refresh button (deletes the persistent data for 1 thing)
-		    					const refresh_button = clone.querySelector('.tension-matter-adapter-item-refresh-button');
+		    					const refresh_button = clone.querySelector('.extension-matter-adapter-item-refresh-button');
 								if(refresh_button){
 			    					refresh_button.addEventListener('click', (event) => {
                                         if(this.debug){
@@ -4477,9 +4499,17 @@
 			    							if(this.debug){
 			                                    console.log("matter debug: refresh_node: response ", body);
 			                                }
-                                            if(typeof body.state == 'boolean' && body.state == true){
-                                                let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-			                                    item_el.classList.add('extension-matter-adapter-item-refreshed');
+                                            if(typeof body.state == 'boolean'){
+                                                if(body.state == true){
+                                                    let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+                                                    if(item_el){
+                                                        item_el.classList.add('extension-matter-adapter-item-refreshed');
+                                                    }
+                                                }
+                                                else{
+                                                    this.flash_message('Failed to refresh (already refreshed?)')
+                                                }
+                                                
                                             }
 			    						}).catch((err) => {
 			    							if(this.debug){

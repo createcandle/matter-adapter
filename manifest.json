@@ -31,12 +31,13 @@
     "default": {
 	  "Region":"EU",
 	  "Help Thread devices to connect to the internet": false,
+	  "Create extra properties": false,
       "Brightness transition duration":0,
 	  "Days between updating certificates":14,
 	  "Thread channel":26,
 	  "Thread network name": "CandleThread",
 	  "Default Matter fabric name": "Home",
-	  "Matter server type": "Python",
+	  "Matter server type": "NodeJS",
 	  "Enable Matter server dashboard": false,
 	  "Use Candle meshlocalprefix when creating a new Thread network": false,
       "Debugging": false
@@ -54,6 +55,10 @@
         "Help Thread devices to connect to the internet": {
             "type": "boolean",
             "description": "Enabling this is not recommended, unless you have a Thread device that absolutely needs it. Note that firmware updating does not require this to be enabled. The default is to not allow this."
+        },
+        "Create extra properties": {
+            "type": "boolean",
+            "description": "Enabling this will cause some things to gain additional properties which are not part of the Matter standard. This can be useful to create more advanced automations around Variables, for example. This feature is disabled by default."
         },
         "Brightness transition duration": {
             "description": "If you would like your lights brightness transitions to not be instantaneous you can set a specific speed in seconds here. The default is 0.",
@@ -107,7 +112,7 @@
     }
   },
   "short_name": "matter",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "web_accessible_resources": [
     "css/*.css",
     "images/*.svg",

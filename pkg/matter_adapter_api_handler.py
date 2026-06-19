@@ -426,11 +426,16 @@ class MatterAPIHandler(APIHandler):
                         state = False
                         
                         try:
-                            if 'node_id' in request.body and str(request.body['node_id']) != '':
+                            if 'node_id' in request.body and str(request.body['node_id']) != '' and 'software_version' in request.body and isinstance(request.body['software_version'],int) :
                                 if self.DEBUG:
-                                    print("got request to update_node: ", request.body['node_id'])
-                                self.adapter.update_node(int(request.body['node_id']))
+                                    print("got request to update_node: ", request.body['node_id'], ", to version: ", request.body['software_version'])
+                                self.adapter.update_node(int(request.body['node_id']), int(request.body['software_version']))
                                 state = True
+                            else:
+                                if self.DEBUG:
+                                    print("\nERROR: bad update_node request\n")
+                                
+
                         except Exception as ex:
                             print("caught error handling update_node request: ", ex)
                         
@@ -1116,20 +1121,21 @@ class MatterAPIHandler(APIHandler):
                         
                         try:
                             node_id = str(request.body['node_id'])
-                            for existing_thing_id in self.adapter.persistent_data['nodez'].keys():
-                                if 'node_id' in self.adapter.persistent_data['nodez'][existing_thing_id] and self.adapter.persistent_data['nodez'][existing_thing_id]['node_id'] == node_id:
-                                    thing_id = existing_thing_id
-                                    if self.DEBUG:
-                                        print("API: refresh_node: found existing thing_id based on the node_id: ", node_id, " -> ", thing_id)
-                                    
-                                    if thing_id in self.adapter.persistent_data['nodez']:
+                            if 'nodez' in self.adapter.persistent_data:
+                                for existing_thing_id in self.adapter.persistent_data['nodez'].keys():
+                                    if 'node_id' in self.adapter.persistent_data['nodez'][existing_thing_id] and self.adapter.persistent_data['nodez'][existing_thing_id]['node_id'] == node_id:
+                                        thing_id = existing_thing_id
                                         if self.DEBUG:
-                                            print("API: refresh_node: removing thing from persistent_data with thing_id: ", thing_id)
-                                        del self.adapter.persistent_data['nodez'][thing_id]
-                                        self.adapter.should_save = True
-                                        state = True
+                                            print("API: refresh_node: found existing thing_id based on the node_id: ", node_id, " -> ", thing_id)
+                                        
+                                        if thing_id in self.adapter.persistent_data['nodez']:
+                                            if self.DEBUG:
+                                                print("API: refresh_node: removing thing from persistent_data with thing_id: ", thing_id)
+                                            del self.adapter.persistent_data['nodez'][thing_id]
+                                            self.adapter.should_save = True
+                                            state = True
 
-                                    break
+                                        break
                             
                         except Exception as ex:
                             if self.DEBUG:

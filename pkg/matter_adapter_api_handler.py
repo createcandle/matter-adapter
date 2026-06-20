@@ -245,7 +245,8 @@ class MatterAPIHandler(APIHandler):
                                       'thread_state_info':self.adapter.thread_state_info,
                                       'thread_netdata_info':self.adapter.thread_netdata_info,
                                       'has_thread_dataset':has_thread_dataset,
-                                      'reconnected_devices':self.adapter.reconnected_devices
+                                      'reconnected_devices':self.adapter.reconnected_devices,
+                                      'missing_devices':self.adapter.missing_devices, # TODO: Not used in UI yet
                                       
                                       })
                         )
@@ -1118,24 +1119,36 @@ class MatterAPIHandler(APIHandler):
                             print("API: in refresh_node")
                         
                         state = False
+                        thing_id_to_remove = None
                         
                         try:
-                            node_id = str(request.body['node_id'])
-                            if 'nodez' in self.adapter.persistent_data:
-                                for existing_thing_id in self.adapter.persistent_data['nodez'].keys():
-                                    if 'node_id' in self.adapter.persistent_data['nodez'][existing_thing_id] and self.adapter.persistent_data['nodez'][existing_thing_id]['node_id'] == node_id:
-                                        thing_id = existing_thing_id
+                            if 'node_id' in request.body:
+                                node_id = str(request.body['node_id'])
+                                if self.DEBUG:
+                                    print("node_id to refresh: ", node_id)
+                                if 'nodez' in self.adapter.persistent_data:
+                                    for existing_thing_id in list(self.adapter.persistent_data['nodez'].keys()):
                                         if self.DEBUG:
-                                            print("API: refresh_node: found existing thing_id based on the node_id: ", node_id, " -> ", thing_id)
+                                            print("refresh_node: existing_thing_id: ", existing_thing_id)
+                                            if 'node_id' in self.adapter.persistent_data['nodez'][existing_thing_id]:
+                                                print("refresh_node: existing_thing_id's node_id: ", self.adapter.persistent_data['nodez'][existing_thing_id]['node_id'])
+                                            else:
+                                                print("ERROR, node_id in self.adapter.persistent_data['nodez'][existing_thing_id] for existing_thing_id: ", existing_thing_id)
                                         
-                                        if thing_id in self.adapter.persistent_data['nodez']:
+                                        if 'node_id' in self.adapter.persistent_data['nodez'][existing_thing_id] and str(self.adapter.persistent_data['nodez'][existing_thing_id]['node_id']) == str(node_id):
+                                            thing_id_to_remove = existing_thing_id
                                             if self.DEBUG:
-                                                print("API: refresh_node: removing thing from persistent_data with thing_id: ", thing_id)
-                                            del self.adapter.persistent_data['nodez'][thing_id]
-                                            self.adapter.should_save = True
-                                            state = True
+                                                print("API: refresh_node: found existing thing_id_to_remove based on the node_id: ", node_id, " -> ", thing_id_to_remove)
+                                            break
 
-                                        break
+                            if thing_id_to_remove and thing_id_to_remove in self.adapter.persistent_data['nodez']:       
+                                if self.DEBUG:
+                                    print("API: refresh_node: removing thing_id_to_remove from persistent_data with thing_id: ", thing_id_to_remove)
+                                del self.adapter.persistent_data['nodez'][thing_id_to_remove]
+                                self.adapter.should_save = True
+                                state = True
+
+                                            
                             
                         except Exception as ex:
                             if self.DEBUG:
@@ -1148,11 +1161,6 @@ class MatterAPIHandler(APIHandler):
                           content=json.dumps({'state':state}),
                         )
                     
-
-
-
-
-
 
 
                     elif action == 'get_mdns':

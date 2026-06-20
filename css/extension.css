@@ -266,7 +266,9 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 .extension-matter-adapter-green-bg{
 	background-color: green!important;
 }
-
+.extension-matter-adapter-green{
+	color:green!important;
+}
 
 
 /*  FIND THREAD RADIO WIZARD  */

@@ -231,7 +231,7 @@ class MatterAdapter(Adapter):
         self.create_extra_properties = False
 
         self.should_save = False
-        self.auto_enable_properties = True
+        self.auto_enable_properties = False
 
         #show_clusters()
         #return
@@ -285,6 +285,7 @@ class MatterAdapter(Adapter):
         self.time_between_certificate_downloads = 14 * 86400 # 14 days
 
         self.busy_discovering = False
+        self.last_discovery_start_timestamp = 0
         self.pairing_failed = False
         self.busy_pairing = False
         self.last_pairing_start_time = 0
@@ -299,13 +300,15 @@ class MatterAdapter(Adapter):
         self.last_found_pin_code = ''
         self.last_used_pairing_type = None
 
+        
+
         self.device_was_deleted = False # set to True is a device is deleted from the Matter fabric
 
         self.share_node_code = "" # used with open window
 
         self.brightness_transition_time = 0
 
-        self.add_hacky_properties = True
+        self.add_hacky_properties = True # This is now permanently enabled
 
         self.missing_devices = []
         self.node_thing_id_lookup = {} # map the Matter node ID's to the unique device ID's of the actual matter devices
@@ -363,7 +366,8 @@ class MatterAdapter(Adapter):
         self.general_diagnostics = {}
         self.reconnected_devices = {} # holds node ID's (integers) of reconnected devices
 
-        self.enums_lookup = get_enums_lookup()
+        # self.enums_lookup = self.get_enums_lookup(True) # has debug parameter  
+        self.enums_lookup = get_enums_lookup() 
         self.events_lookup = get_events_lookup()
         self.other_lookup = {
             #'roleNames': { 2: 'Sleepy End Device', 3: 'End Device', 4: 'REED', 5: 'Router', 6: 'Leader' };
@@ -371,6 +375,8 @@ class MatterAdapter(Adapter):
             # ThreadNetworkDiagnostics - RoutingRole
             'RoutingRole': ['Unspecified', 'Unassigned', 'SleepyEndDevice', 'EndDevice', 'RouterEligibleEndDevice', 'Router', 'Leader', 'UnknownEnumValue'],
             'PowerMode': ['Unknown','DC','AC'],
+            'BatReplaceability': ['Unspecified','NotReplaceable','UserReplaceable','FactoryReplaceable'],
+            'BatCommonDesignation': ['Unspecified','AAA','AA','C','D','4v5','6v0','9v0','1_2AA','AAAA','A','B','F','N'], # There are WAY more..
             'OccupancySensorType': ['PIR','Ultrasonic','PhysicalContact'],
             #'OccupancySensorTypeBitmap': ['PIR','Ultrasonic','PIRAndUltrasonic','PhysicalContact'],
             'MeasurementUnit': ['PPM', 'PPB', 'PPT', 'MGM3','UGM3','NGM3','PM3','BQM3'],
@@ -3210,6 +3216,9 @@ class MatterAdapter(Adapter):
                     elif message['message_id'] == 'start_listening':
                         if self.DEBUG:
                             self.s_print("OK LISTENING")
+
+                        #self.parse_nodes(message['result'])
+                        #self.ready = True # the addon should now have recreated the things
                         self.matter_running = True
 
                     elif message['message_id'] == 'set_wifi_credentials':
@@ -3467,18 +3476,18 @@ class MatterAdapter(Adapter):
                             if self.DEBUG:
                                 self.s_print("Pairing failed, but will try again")
                             if 'details' in message and 'No commissionable device was discovered' in str(message['details']):
-                                self.send_pairing_prompt('No pairable device discovered')
+                                self.send_pairing_prompt('No pairable device discovered.. Trying again..')
                                 self.pairing_phase_message = 'No pairable device discovered.. Trying again..'
                             else:
                                 self.send_pairing_prompt("Pairing failed.. Trying again..")
                                 self.pairing_phase_message = 'Pairing failed.. Trying again..'
                             self.start_matter_pairing()
                         else:
-                            self.pairing_failed = True
+                            #self.pairing_failed = True
                             self.busy_pairing = False
                             self.send_pairing_prompt("Pairing Matter device officially failed")
-                            self.pairing_phase_message = 'Pairing attempts failed'
-                            self.pairing_phase = -1
+                            self.pairing_phase_message = 'All pairing attempts failed'
+                            #self.pairing_phase = -1
 
 
                     elif message['message_id'] == 'open_commissioning_window' or message['message_id'] == 'commission_on_network':
@@ -3699,7 +3708,9 @@ class MatterAdapter(Adapter):
     # Not currently used
     def discover(self):
         try:
-            if self.matter_client_connected and self.matter_running:
+            if self.matter_client_connected and self.matter_running and self.last_discovery_start_timestamp < time.time() - 30:
+                
+                self.last_discovery_start_timestamp = int(time.time())
 
                 self.busy_discovering = True
 
@@ -4531,10 +4542,26 @@ class MatterAdapter(Adapter):
             try:
                 if self.server_process and self.server_process.poll() == None:
                     for line in iter(self.server_process.stdout.readline,b''):
+                        line = line.decode().rstrip()
                         if self.DEBUG:
-                            self.s_print("CAPTURED MATTTER STDOUT: " + str(line.decode().rstrip()))
+                            self.s_print("CAPTURED MATTTER STDOUT: " + str(line))
 
-                        # nothing is coming out of stdout
+                        # nothing is coming out of stdout with the Pyhon version, but funnily enough the NodeJS version does use it.
+
+                        #try:
+                        #    if 'Created paired node with device data ' in line:
+                        #        paired_node_raw_json = line.split('Created paired node with device data ')[1]
+                        #        paired_node_raw_json = paired_node_raw_json.rstrip().strip()
+                        #        new_node_json = json.loads(paired_node_raw_json)
+                        #        if self.DEBUG:
+                        #            print("new_node_json: ", new_node_json)
+                        #
+                        #except Exception as ex:
+                        #    print("caught error parsing CAPTURED MATTTER STDOUT: ", ex)
+                        
+
+                        
+
 
 
                     for line in iter(self.server_process.stderr.readline,b''):
@@ -4618,6 +4645,8 @@ class MatterAdapter(Adapter):
                                 self.pairing_phase_message = 'Setting up Matter device'
                                 self.pairing_phase = 70
                                 self.last_pairing_update_time = int(time.time())
+
+                        # TODO: is this too aggressive?
                         if 'Discovery timed out' in line:
                             if self.busy_pairing:
                                 self.pairing_failed = True
@@ -4998,9 +5027,11 @@ class MatterAdapter(Adapter):
                     return
 
                 elif cluster_name == 'GeneralNetworkDiagnostics' and attribute_name == '':
-                    if not thing_id in self.general_network_diagnostics:
-                        self.general_network_diagnostics[thing_id] = {}
-
+                    #if not thing_id in self.general_network_diagnostics:
+                    #    self.general_network_diagnostics[thing_id] = {}
+                    if self.DEBUG:
+                        self.s_print("handle_event: TODO: received GeneralNetworkDiagnostics info: ", message)
+                    # TODO: FILL self.general_network_diagnostics[thing_id] with the received information
                     return
 
                 elif cluster_name == 'OtaSoftwareUpdateRequestor':
@@ -5011,7 +5042,29 @@ class MatterAdapter(Adapter):
                     elif attribute_name == 'UpdateState':
                         if self.DEBUG:
                             self.s_print("handle_event: received a firmware update UpdateState message: \n", json.dumps(message,indent=2))
-                
+
+                        if thing_id in self.persistent_data['nodez']:
+                            self.persistent_data['nodez'][thing_id]['update_state'] = value
+                        if value == 4:
+                            if self.DEBUG:
+                                print(" 4 = downloading firmware update")
+                            self.send_pairing_prompt("Downloading firmware update...")
+                        elif value == 5:
+                            if self.DEBUG:
+                                print(" 5 = installing firmware update")
+                            self.send_pairing_prompt("Installing firmware update...")
+                            
+                  
+                        #handle_event: received a firmware update UpdateState message: 
+                        #{
+                        #"event": "attribute_updated",
+                        #"data": [
+                        #  78,
+                        #  "0/42/2",
+                        #  4
+                        #  ]
+                        #}
+
                     return
                 
 
@@ -5126,8 +5179,8 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                             if self.DEBUG:
                                 self.s_print("handle_event: skipping because cluster_name was in list of clusters_to_ignore (BLOCKED): ", cluster_name)
 
-                        #hacky_attribute_code = str(cluster_name) + '.Attributes.' + str(data_attribute)
-                        hacky_attribute_code = str(cluster_name) + 'Candle.Attributes.' + str(data_attribute)
+                        hacky_attribute_code = str(cluster_name) + '.Attributes.' + str(data_attribute)
+                        #hacky_attribute_code = str(cluster_name) + 'Candle.Attributes.' + str(data_attribute)
                         attribute_name = str(data_attribute)
 
                         if self.DEBUG:
@@ -5296,10 +5349,150 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                                                 if self.DEBUG:
                                                     self.s_print("handle_event: ERROR, bilresa property update fell through")
 
+
+                                # IKEA BILRESA DUAL BUTTON - SPECIAL CASE
+                                if str(self.persistent_data['nodez'][thing_id]['product_name']) == 'BILRESA dual button':
+                                    target_device = self.get_device(thing_id)
+                                    if target_device:
+                                        if self.DEBUG:
+                                            self.s_print("handle_event: found Bilresa dual button thing")
+                                            self.s_print("handle_event: Bilresa dual button message: \n", json.dumps(message,indent=4), "\n")
+                                            self.s_print("BILRESA dual button: endpoint,cluster_name,attribute_name: ", endpoint,cluster_name,attribute_name)
+
+                                        # 0 =>  UP 1, DOWN 2
+
+                                        bilresa_index = endpoint - 1 #math.floor((int(endpoint) - 1)/3)
+                                        if self.DEBUG:
+                                            self.s_print("handle_event: >> >> >> dual button bilresa_index: ", bilresa_index)
+                                            self.s_print("handle_event: >> >> >> dual button endpoint: ", endpoint)
+                                        if bilresa_index >= 0 and bilresa_index < 4 and 'data' in data and data['data'] != None:
+                                            if self.DEBUG:
+                                                self.s_print("handle_event: OK, bilresa_index is valid and 'data' is in data")
+                                            if endpoint in [1,2]: # and 'currentNumberOfPressesCounted' not in data['data']:
+                                                if self.DEBUG:
+                                                    self.s_print("\n __|---|__ bilresa button press at endpoint: ", endpoint)
+                                                if 'newPosition' in data['data']:
+                                                    if self.DEBUG:
+                                                        self.s_print("OK, newPosition is in data.data")
+                                                        self.s_print("dual button fancy index: ", str(fancy_indexes[bilresa_index]))
+                                                        
+                                                    hacky_boolean_property_id = 'property-Endpoint0-BasicInformation-' + str(fancy_indexes[bilresa_index]) + 'State'
+                                                    hacky_boolean_attribute_code = 'BasicInformation.Attributes.' + str(fancy_indexes[bilresa_index]) + 'State'
+                                                    if self.DEBUG:
+                                                        self.s_print("bilresa dual button hacky_boolean_property_id: ", hacky_boolean_property_id)
+                                                        self.s_print("bilresa dual button hacky_boolean_attribute_code: ", hacky_boolean_attribute_code)
+                                                    hacky_boolean_target_property = target_device.find_property(hacky_boolean_property_id)
+                                                    if hacky_boolean_target_property:
+                                                        if self.DEBUG:
+                                                            self.s_print("handle_event: OK, found hacky Bilresa boolean property. Will toggle it.")
+                                                        original_target_boolean_property_value = hacky_boolean_target_property.get_value()
+                                                        if self.DEBUG:
+                                                            self.s_print("original_target_boolean_property_value: ", original_target_boolean_property_value)
+                                                        if isinstance(original_target_boolean_property_value,bool):
+                                                            opposite_target_boolean_property_value = not original_target_boolean_property_value
+                                                            if self.DEBUG:
+                                                                self.s_print("opposite_target_boolean_property_value: ", opposite_target_boolean_property_value)
+                                                            #hacky_boolean_target_property.toggle()
+                                                            hacky_boolean_target_property.update(opposite_target_boolean_property_value)
+                                                            if hacky_boolean_attribute_code in self.persistent_data['nodez'][thing_id]['attributes']['Endpoint0']:
+                                                                if self.DEBUG:
+                                                                    self.s_print("handle_event: saving new Bilresa scrollwheel opposite_target_boolean_property_value to persistent data: ", opposite_target_boolean_property_value)
+                                                                self.persistent_data['nodez'][thing_id]['attributes']['Endpoint0'][hacky_boolean_attribute_code]['value'] = opposite_target_boolean_property_value
+                                                                self.should_save = True
+                                                        else:
+                                                            if self.DEBUG:
+                                                                self.s_print("handle_event: ERROR, original_target_boolean_property_value is not a boolean")
+
+                                                    else:
+                                                        if self.DEBUG:
+                                                            self.s_print("handle_event: ERROR, hacky Bilresa boolean property not found.  hacky_boolean_property_id: ", hacky_boolean_property_id)
+                                                
+
+                                                if 'totalNumberOfPressesCounted' in data['data']:
+                                                    if self.DEBUG:
+                                                        self.s_print("OK, totalNumberOfPressesCounted in data.data: ")
+                                                        #self.s_print("fancy index: ", str(fancy_indexes[bilresa_index]))
+
+                                                    hacky_event_property_id = 'property-Endpoint0-BasicInformation-' + str(fancy_indexes[bilresa_index]) + 'Event'
+                                                    hacky_event_attribute_code = 'BasicInformation.Attributes.' + str(fancy_indexes[bilresa_index]) + 'Event'
+                                                    if self.DEBUG:
+                                                        self.s_print("bilresa dual button hacky_event_property_id: ", hacky_event_property_id)
+                                                        self.s_print("bilresa dual button hacky_event_attribute_code: ", hacky_event_attribute_code)
+                                                    hacky_event_target_property = target_device.find_property(hacky_event_property_id)
+                                                    if hacky_event_target_property:
+                                                        if self.DEBUG:
+                                                            self.s_print("handle_event: OK, found hacky Bilresa event property. Will try to set it's enum.")
+                                                        if data['data']['totalNumberOfPressesCounted'] == 1:
+                                                            hacky_event_target_property.update('Click')
+                                                        if data['data']['totalNumberOfPressesCounted'] == 2:
+                                                            hacky_event_target_property.update('DoubleClick')
+                                                        elif data['data']['totalNumberOfPressesCounted'] == 3:
+                                                            hacky_event_target_property.update('TripleClick')
+                                                    
+                                                
+                                                
+                                                #else:
+                                                #    if self.DEBUG:
+                                                #        self.s_print("handle_event: ERROR, no 'newPosition' found in boolean event data for virtual Bilresa toggle")
+
+
+                                            if 'currentNumberOfPressesCounted' in data['data'] or 'totalNumberOfPressesCounted' in data['data']:
+                                                hacky_property_id = 'property-Endpoint0-BasicInformation-FirstLevel'
+                                                hacky_attribute_code = 'BasicInformation.Attributes.FirstLevel'
+                                                if self.DEBUG:
+                                                    self.s_print("bilresa dual button level hacky_property_id: ", hacky_property_id)
+                                                    self.s_print("bilresa dual button level hacky_attribute_code: ", hacky_attribute_code)
+                                                hacky_target_property = target_device.find_property(hacky_property_id)
+                                                if hacky_target_property:
+                                                    if self.DEBUG:
+                                                        self.s_print("handle_event: OK, found hacky Bilresa level property. It's current value is: ", hacky_target_property.value)
+
+                                                    original_target_property_value = int(hacky_target_property.get_value())
+                                                    hacky_target_property_value = original_target_property_value
+                                                    if self.DEBUG:
+                                                        self.s_print("handle_event: initial hacky_target_property_value: ", hacky_target_property_value)
+
+
+                                                    if int(endpoint) in [1,4,7]:
+                                                        hacky_target_property_value += 10
+                                                        if hacky_target_property_value > 100:
+                                                            hacky_target_property_value = 100
+                                                        
+                                                    else:
+                                                        hacky_target_property_value -= 10
+                                                        if hacky_target_property_value < 0:
+                                                            hacky_target_property_value = 0
+                                                        
+                                                    if hacky_target_property_value != original_target_property_value:
+                                                        if self.DEBUG:
+                                                            self.s_print("handle_event: Updating Bilresa dual button level to: ", hacky_target_property_value)
+                                                        hacky_target_property.update( hacky_target_property_value )
+                                                        #print("looking for hacky_attribute_code: ", hacky_attribute_code, ' .. in: ', self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name].keys())
+                                                        if hacky_attribute_code in self.persistent_data['nodez'][thing_id]['attributes']['Endpoint0']:
+                                                            if self.DEBUG:
+                                                                self.s_print("handle_event: saving new Bilresa dual button hacky_target_property_value to persistent data: ", hacky_target_property_value)
+                                                            self.persistent_data['nodez'][thing_id]['attributes']['Endpoint0'][hacky_attribute_code]['value'] = hacky_target_property_value
+                                                            self.should_save = True
+                                                    else:
+                                                        if self.DEBUG:
+                                                            self.s_print("handle_event Bilresa dual button level was already at this minimum/maximum: ", hacky_target_property_value)
+
+                                                else:
+                                                    if self.DEBUG:
+                                                        self.s_print("handle_event: ERROR, hacky Bilresa dual button level property not found")
+                                            else:
+                                                if self.DEBUG:
+                                                    self.s_print("handle_event: ERROR, bilresa dual button property update fell through")
+
+
+
+
+
+
                                 elif self.create_extra_properties:
                                     if hacky_attribute_code in self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name]:
                                         if self.DEBUG:
-                                            self.s_print("handle_event: surprisingly, there is already an attribute with this hacky code: ", self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code])
+                                            self.s_print("handle_event: surprisingly, there is already an attribute with this hacky code: ", hacky_attribute_code, " -> ", self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][hacky_attribute_code])
                                     else:
                                         hacky_attribute_code = str(cluster_name) + 'Candle.Attributes.' + str(data_attribute)
 
@@ -5356,7 +5549,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                 if str(node_id) in self.node_thing_id_lookup:
                     thing_id = 'matter-' + self.node_thing_id_lookup[str(node_id)]
                     if self.DEBUG:
-                        self.s_print("handle_event: part 2: found thing_id in node_thing_id_lookup: ", node_id ," -> ", thing_id)
+                        self.s_print("handle_event: part 2: OK, found thing_id in node_thing_id_lookup: ", node_id ," -> ", thing_id)
                 else:
                     if self.DEBUG:
                         self.s_print("handle_event: part 2: ERROR, ABORTING: hacky node_id not found in node_thing_id_lookup: ", node_id, self.node_thing_id_lookup)
@@ -5436,7 +5629,9 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
                                 if self.DEBUG:
                                     self.s_print("handle_event: received values:  thing_id,endpoint_name,attribute_code,values: ", thing_id, endpoint_name, attribute_code, self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][str(attribute_code)]['received_values'])
-
+                            else:
+                                if self.DEBUG:
+                                    self.s_print("handle_event: IGNORING, as attribute_code was not (yet) in attribute codes in self.persistent_data['nodez'][thing_id]: ", attribute_code)
 
                 if target_device == None:
                     if self.DEBUG:
@@ -5580,8 +5775,19 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
     def divide_incoming_value_by_multiplier(self, value=None, cluster_name=None, attribute_name=None):
         if self.DEBUG:
             print("in divide_incoming_value_by_multiplier.  value, cluster_name, attribute_name: ", value, cluster_name, attribute_name)
+
+        
         if isinstance(cluster_name,str) and isinstance(attribute_name,str):
 
+            enum_attribute_name = attribute_name
+            if not enum_attribute_name.endswith('Enum'):
+                enum_attribute_name = attribute_name + 'Enum'
+            else:
+                if self.DEBUG:
+                    print("divide_incoming_value_by_multiplier:  attribute_name already ended in Enum: ", attribute_name)
+
+            if self.DEBUG:
+                print("divide_incoming_value_by_multiplier:  enum_attribute_name: ", enum_attribute_name)
             if cluster_name == 'LevelControl' and attribute_name == 'CurrentLevel' and isinstance(value,(int,float)):
                 if self.DEBUG:
                     self.s_print("divide_incoming_value_by_multiplier: should massage percentage value: ", value)
@@ -5603,28 +5809,51 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
 
             # Switch value to an enums string
-            elif attribute_name in self.enums_lookup:
+            elif cluster_name in self.enums_lookup and attribute_name in self.enums_lookup[cluster_name]:
                 if self.DEBUG:
-                    print("  enum available: ", attribute_name, self.enums_lookup[attribute_name])
+                    print("divide_incoming_value_by_multiplier:  enum available: ", attribute_name, self.enums_lookup[cluster_name][attribute_name])
 
-                if isinstance(value,int) and value >=0 and value < len(self.enums_lookup[attribute_name]):
-                    value = self.enums_lookup[attribute_name][value]
+                if isinstance(value,int) and value >=0 and value < len(self.enums_lookup[cluster_name][attribute_name]):
+                    if value == None:
+                        value = 'None'
+                    else:
+                        value = self.enums_lookup[cluster_name][attribute_name][value]
+                        value = uncamel(str(value)).replace('_',' ')
                     if self.DEBUG:
                         print("divide_incoming_value_by_multiplier:  early switch of property value from number to string from enums_lookup: ", value)
-            
+                else:
+                    if self.DEBUG:
+                        print("\nERROR: divide_incoming_value_by_multiplier:  value out of bounds of enum lookup? ", type(value), value, self.enums_lookup[cluster_name][attribute_name])
+                    value = 'None'
+
+            # Switch value to an ENUM enums string
+            elif cluster_name in self.enums_lookup and enum_attribute_name in self.enums_lookup[cluster_name]:
+                if self.DEBUG:
+                    print("divide_incoming_value_by_multiplier:  ENUM enum available: ", attribute_name, self.enums_lookup[cluster_name][enum_attribute_name])
+
+                if isinstance(value,int) and value >=0 and value < len(self.enums_lookup[cluster_name][enum_attribute_name]):
+                    value = self.enums_lookup[cluster_name][enum_attribute_name][value]
+                    value = uncamel(str(value)).replace('_',' ')
+                    if self.DEBUG:
+                        print("divide_incoming_value_by_multiplier:  early switch of property value from number to string from ENUM enums_lookup: ", value)
+                else:
+                    if self.DEBUG:
+                        print("\nERROR: divide_incoming_value_by_multiplier:  value out of bounds of ENUM enum lookup? ", type(value), value, self.enums_lookup[cluster_name][enum_attribute_name])
+                    value = 'None'
+
             elif attribute_name in self.other_lookup:
                 value = self.other_lookup[attribute_name][value]
                 if self.DEBUG:
-                    print("divide_incoming_value_by_multiplier:  early switch of property value from number to string from self.OTHER_lookup: ", value)
+                    print("divide_incoming_value_by_multiplier:  WARNING, early switch of property value from number to string from self.OTHER_lookup: ", value)
 
-            elif attribute_name.endswith('LevelValue') and str(cluster_name) in self.enums_lookup:
-                if self.DEBUG:
-                    print("divide_incoming_value_by_multiplier:  enum LevelValue available via clusterName: ", cluster_name, self.enums_lookup[cluster_name])
-
-                if isinstance(value,int) and value >=0 and value < len(self.enums_lookup[cluster_name]):
-                    value = self.enums_lookup[cluster_name][value]
-                    if self.DEBUG:
-                        print("divide_incoming_value_by_multiplier:  early switch of LevelValue from number to string from enums_lookup via cluster_name: ", value)
+            #elif attribute_name.endswith('LevelValue') and str(cluster_name) in self.enums_lookup:
+            #    if self.DEBUG:
+            #        print("divide_incoming_value_by_multiplier:  enum LevelValue available via clusterName: ", cluster_name, self.enums_lookup[cluster_name])
+            #
+            #    if isinstance(value,int) and value >=0 and value < len(self.enums_lookup[cluster_name]):
+            #        value = self.enums_lookup[cluster_name][value]
+            #        if self.DEBUG:
+            #            print("divide_incoming_value_by_multiplier:  early switch of LevelValue from number to string from enums_lookup via cluster_name: ", value)
 
             else:
                 if isinstance(value,(int,float)):
@@ -5678,7 +5907,8 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
 
     def parse_node(self,node):
-
+        if self.DEBUG:
+            print("in parse node")
         try:
             #if self.DEBUG:
             #    self.s_print("parse nodes: number: " + str(node_number))
@@ -5732,16 +5962,6 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                 if self.DEBUG:
                     self.s_print("\nERROR: parse_node: no node_id in node or node['data']: ", node)
                 return
-
-
-            
-
-
-
-            
-
-            
-
 
             if not 'attributes' in node and 'data' in node and 'attributes' in node['data']:
                 if self.DEBUG:
@@ -5821,6 +6041,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
 
             thing_id = 'matter-' + str(node_id)
+            
             if not str(node_id) in self.node_thing_id_lookup:
                 if self.DEBUG:
                     print("parse_node: this node is not in self.node_thing_id_lookup yet")
@@ -5828,8 +6049,12 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                 unique_id = str(node_id)
                 if 'attributes' in node and 'Endpoint0' in node['attributes'] and 'BasicInformation' in node['attributes']['Endpoint0'] and 'UniqueID' in node['attributes']['Endpoint0']['BasicInformation']:
                     unique_id = md5_hash(node['attributes']['Endpoint0']['BasicInformation']['UniqueID'])
+                    if self.DEBUG:
+                        print("parse_node: created unique hash based on device's unique_id: ", unique_id)
                 else:
                     unique_id = md5_hash(str(node_id))
+                    if self.DEBUG:
+                        print("\n\nparse_node: WARNING WARNING: HAD TO FALL BACK to creating unique hash based on the node_id: ", unique_id)
                 
                 self.node_thing_id_lookup[str(node_id)] = str(unique_id)
                 thing_id = 'matter-' + str(unique_id)
@@ -5860,6 +6085,14 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
             if self.DEBUG:
                 self.s_print("\nself.node_thing_id_lookup: \n", json.dumps(self.node_thing_id_lookup,indent=2))
                 self.s_print("\nparse_node:  node_id,thing_id: \n", node_id, " --> ", thing_id, "\n")
+
+
+            if thing_id not in self.persistent_data['nodez']:
+                self.persistent_data['nodez'][thing_id] = {
+                                                        'node_id':node_id,
+                                                        'thing_id':thing_id,
+                                                        'attributes':{},
+                                                    }
 
 
             if available and 'attributes' in node and 'Endpoint0' in node['attributes']:
@@ -5949,6 +6182,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                     pairing_code = None
                     if isinstance(self.last_found_pairing_code,str) and self.last_found_pairing_code not in self.persistent_data['pairing_codes'] and self.last_pairing_start_time > time.time() - 120:
                         pairing_code = "" + str(self.last_found_pairing_code)
+                    
                     try:
                         new_device = MatterDevice(self, thing_id, node, pairing_code)
                         self.handle_device_added(new_device)
@@ -6098,7 +6332,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
         try:
             
-            if self.matter_client_connected and self.matter_running and 'nodez' in self.persistent_data:
+            if self.matter_client_connected and self.matter_running and 'nodez' in self.persistent_data and self.busy_pairing == False:
                 for thing_id in self.persistent_data['nodez']:
                     if 'node_id' in self.persistent_data['nodez'][str(thing_id)] and isinstance(self.persistent_data['nodez'][str(thing_id)]['node_id'],int):
                         
@@ -6122,6 +6356,10 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                         if self.DEBUG:
                             self.s_print("\nERROR: get_node_ips: invalid node_id for thing_id: ", thing_id)
                 
+                else:
+                    if self.DEBUG:
+                        self.s_print("get_node_ips: WARNING, aborting requesting all node_ips.  self.matter_running,self.busy_pairing: ", self.matter_running, self.busy_pairing)
+
         except Exception as ex:
             if self.DEBUG:
                 self.s_print("caught error in get_node_ips: ", ex)
@@ -6132,7 +6370,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
             self.s_print("in get_node_ip.  node_id: ", node_id)
         try:
             
-            if str(node_id).isdigit() and self.matter_client_connected and self.matter_running and 'nodez' in self.persistent_data:
+            if str(node_id).isdigit() and self.matter_client_connected and self.matter_running and 'nodez' in self.persistent_data and self.busy_pairing == False:
                 for thing_id in self.persistent_data['nodez']:
                     if 'node_id' in self.persistent_data['nodez'][str(thing_id)] and isinstance(self.persistent_data['nodez'][str(thing_id)]['node_id'],int) and str(self.persistent_data['nodez'][str(thing_id)]['node_id']) == str(node_id):
                         
@@ -6153,6 +6391,11 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                         self.ws.send(json_message)
 
                         break
+
+            else:
+                if self.DEBUG:
+                    self.s_print("get_node_ip: WARNING, not requesting node_ip.  self.matter_running,self.busy_pairing: ", self.matter_running, self.busy_pairing)
+
         except Exception as ex:
             if self.DEBUG:
                 self.s_print("caught error in get_node_ip: ", ex)
@@ -6362,17 +6605,22 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
         timeout -- Timeout in seconds at which to quit pairing
         """
-        pass
-        #if self.DEBUG:
-        #    self.s_print("in start_pairing. Timeout: " + str(timeout))
+        #pass
+        if self.DEBUG:
+            self.s_print("in start_pairing. Timeout: " + str(timeout))
+        if self.busy_pairing == False and self.busy_discovering == False and self.last_discovery_start_timestamp < time.time() - 30:
+            if self.DEBUG:
+                self.s_print("start_pairing. calling self.discover")
+            self.discover()
+
 
 
     def cancel_pairing(self):
         """ Happens when the user cancels the pairing process."""
         # This happens when the user cancels the pairing process, or if it times out.
-        pass
-        #if self.DEBUG:
-        #    self.s_print("in cancel_pairing")
+        #pass
+        if self.DEBUG:
+            self.s_print("in cancel_pairing")
 
 
     def unload(self):

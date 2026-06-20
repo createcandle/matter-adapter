@@ -498,7 +498,7 @@ def get_events_lookup():
 
 
 
-def get_enums_lookup():
+def get_enums_lookup(debug=False):
     enums_lookup = {}
 
     try:
@@ -506,34 +506,46 @@ def get_enums_lookup():
         for key in dir_list:
             if str(key).startswith('__'):
                 continue
-            #print("get_enums_lookup: checking key: ", key)
+            if debug:
+                print("get_enums_lookup debug: checking key: ", key)
             
     
             try:
                 instance = getattr(cluster_details, str(key))()
                 enums = getattr(instance, 'Enums')
                 if enums:
-                    
+                    enums_lookup[str(key)] = {}
                     for attr, value in enums.__dict__.items():
                         if str(attr).startswith('__'):
                             continue
+                        if debug:
+                            print("get_enums_lookup debug: attr: ", attr)
                         #print("-->", enums.__dict__[attr])
                         #print("---->", list(enums.__dict__[attr]))
                         enum_list = list(enums.__dict__[attr])
+                        if debug:
+                            print("get_enums_lookup debug: raw enum_list: ", enum_list)
+
                         names = [member.name for member in enum_list]
-                        #print("names: ", names)
-                        enums_lookup[str(key)] = []
+                        if debug:
+                            print("get_enums_lookup debug: names from raw enum_list: ", names)
+                        enums_lookup[str(key)][str(attr)] = []
                         for enum_name in names:
-                            #print("enum_name: ", enum_name)
+                            if debug:
+                                print("get_enums_lookup debug:   key, attr, enum_name: ", key, attr, enum_name)
                             if str(enum_name).startswith('k'):
-                                enums_lookup[str(key)].append(str(enum_name)[1:])
+                                enums_lookup[str(key)][str(attr)].append(str(enum_name)[1:])
                             else:
-                                enums_lookup[str(key)].append(str(enum_name))
+                                enums_lookup[str(key)][str(attr)].append(str(enum_name))
                     
                         #print([e.name for e in enum_list])
                         #for item_index in enum_list:
                         #    print("....", item_index, enum_list[item_index])
-                
+                else:
+                    if debug:
+                        print("get_enums_lookup debug: no enums for key: ", key)
+
+
             except Exception as ex:
                 pass
                 #print("no enums for key: ", key)

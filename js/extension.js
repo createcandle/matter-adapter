@@ -4211,53 +4211,87 @@
                                                     "update_source": "main-net-dcl"
                                                 } 
                                                 */
-                                                const update_button_el = document.createElement('button');
-                                                update_button_el.classList.add('extension-matter-adapter-item-update-button');
-                                                update_button_el.classList.add('text-button');
-                                                
-                                                
-                                                
-                                                
-                                                if(typeof item_data['update']['result']['software_version'] == 'number'){
+
+                                                if(typeof item_data['update']['result']['software_version_string'] == 'string' && item_data['software_version'] == item_data['update']['result']['software_version_string']){
+                                                    if(this.debug && location.pathname == '/extensions/matter-adapter'){
+                                                        console.log("matter debug: OK, device is (now) running the latest firmware");
+                                                    }
+                                                    line3_el.innerHTML = '<span class="extension-matter-adapter-item-no-update-container extension-matter-adapter-green-bg">Updated succesfully</span>';
+                                                }
+                                                else{
+                                                    const update_button_el = document.createElement('button');
+                                                    update_button_el.classList.add('extension-matter-adapter-item-update-button');
+                                                    update_button_el.classList.add('text-button');
                                                     
-                                                    if(typeof item_data['update']['result']['software_version_string'] == 'string'){
-                                                        update_button_el.textContent = 'Update to v' + item_data['update']['result']['software_version_string'];
-                                                        //line3_el.innerHTML = '<button class="extension-matter-adapter-item-update-container extension-matter-adapter-item-update-available"> + '</button>';
+                                                    if(typeof item_data['update']['result']['software_version'] == 'number'){
+                                                        
+                                                        if(typeof item_data['update']['result']['software_version_string'] == 'string'){
+                                                            update_button_el.textContent = 'Update to v' + item_data['update']['result']['software_version_string'];
+                                                            //line3_el.innerHTML = '<button class="extension-matter-adapter-item-update-container extension-matter-adapter-item-update-available"> + '</button>';
+                                                        }
+                                                        else{
+                                                            update_button_el.textContent = 'Update';
+                                                            //line3_el.innerHTML = '<button class="extension-matter-adapter-item-update-container extension-matter-adapter-item-update-available">Update</button>';
+                                                        }
+
+                                                        clone.setAttribute('data-latest-firmware-version', item_data['update']['result']['software_version'])
+                                                    }
+                                                    
+
+                                                    update_button_el.addEventListener('click', () => {
+                                                        //let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+                                                        //item_el.classList.add("extension-matter-adapter-update");
+                                                        clone.classList.add("extension-matter-adapter-update");
+                                                        
+                                                        update_button_el.classList.add('extension-matter-adapter-faded');
+                                                        /*
+                                                        window.API.postJson(
+                                                            `/extensions/${this.id}/api/ajax`,
+                                                            {'action':'update_node','node_id':item_data['node_id']}
+
+                                                        ).then((body) => { 
+                                                            if(this.debug){
+                                                                console.log("matter debug: regenerate_items: response from calling update_node: ", body);
+                                                            }
+                                                        })
+                                                        .catch((err) => {
+                                                            if(this.debug){
+                                                                console.log("matter debug: regenerate_items:  caught error calling update_node: ", err);
+                                                            }
+                                                        });
+                                                        */
+                                                    })
+                                                    
+                                                    
+
+                                                    /*
+                                                    function camelCaseToWords(s) {
+                                                        const result = s.replace(/([A-Z])/g, ' $1');
+                                                        return result.charAt(0).toUpperCase() + result.slice(1);
+                                                    }
+                                                    */
+
+                                                    const firmware_update_states = ['Unknown','Idle','Querying','DelayedOnQuery','Downloading','Applying','DelayedOnApply','RollingBack','DelayedOnUserConsent']
+                                                    if (typeof item_data['update_state'] == 'number' && item_data['update_state'] >= 0 && item_data['update_state'] < firmware_update_states.length){
+                                                        if(item_data['update_state'] > 1){
+                                                            const firmware_update_status_el = document.createElement('span');
+                                                            firmware_update_status_el.textContent = firmware_update_states[item_data['update_state']].replace(/([A-Z])/g, ' $1');
+                                                            line3_el.appendChild(firmware_update_status_el)
+                                                        }
+                                                        else{
+                                                            line3_el.appendChild(update_button_el);
+                                                        }
                                                     }
                                                     else{
-                                                        update_button_el.textContent = 'Update';
-                                                        //line3_el.innerHTML = '<button class="extension-matter-adapter-item-update-container extension-matter-adapter-item-update-available">Update</button>';
+                                                        line3_el.appendChild(update_button_el);
                                                     }
-
-                                                    clone.setAttribute('data-latest-firmware-version', item_data['update']['result']['software_version'])
                                                 }
+
+
+
                                                 
 
-                                                update_button_el.addEventListener('click', () => {
-                                                    //let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-                                                    //item_el.classList.add("extension-matter-adapter-update");
-                                                    clone.classList.add("extension-matter-adapter-update");
-                                                    
-                                                    update_button_el.classList.add('extension-matter-adapter-faded');
-                                                    /*
-                                                    window.API.postJson(
-                                                        `/extensions/${this.id}/api/ajax`,
-                                                        {'action':'update_node','node_id':item_data['node_id']}
 
-                                                    ).then((body) => { 
-                                                        if(this.debug){
-                                                            console.log("matter debug: regenerate_items: response from calling update_node: ", body);
-                                                        }
-                                                    })
-                                                    .catch((err) => {
-                                                        if(this.debug){
-                                                            console.log("matter debug: regenerate_items:  caught error calling update_node: ", err);
-                                                        }
-                                                    });
-                                                    */
-                                                })
-                                                
-                                                line3_el.appendChild(update_button_el);
                                             }
                                         }
                                         else{
@@ -4574,6 +4608,16 @@
 										
 										const cluster_name = attribute_code.split('.Attributes.')[0];
 										const attribute_name = attribute_code.split('.Attributes.')[1];
+
+                                        if(cluster_name == 'GeneralDiagnostics' && this.debug == false){
+                                            continue
+                                        }
+                                        if(attribute_name == 'UpTime' || attribute_name == 'TotalOperationalHours' || attribute_name == 'RebootCount' || attribute_name == 'BootReason'){
+                                            //if(this.debug){
+                                            //    console.log("matter debug: skipping privacy sensitive attribute: ", attribute_name);
+                                            //}
+                                            continue
+                                        }
 										
 										let attribute_header_el = null;
 										let attribute_el = endpoint_el.querySelector("." + attribute_class_name);
@@ -4803,7 +4847,7 @@
 												received_values_container_el.classList.add('extension-matter-adapter-area');
 												attribute_el.appendChild(received_values_container_el);
 											}
-											const received_values_text = 'Received values: ' + attribute['received_values'];
+											const received_values_text = 'Received values: ' + attribute['received_values'].join(' , ');
 											if(received_values_container_el.textContent != received_values_text){
 												received_values_container_el.textContent = received_values_text;
 											}
@@ -8686,6 +8730,7 @@
                 console.log("\n\n\n___________");
                 //console.log("generate_map:  this.general_diagnostics: \n\n", JSON.stringify(this.general_diagnostics,null,4), "\n\n"); // is now part of thread_diagnostics
                 console.log("generate_map:  this.thread_diagnostics: \n\n", JSON.stringify(this.thread_diagnostics,null,4), "\n\n");
+                console.log("generate_map:  this.general_diagnostics: \n\n", JSON.stringify(this.general_diagnostics,null,4), "\n\n");
                 console.log("generate_map:  this.all_things: ", this.all_things);
             }
 
@@ -9027,10 +9072,10 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                             else{
                                 for (const [key, value] of Object.entries(thing_id_to_thread_id)) {
                                     if(('' + thread_id).slice(0,6) == ('' + key).slice(0,6)){
-                                        console.warn("add_node: IMPROVE TITLE BINGO, slice match: ", thread_id, key, " -> ", value);
+                                        //console.warn("add_node: IMPROVE TITLE BINGO, slice match: ", thread_id, key, " -> ", value);
                                         const improved_thing_title = get_thing_title(value);
                                         if(improved_thing_title){
-                                            console.log("improved_thing_title: ", GRAPH_CONFIG['nodes'][n]['thing_title'], " -> ", improved_thing_title);
+                                            //console.log("improved_thing_title: ", GRAPH_CONFIG['nodes'][n]['thing_title'], " -> ", improved_thing_title);
                                             GRAPH_CONFIG['nodes'][n]['thing_title'] = improved_thing_title;
                                         }
                                     }
@@ -9046,7 +9091,7 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                 if(thing_title == null){
                     if(typeof thing_id_to_thread_id[thread_id] == 'string'){
                         thing_title = get_thing_title(thing_id_to_thread_id[thread_id]);
-                        console.log("add_node: thing_title from get_thing_title: ", thing_title);
+                        //console.log("add_node: thing_title from get_thing_title: ", thing_title);
                     }
                 }
                 if(thing_title == null){
@@ -9056,14 +9101,22 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                 if(description == null){
                     if(typeof thing_id_to_thread_id[thread_id] == 'string'){
                         description = get_thing_description(thing_id_to_thread_id[thread_id]);
-                        console.log("add_node: description from get_thing_description ",description);
+                        //console.log("add_node: description from get_thing_description ",description);
                     }
                 }
                 if(description == null){
                     description = 'A node';
                 }
-                const new_node = { 'id': '' + thread_id, 'title':thing_title, 'category':category, 'popularity':popularity, 'desc':description };
-                //console.warn("\n\nADD NODE: ADDING!: ", JSON.stringify(new_node,null,4));
+
+                const thread_id_string = '' + thread_id
+                if(thread_id_string.endsWith('000') && thing_title != 'Candle controller'){
+                    category = 'Router'
+                }
+
+                const new_node = { 'id': thread_id_string, 'title':thing_title, 'category':category, 'popularity':popularity, 'desc':description };
+                if(this.debug){
+                    console.warn("\n\nmatter debug: map: ADD NODE: ADDING!: ", JSON.stringify(new_node,null,4));
+                }
                 //GRAPH_CONFIG['nodes'].push({ 'id': '' + thread_id });
                 GRAPH_CONFIG['nodes'].push(new_node);
             }
@@ -9074,6 +9127,9 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                         //console.warn("add_node_link: that link was already known:  source,target: ", source,target);
                         return
                     }
+                }
+                if(this.debug){
+                    console.warn("matter debug: map: adding a link:  source,target:",source,target);
                 }
                 GRAPH_CONFIG['links'].push({ 'source': '' + source, 'target': '' + target, 'strength': lqi });
             }
@@ -9087,6 +9143,9 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
 
                         for (let ntt = 0; ntt < node_details['NeighborTable'].length; ntt++){
                             let early_neighbor_thread_id = '' + node_details['NeighborTable'][ntt][0];
+                            if(this.debug){
+                                console.log("matter debug: map: early_neighbor_thread_id: ", early_neighbor_thread_id);
+                            }
                             if(typeof all_neighbors[early_neighbor_thread_id] == 'undefined'){
                                 all_neighbors[early_neighbor_thread_id] = node_details['NeighborTable'][ntt];
                             } 
@@ -9099,14 +9158,12 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                             }
                         }
 
-                        if(typeof this.general_diagnostics[thing_id] != 'undefined'){
-                            //console.log("OK, thing_id is also in this.general_diagnostics: ", this.general_diagnostics[thing_id]);
-                        }
+                        if(typeof this.general_diagnostics[thing_id] != 'undefined' && typeof this.general_diagnostics[thing_id]['NetworkInterfaces'] != 'undefined'){
+                            if(this.debug){
+                                console.log("m-: ", this.general_diagnostics[thing_id]['NetworkInterfaces']);
+                            }
 
-                        if(typeof node_details['NetworkInterfaces'] != 'undefined'){
-                            //console.log("NICE, NetworkInterfaces is available in ThreadDiagnostics: ", node_details['NetworkInterfaces']);
-
-                            const networkInterfaces = node_details['NetworkInterfaces'] || [];
+                            const networkInterfaces = this.general_diagnostics[thing_id]['NetworkInterfaces'] || [];
                             if (Array.isArray(networkInterfaces)) {
                                 // Find Thread interface (type 7 field = 4) or use first with hardware address
                                 const threadIface = networkInterfaces.find(i => i['7'] === 4) || networkInterfaces[0];
@@ -9133,9 +9190,16 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                                                 upper48: upper48,
                                                 hex: extAddrInt.toString(16).toUpperCase().padStart(16, '0')
                                             };
-                                        } catch (e) {
-                                            console.warn('Failed to decode hardware address for thing_id', thing_id, e);
+                                        } catch (err) {
+                                            if(this.debug){
+                                                console.warn('matter debug: map: caught error decoding hardware address for thing_id: ', thing_id, err);
+                                            }
                                         }
+                                    }
+                                }
+                                else{
+                                    if(this.debug){
+                                        console.warn('matter debug: map: no threadIface');
                                     }
                                 }
 
@@ -9170,6 +9234,28 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                             //console.log("routeTable: ", routeTable);
                             //console.log("routeTable[0]['2']: ", routeTable[0]['2']);
 
+                            for(let rti = 0; rti < routeTable.length; rti++){
+                                let route_code = '' + routeTable[rti][0];
+                                if(this.debug){
+                                    console.log("matter debug: map: routeTable -> route_code: ", route_code);
+                                }
+                                if(route_code){
+                                    route_code = '' + route_code;
+                                    if(typeof all_neighbors[route_code] == 'undefined'){
+                                        if(this.debug){
+                                            console.log("matter debug: map: adding route_code to all_neighbours: ", route_code);
+                                        }
+                                        all_neighbors[route_code] = {'origin':'routeTable'}
+                                    }
+                                    else{
+                                        if(this.debug){
+                                            console.log("matter debug: map: route_code was already in all_neighbours: ", route_code);
+                                        }
+                                    }
+                                }
+                            }
+                            
+
                             const selfEntry = routeTable.find(r => r['2'] === r['3'] && r['8'] === true);
                             //console.log("routeTable -> selfEntry: ", selfEntry);
                             if (selfEntry && selfEntry['1'] !== undefined) {
@@ -9180,6 +9266,14 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                     }
 
                 }
+
+                for (const [ext_ad,thing_id] of Object.entries(this.extAddrToNodeId)) {
+                    if(typeof thing_id_to_thread_id[thing_id] == 'undefined'){
+                        thing_id_to_thread_id[thing_id] = '' + ext_ad;
+                        thing_id_to_thread_id[ '' + ext_ad ] = thing_id;
+                    }
+                }
+
                 if(this_debug){
                     console.warn("matter debug: map: matter_to_thread_id_lookup: ", JSON.stringify(matter_to_thread_id_lookup,null,4));
                     console.warn(" >> all_neighbors: ", all_neighbors);
@@ -9190,6 +9284,7 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                     console.log(" >> this.nodeExtAddrs: ",  this.nodeExtAddrs);
                     console.log(" >> this.bridgeHwAddrs: ",  this.bridgeHwAddrs);
                 }
+                
                 
                 
                 
@@ -9211,9 +9306,15 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                 for (const [thing_id,node_details] of Object.entries(this.thread_diagnostics)) {
                     if(typeof node_details['NeighborTable'] != 'undefined'){
                         for(let nt = 0; nt < node_details['NeighborTable'].length; nt++){
+                            if(this.debug){
+                                console.log("comparing neighborTable id: ", node_details.NeighborTable[nt]['0'])
+                            }
                             for (const [thing_id,short_thread_id] of Object.entries(thing_id_to_short_thread_id)) {
                                 //console.log("short_thread_id: ", typeof short_thread_id, short_thread_id, " =?= ", typeof node_details.NeighborTable[nt]['0'], node_details.NeighborTable[nt]['0']);
                                 if(('' + node_details.NeighborTable[nt]['0']).startsWith('' +  short_thread_id)){
+                                    if(this_debug){
+                                        console.log("matter debug: map:   short_thread_id match: ",  short_thread_id);
+                                    }
                                     thing_id_to_thread_id[thing_id] = '' + node_details['NeighborTable'][nt][0];
                                     thing_id_to_thread_id[ '' + node_details['NeighborTable'][nt][0] ] = thing_id;
                                     //if(this_debug){
@@ -9221,6 +9322,11 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                                     //}
                                 }
                             }
+                        }
+                    }
+                    else{
+                        if(this.debug){
+                            console.warn("no NeighborTable in node_details[nt]: ", nt, node_details[nt]);
                         }
                     }
                 }
@@ -9326,7 +9432,7 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                             }
                             
                             let neighbor_thread_id = '' + Object.values(neighbor_node)[thread_id_index];
-                            //console.log("++ raw neighbor_thread_id: ", neighbor_thread_id);
+                            console.log("++ raw neighbor_thread_id: ", neighbor_thread_id);
                             //neighbor_thread_id = (BigInt(neighbor_thread_id) >> 16n).toString();
                             //console.log("++ neighbor_thread_id: ", neighbor_thread_id)
 
@@ -9339,14 +9445,14 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                             //console.log("++ rloc16Raw: ", rloc16Raw);
                             let neighbor_fancy_rloc16 = rloc16Raw?.toString(16).toUpperCase().padStart(4, '0') || '?';
                             if(this_debug){
-                                //console.log("matter debug: map: ++ neighbor_fancy_rloc16: ", neighbor_fancy_rloc16);
+                                console.log("matter debug: map: ++ neighbor_fancy_rloc16: ", neighbor_fancy_rloc16);
                             }
                             
                             if(actual_controller_thread_id){
                                 for(let mnt = 0; mnt < this.my_neighbortable.length; mnt++){
                                     if(this.my_neighbortable[mnt]['rloc16'] == neighbor_fancy_rloc16){
                                         if(this_debug){
-                                            //console.log("matter debug: map: found a neighbor that is connected to the main controller.   neighbor_fancy_rloc16: ", neighbor_fancy_rloc16);
+                                            console.log("matter debug: map: found a neighbor that is connected to the main controller.   neighbor_fancy_rloc16: ", neighbor_fancy_rloc16);
                                         }
                                         add_node_link('' + actual_controller_thread_id, '' + neighbor_thread_id, this.my_neighbortable[mnt]['lqi']);
                                     }

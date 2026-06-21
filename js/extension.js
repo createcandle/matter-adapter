@@ -752,12 +752,13 @@
                     join_thread_network_shortcut_button_el.addEventListener('click', () => {
                         //this.view.querySelector('#extension-matter-adapter-tab-button-thread').click();
                         show_enter_thread_network_code_button_el.classList.add('extension-matter-adapter-hidden');
-                        const input_container_el = this.view.querySelector('#extension-matter-adapter-enter-thread-network-code-container');
+                        const input_container_el = this.view.querySelector('#extension-matter-adapter-onboarding-enter-thread-network-code-container');
                         if(input_container_el){
                             input_container_el.classList.remove('extension-matter-adapter-hidden');
                             setTimeout(() => {
                                 input_container_el.scrollIntoView({'block':'center','behavior':'smooth'})
                             },100);
+                            this.view.querySelector('#extension-matter-adapter-import-thread-dataset-hint').classList.add('extension-matter-adapter-hidden');
                         }
                     });
                 }

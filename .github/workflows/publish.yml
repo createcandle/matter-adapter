@@ -8,11 +8,6 @@ jobs:
   build13:
     runs-on: ubuntu-24.04-arm
     steps:
-    - name: Download upload_url
-      uses: actions/download-artifact@v8
-      with:
-        name: upload_url
-        path: upload_url
     - name: Set release version
       run: echo "RELEASE_VERSION=${GITHUB_REF:10}" >> $GITHUB_ENV
     - uses: actions/checkout@v6

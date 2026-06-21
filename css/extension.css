@@ -1295,7 +1295,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
     margin-top:1rem;
 }
 
-
+#extension-matter-adapter-unplug-radio-text::before,
 #extension-matter-adapter-choose-thread-container-text::before,
 #extension-matter-adapter-thread-radio-serial-port:not(:empty)::before{
     content: '';

@@ -78,8 +78,11 @@
 
 						<div id="extension-matter-adapter-find-thread-radio-container" class="extension-matter-adapter-hidden extension-matter-adapter-onboarding-step">
 							<div id="extension-matter-adapter-find-thread-radio-step1" class="extension-matter-adapter-area">
-								<h3>1. Make sure it's unplugged first</h3>
-								<p>Before we begin, make sure your Thread radio is <span class="extension-matter-adapter-bold">unplugged</span>.</p>
+								<div id="extension-matter-adapter-unplug-radio-text">
+									<h3>1. Make sure the Thread radio is unplugged first</h3>
+									p>Before we begin, make sure your Thread radio is <span class="extension-matter-adapter-bold">unplugged</span>.</p>
+								</div>
+								
 								<div class="extension-matter-adapter-align-right">
 									<button id="extension-matter-adapter-find-thread-radio-unplugged-button" class="text-button">It's unplugged</button>
 								</div>
@@ -142,7 +145,7 @@
 						<div id="extension-matter-adapter-onboarding-privacy-container" class="extension-matter-adapter-hidden extension-matter-adapter-area extension-matter-adapter-onboarding-step">
 							<h2>Privacy protection</h2>
 							<p>Some Matter devices use WiFi to communicate (avoid them where possible). How do you want to connect those devices to the Matter network?</p>
-							<p>Candle can only attempt to protect your privacy if you select 'Hotspot', and you connect WiFi devices that support Matter (especially so called "border routers") to the Hotspot only.</p>
+							<p style="opacity:.6">Candle can only attempt to protect your privacy if you select 'Hotspot', and you connect WiFi devices that support Matter (especially so called "border routers") to the Hotspot only.</p>
 							<p></p>
 							<div id="extension-matter-adapter-onboarding-privacy-networks-container">
 
@@ -303,7 +306,7 @@
 
 							  <main id="extension-matter-adapter-viz-main-content">
 
-							    <div class="extension-matter-adapter-viz-stats-grid extension-matter-adapter-viz-fade-in extension-matter-adapter-viz-fade-in-d2">
+							    <div class="extension-matter-adapter-viz-stats-grid extension-matter-adapter-viz-fade-in extension-matter-adapter-viz-fade-in-d2 extension-matter-adapter-show-if-developer">
 							      <div class="extension-matter-adapter-viz-stat-card" data-accent="cyan">
 							        <div class="extension-matter-adapter-viz-stat-label">Total Nodes</div>
 							        <div class="extension-matter-adapter-viz-stat-value" id="extension-matter-adapter-viz-stat-nodes">0</div>
@@ -387,12 +390,12 @@
 							          <div class="extension-matter-adapter-viz-panel-card-header">Layout Controls</div>
 							          <div class="extension-matter-adapter-viz-panel-card-body">
 							            <div class="extension-matter-adapter-viz-control-group">
-							              <div class="extension-matter-adapter-viz-control-label">Force Strength <span id="extension-matter-adapter-viz-force-val">-300</span></div>
-							              <input type="range" id="extension-matter-adapter-viz-force-strength" min="-800" max="-50" value="-300" step="10">
+							              <div class="extension-matter-adapter-viz-control-label">Force Strength <span id="extension-matter-adapter-viz-force-val">-800</span></div>
+							              <input type="range" id="extension-matter-adapter-viz-force-strength" min="-800" max="-50" value="-800" step="10">
 							            </div>
 							            <div class="extension-matter-adapter-viz-control-group">
-							              <div class="extension-matter-adapter-viz-control-label">Link Distance <span id="extension-matter-adapter-viz-distance-val">120</span></div>
-							              <input type="range" id="extension-matter-adapter-viz-link-distance" min="60" max="200" value="120" step="5">
+							              <div class="extension-matter-adapter-viz-control-label">Link Distance <span id="extension-matter-adapter-viz-distance-val">100</span></div>
+							              <input type="range" id="extension-matter-adapter-viz-link-distance" min="60" max="200" value="100" step="5">
 							            </div>
 							            <div class="extension-matter-adapter-viz-control-group">
 							              <div class="extension-matter-adapter-viz-control-buttons">

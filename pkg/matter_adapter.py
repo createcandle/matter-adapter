@@ -2558,7 +2558,7 @@ class MatterAdapter(Adapter):
                 elif 'child' in self.thread_state_info:
                     self.thread_running = True
                     self.should_start_thread_mesh = False
-                    self.thread_error = 'Thread is running, but not as the leader'
+                    self.thread_error = 'Thread is running, but as a child'
                     if self.DEBUG:
                         self.s_print("\nERROR, Thread state is child")
                     self.should_start_matter_time = int(time.time()) + 20
@@ -4350,22 +4350,31 @@ class MatterAdapter(Adapter):
 
                         elif self.thread_radio_went_missing == False and self.thread_running == True:
                             state_check = str(self.run_ot_ctl_command('state'))
-                            if 'Done' in state_check and 'leader' not in state_check:
-                                if self.DEBUG:
-                                    self.s_print("\nWARNING: clock 5 second loop: Not a thread leader. Requesting to become it again.  state_check was:", state_check)
-                                self.run_ot_ctl_command('leaderweight ' + str(self.persistent_data['leaderweight']))
-                                self.run_ot_ctl_command('state leader')
-                                time.sleep(1)
-                                state_check = str(self.run_ot_ctl_command('state'))
 
-                            if 'Done' in state_check and 'leader' in state_check:
-                                commissioner_check = str(self.run_ot_ctl_command('commissioner state'))
-                                if 'Done' in commissioner_check and 'active' not in commissioner_check:
+                            if self.persistent_data['leaderweight'] == 255:
+                                if 'Done' in state_check and 'leader' not in state_check:
                                     if self.DEBUG:
-                                        self.s_print("\nWARNING: clock 5 second loop: leader, but not commissioner. Petitioning to become commissioner again.  commissioner_check was: ", commissioner_check)
-                                    self.run_ot_ctl_command('commissioner start')
+                                        self.s_print("\nWARNING: clock 5 second loop: Not a thread leader, but leaderweight is 255. Requesting to become it again.  state_check was:", state_check)
+                                    self.run_ot_ctl_command('leaderweight ' + str(self.persistent_data['leaderweight']))
+                                    self.run_ot_ctl_command('state leader')
+                                    time.sleep(1)
+                                    state_check = str(self.run_ot_ctl_command('state'))
 
-                        
+                                if 'Done' in state_check and 'leader' in state_check:
+                                    commissioner_check = str(self.run_ot_ctl_command('commissioner state'))
+                                    if 'Done' in commissioner_check and 'active' not in commissioner_check:
+                                        if self.DEBUG:
+                                            self.s_print("\nWARNING: clock 5 second loop: leader, but not commissioner. Petitioning to become commissioner again.  commissioner_check was: ", commissioner_check)
+                                        self.run_ot_ctl_command('commissioner start')
+
+                            elif self.persistent_data['leaderweight'] == 254:
+                                if 'child' in state_check.lower():
+                                    if self.DEBUG:
+                                        self.s_print("\nWARNING: clock 5 second loop: Not a thread router, but leaderweight is 254. Requesting to become router instead of child.  state_check was:", state_check)
+                                    self.run_ot_ctl_command('leaderweight ' + str(self.persistent_data['leaderweight']))
+                                    self.run_ot_ctl_command('state router')
+
+
                         if isinstance(self.persistent_data['thread_radio_serial_port'], str) and len(self.persistent_data['thread_radio_serial_port']) > 5:
                             if self.thread_radio_went_missing == False:
                                 if not os.path.exists('/dev/serial/by-id/' + str(self.persistent_data['thread_radio_serial_port'])):

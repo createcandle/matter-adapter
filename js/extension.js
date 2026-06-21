@@ -16,6 +16,8 @@
                 document.body.classList.add('kiosk');
                 this.kiosk = true;
             }
+
+            this.just_started = true;
         
             this.busy_discovering = false;
             this.discovered = null;
@@ -2133,6 +2135,7 @@
             }
             else if(step == 'set_vendor_id'){
                 set_vendor_id_el.classList.remove('extension-matter-adapter-hidden');
+                this.view.querySelector('#extension-matter-adapter-onboarding-enter-thread-network-code-container').classList.add('extension-matter-adapter-hidden');
                 this.view.querySelector('#extension-matter-adapter-onboarding-step2-tab').classList.remove('extension-matter-adapter-faded');
                 setTimeout(() => {
                     set_vendor_id_el.scrollIntoView({'behavior':'smooth','block':'center'});
@@ -2349,6 +2352,20 @@
                             }
                         }
                     }
+                    else{
+                        if(this.just_started == true){
+                            this.just_started = false;
+                            // start the onboarding from the beginning
+                            if(typeof body.missing_vendor_id == 'boolean' && body.missing_vendor_id == true){
+                                const choose_thread_container_el = this.view.querySelector('#extension-matter-adapter-choose-thread-container');
+                                if(choose_thread_container_el){
+                                    choose_thread_container_el.classList.remove('extension-matter-adapter-hidden');
+                                }
+                            }
+                        }
+                        
+                        
+                    }
                 }
                 if(typeof body.actual_interfaces != 'undefined' && Array.isArray(body.actual_interfaces)){
                     if(this.debug){
@@ -2512,39 +2529,41 @@
                     const import_thread_dataset_hint_el = this.view.querySelector('#extension-matter-adapter-import-thread-dataset-hint'); // hint on the main page
                     const has_dataset_hint_el = this.view.querySelector('#extension-matter-adapter-has-dataset-hint'); // hint on the thread tab
                     
-                    
-                    if(typeof body.found_new_thread_radio || body.found_thread_radio_again){
+                    if(import_thread_dataset_hint_el){
+                        if(typeof body.found_new_thread_radio || body.found_thread_radio_again){
 
-                        this.view.querySelector('#extension-matter-adapter-onboarding-step1-tab').classList.add('extension-matter-adapter-onboarding-step-complete');
+                            this.view.querySelector('#extension-matter-adapter-onboarding-step1-tab').classList.add('extension-matter-adapter-onboarding-step-complete');
 
-                        if(body.has_thread_dataset){
-                            this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.add('extension-matter-adapter-onboarding-step-complete');
-                            this.view.querySelector('#extension-matter-adapter-onboarding-step2-tab').classList.remove('extension-matter-adapter-faded');
-                        }
-                        
-                        if(this.onboarding_complete == false){
-                            this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.remove('extension-matter-adapter-hidden');
-                            this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.remove('extension-matter-adapter-faded');
-                        }
-                        else{
-                            if(has_dataset_hint_el && import_thread_dataset_hint_el){
-                                if(body.has_thread_dataset == false && body.should_create_thread_mesh == false){
-                                    has_dataset_hint_el.textContent = 'No Thread network code created or imported yet';
-                                    import_thread_dataset_hint_el.classList.remove('extension-matter-adapter-hidden');
-                                }
-                                else if(body.has_thread_dataset){
-                                    has_dataset_hint_el.textContent = 'This controller has a Thread network code';
-                                    import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
+                            if(body.has_thread_dataset){
+                                this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.add('extension-matter-adapter-onboarding-step-complete');
+                                this.view.querySelector('#extension-matter-adapter-onboarding-step2-tab').classList.remove('extension-matter-adapter-faded');
+                            }
+                            
+                            if(this.onboarding_complete == false){
+                                this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.remove('extension-matter-adapter-hidden');
+                                this.view.querySelector('#extension-matter-adapter-onboarding-step1b-tab').classList.remove('extension-matter-adapter-faded');
+                            }
+                            else{
+                                if(has_dataset_hint_el && import_thread_dataset_hint_el){
+                                    if(body.has_thread_dataset == false && body.should_create_thread_mesh == false){
+                                        has_dataset_hint_el.textContent = 'No Thread network code created or imported yet';
+                                        import_thread_dataset_hint_el.classList.remove('extension-matter-adapter-hidden');
+                                    }
+                                    else if(body.has_thread_dataset){
+                                        has_dataset_hint_el.textContent = 'This controller has a Thread network code';
+                                        import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
 
-                                }
-                                else if(body.hould_create_thread_mesh){
-                                    has_dataset_hint_el.textContent = 'Busy creating a brand new Thread network...';
-                                    import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
+                                    }
+                                    else if(body.hould_create_thread_mesh){
+                                        has_dataset_hint_el.textContent = 'Busy creating a brand new Thread network...';
+                                        import_thread_dataset_hint_el.classList.add('extension-matter-adapter-hidden');
+                                    }
                                 }
                             }
+                            
                         }
-                        
                     }
+                    
                     starting_info['Thread network code available'] = body.has_thread_dataset;
                 }
 
@@ -2604,11 +2623,16 @@
                         console.log("matter debug: body.missing_vendor_id: ", body.missing_vendor_id);
                     }
 
+                    
                     if(body.missing_vendor_id == false){
-                        this.view.querySelector('#extension-matter-adapter-onboarding-step2-tab').classList.add('extension-matter-adapter-onboarding-step-complete');
-                        this.view.querySelector('#extension-matter-adapter-onboarding-step3-tab').classList.remove('extension-matter-adapter-faded');
-                        this.view.querySelector('#extension-matter-adapter-onboarding-vendor-id-input').setAttribute('placeholder','* * * *');
-                        this.view.querySelector('#extension-matter-adapter-missing-vendor-id-already-set-hint').classList.remove('extension-matter-adapter-hidden');
+                        const onboarding_step2_tab = this.view.querySelector('#extension-matter-adapter-onboarding-step2-tab');
+                        if(onboarding_step2_tab){
+                            onboarding_step2_tab.classList.add('extension-matter-adapter-onboarding-step-complete');
+                            this.view.querySelector('#extension-matter-adapter-onboarding-step3-tab').classList.remove('extension-matter-adapter-faded');
+                            this.view.querySelector('#extension-matter-adapter-onboarding-vendor-id-input').setAttribute('placeholder','* * * *');
+                            this.view.querySelector('#extension-matter-adapter-missing-vendor-id-already-set-hint').classList.remove('extension-matter-adapter-hidden');
+                        }
+                        
                     }
 
                     if(this.onboarding_complete == true){
@@ -2663,11 +2687,14 @@
                 
 
                 if(typeof body.last_update_check_seconds_ago == 'number' && typeof body.last_update_check_response_seconds_ago == 'number' ){
-                    if(body.last_update_check_seconds_ago < 10 || body.last_update_check_response_seconds_ago < 10){
-                        this.view.querySelector('#extension-matter-adapter-content-container').classList.add('extension-matter-adapter-busy-checking-for-updates');
-                    }
-                    else{
-                        this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-busy-checking-for-updates');
+                    const content_container_el = this.view.querySelector('#extension-matter-adapter-content-container');
+                    if(content_container_el){
+                        if(body.last_update_check_seconds_ago < 10 || body.last_update_check_response_seconds_ago < 10){
+                            this.view.querySelector('#extension-matter-adapter-content-container').classList.add('extension-matter-adapter-busy-checking-for-updates');
+                        }
+                        else{
+                            this.view.querySelector('#extension-matter-adapter-content-container').classList.remove('extension-matter-adapter-busy-checking-for-updates');
+                        }
                     }
 				}
                 
@@ -9060,8 +9087,8 @@ A Thread network's ExtAddress is a 64-bit IEEE EUI-64 identifier that can be der
                 nodes: [],
                 links: [],
                 physics: {
-                    chargeStrength: -300,
-                    linkDistance: 120,
+                    chargeStrength: -800,
+                    linkDistance: 100,
                     collisionRadius: 35
                 }
             }

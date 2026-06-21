@@ -20,7 +20,7 @@ Most common devices should work, although not all attributes have been tested in
 
 ### Ensuring optimal security and privacy protection
 - To get optimal privacy protection you should use Candle 3.0, since it's Hotspot feature works seamlessly with this addon to create an isolated Matter network.
-- Similarly, you should not merge the Candle Thread network with those of other (commercial) devices you own (such as an Apple Homepod). That would punch a hole in the privacy protection, alling the Thread devices to bypass the Candle Controller if they try to access the internet. In other words: connect all your Thread Matter devices to and through Candle, and not through any other apps or border-router devices in your home.
+- Similarly, you should not merge the Candle Thread network with those of other (commercial) devices you own (such as an Apple Homepod). That would punch a hole in the privacy protection, allowing the Thread devices to bypass the Candle Controller if they try to access the internet. In other words: connect all your Thread Matter devices to and through Candle, and not through any other apps or border-router devices in your home.
 
 
 ### Limitations

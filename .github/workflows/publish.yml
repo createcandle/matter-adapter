@@ -40,4 +40,32 @@ jobs:
         overwrite: true
         file_glob: true
 
-        
+  build11:
+    needs: build13
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - name: Set release version
+      run: echo "RELEASE_VERSION=${GITHUB_REF:10}" >> $GITHUB_ENV
+    - uses: actions/checkout@v6
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.11"
+    - name: Make packaging script executable
+      run: chmod +x ./package.sh
+    - name: Build adapter
+      run: |
+        ADDON_ARCH=linux-arm64 ./package.sh
+      shell: bash
+    - name: List after container
+      run: |
+        ls -lh
+      shell: bash
+    - name: Upload binaries to release
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: matter-adapter-*
+        tag: ${{ github.ref }}
+        overwrite: true
+        file_glob: true

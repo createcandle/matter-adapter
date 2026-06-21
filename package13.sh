@@ -91,6 +91,9 @@ python3.13 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org
 
 python3.13 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org silabs-flasher -t lib --prefix "" --no-cache-dir --upgrade
 
+python3.13 -m pip install --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org tzdata -t lib --prefix "" --no-cache-dir --upgrade
+
+
 echo ""
 echo ""
 echo ""

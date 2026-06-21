@@ -3909,7 +3909,10 @@
                                     console.log("matter debug: regenerate_items: cancel update button has been clicked.  my_node_id: ", my_node_id);
                                 }
                                 let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-                                item_el.classList.remove("extension-matter-adapter-update");
+                                if(item_el){
+                                    item_el.classList.remove("extension-matter-adapter-update");
+                                }
+                                
                                 //clone.classList.remove("extension-matter-adapter-update");
                             });
                             
@@ -4274,9 +4277,18 @@
                                                     const firmware_update_states = ['Unknown','Idle','Querying','DelayedOnQuery','Downloading','Applying','DelayedOnApply','RollingBack','DelayedOnUserConsent']
                                                     if (typeof item_data['update_state'] == 'number' && item_data['update_state'] >= 0 && item_data['update_state'] < firmware_update_states.length){
                                                         if(item_data['update_state'] > 1){
-                                                            const firmware_update_status_el = document.createElement('span');
+                                                            const firmware_update_status_el = document.createElement('div');
                                                             firmware_update_status_el.textContent = firmware_update_states[item_data['update_state']].replace(/([A-Z])/g, ' $1');
+                                                            firmware_update_status_el.classList.add('extension-matter-adapter-firmware-update-status');
+                                                            firmware_update_status_el.classList.add('extension-matter-adapter-sweep');
                                                             line3_el.appendChild(firmware_update_status_el)
+
+                                                            if(item_data['update_state'] == 2 && typeof item_data['update_progress'] == 'number'){
+                                                                const download_progress_container_el = document.createElement('div');
+                                                                download_progress_container_el.classList.add('extension-matter-adapter-firmware-update-status');
+                                                                download_progress_container_el.textContent = item_data['update_progress'] + "% Downloaded";
+                                                                line3_el.appendChild(download_progress_container_el);
+                                                            }
                                                         }
                                                         else{
                                                             line3_el.appendChild(update_button_el);
@@ -4337,7 +4349,10 @@
 		                                console.log("matter debug: regenerate_items: delete cancel button clicked");
 		                            }
 		    						let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
-		    						item_el.classList.remove("extension-matter-adapter-delete");
+                                    if(item_el){
+                                        item_el.classList.remove("extension-matter-adapter-delete");
+                                    }
+		    						
 		                        });
 
 		                        // Delete confirm button
@@ -4522,7 +4537,7 @@
 		                        // Refresh button (deletes the persistent data for 1 thing)
 		    					const refresh_button = clone.querySelector('.extension-matter-adapter-item-refresh-button');
 								if(refresh_button){
-			    					refresh_button.addEventListener('click', (event) => {
+			    					refresh_button.addEventListener('click', () => {
                                         if(this.debug){
                                             console.log("matter debug: calling refresh_node with my_node_id: ", my_node_id);
                                         }
@@ -4535,7 +4550,7 @@
 			                                }
                                             if(typeof body.state == 'boolean'){
                                                 if(body.state == true){
-                                                    let item_el = event.currentTarget.closest(".extension-matter-adapter-item");
+                                                    let item_el = refresh_button.closest(".extension-matter-adapter-item");
                                                     if(item_el){
                                                         item_el.classList.add('extension-matter-adapter-item-refreshed');
                                                     }

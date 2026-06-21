@@ -231,7 +231,7 @@ class MatterAdapter(Adapter):
         self.create_extra_properties = False
 
         self.should_save = False
-        self.auto_enable_properties = False
+        #self.auto_enable_properties = False
 
         #show_clusters()
         #return
@@ -283,6 +283,8 @@ class MatterAdapter(Adapter):
         self.certificates_updated = False
         self.busy_updating_certificates = False
         self.time_between_certificate_downloads = 14 * 86400 # 14 days
+
+        self.busy_updating_firmware = False
 
         self.busy_discovering = False
         self.last_discovery_start_timestamp = 0
@@ -928,8 +930,8 @@ class MatterAdapter(Adapter):
 
         
 
-        if self.DEBUG:
-            self.get_ips_interval = 120
+        #if self.DEBUG:
+        #    self.get_ips_interval = 300
 
         # Start clock thread
         if self.DEBUG:
@@ -3096,6 +3098,8 @@ class MatterAdapter(Adapter):
                     if self.DEBUG:
                         self.s_print("\nNODE UPDATED\n\nreceived node_updated event. attempting to feed updated node data into self.parse_node")
 
+                    self.busy_updating_firmware = False
+
                     try:
                         if 'result' in message and 'node_id' in message['result']:
                             
@@ -3121,6 +3125,7 @@ class MatterAdapter(Adapter):
                                 self.s_print("node_updated: found thing_id of node that was just updated: ", thing_id)
                             if str(thing_id) in self.persistent_data['nodez']:
                                 self.persistent_data['nodez'][thing_id]['last_update_done_timestamp'] = int(time.time())
+                                self.should_save = True
 
 
                     except Exception as ex:
@@ -3341,6 +3346,7 @@ class MatterAdapter(Adapter):
                             if self.DEBUG:
                                 self.s_print("update_node: started succesfully:  thing_id: ",  thing_id)
                             self.persistent_data['nodez'][thing_id]['last_update_start_timestamp'] = int(time.time())
+                            #self.should_save = True
 
 
                     elif message['message_id'].startswith('remove_node_'):
@@ -3514,6 +3520,7 @@ class MatterAdapter(Adapter):
                         self.last_matter_update_check_response_timestamp = int(time.time())
 
                     elif message['message_id'].startswith('update_node_'):
+                        self.busy_updating_firmware = False
                         if self.DEBUG:
                             self.s_print("\n\nUPDATE NODE FAILED\n\n")
                         if self.DEBUG:
@@ -4266,10 +4273,10 @@ class MatterAdapter(Adapter):
                         if self.DEBUG:
                             print("Clock: get_ips_interval has passed. Calling get_node_ips() to update all node IP addresses")
                         self.last_get_ips_timestamp = now_stamp
-                        
-                        get_ips_thread = threading.Thread(target=self.get_node_ips)
-                        get_ips_thread.daemon = True
-                        get_ips_thread.start()
+                        if self.busy_discovering == False and self.busy_pairing == False and self.busy_updating_firmware == False:
+                            get_ips_thread = threading.Thread(target=self.get_node_ips)
+                            get_ips_thread.daemon = True
+                            get_ips_thread.start()
 
                     if seconds_counter > 5:
                         seconds_counter = 0
@@ -5035,10 +5042,14 @@ class MatterAdapter(Adapter):
                     return
 
                 elif cluster_name == 'OtaSoftwareUpdateRequestor':
+                    if self.DEBUG:
+                        self.s_print("\nhandle_event: received a OtaSoftwareUpdateRequestor message. event,attribute_name:", event,attribute_name)
+
                     if attribute_name == 'RecentEvent':
                         if self.DEBUG:
                             self.s_print("handle_event: received a firmware update RecentEvent message: \n",  json.dumps(message,indent=2))
                         #if 'targetSoftwareVersion' in 
+                    
                     elif attribute_name == 'UpdateState':
                         if self.DEBUG:
                             self.s_print("handle_event: received a firmware update UpdateState message: \n", json.dumps(message,indent=2))
@@ -5064,6 +5075,8 @@ class MatterAdapter(Adapter):
                         #  4
                         #  ]
                         #}
+                    else:
+                        print("WARNING, unexpected OtaSoftwareUpdateRequestor attribute_name: ", attribute_name)
 
                     return
                 
@@ -5178,6 +5191,20 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                         if clusters_to_ignore and cluster_name in clusters_to_ignore:
                             if self.DEBUG:
                                 self.s_print("handle_event: skipping because cluster_name was in list of clusters_to_ignore (BLOCKED): ", cluster_name)
+
+
+                        if cluster_name == 'OtaSoftwareUpdateRequestor':
+                            if self.DEBUG:
+                                self.s_print("handle_event: handling an OtaSoftwareUpdateRequestor message.  data_attribute: ", data_attribute)
+                            if 'data' in data and data['data'] != None:
+                                if self.DEBUG:
+                                    self.s_print("handle_event: OtaSoftwareUpdateRequestor data: ", data['data'])
+
+                                if 'progressPercent' in data['data']:
+                                    self.persistent_data['nodez'][thing_id]['update_progress'] = data['data']['progressPercent']
+
+                            return
+
 
                         hacky_attribute_code = str(cluster_name) + '.Attributes.' + str(data_attribute)
                         #hacky_attribute_code = str(cluster_name) + 'Candle.Attributes.' + str(data_attribute)
@@ -5567,12 +5594,12 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                                     self.s_print("handle_event: attribute_code was None")
 
                             elif str(attribute_code) in self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name]:
-                                if self.auto_enable_properties == True:
-                                    if 'enabled' in self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][str(attribute_code)] and self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][str(attribute_code)]['enabled'] == False:
-                                        if self.DEBUG:
-                                            self.s_print("handle_event: auto-enabling a property: ", attribute_code)
-                                        self.should_save = True
-                                    self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][str(attribute_code)]['enabled'] = True
+                                #if self.auto_enable_properties == True:
+                                #    if 'enabled' in self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][str(attribute_code)] and self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][str(attribute_code)]['enabled'] == False:
+                                #        if self.DEBUG:
+                                #            self.s_print("handle_event: auto-enabling a property: ", attribute_code)
+                                #        self.should_save = True
+                                #    self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][str(attribute_code)]['enabled'] = True
 
                                 # Keep track of the different type of variables that can be expected to be received
                                 if not 'received_values' in self.persistent_data['nodez'][thing_id]['attributes'][endpoint_name][str(attribute_code)]:
@@ -6458,6 +6485,8 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
                     if self.DEBUG:
                         self.s_print("update_node: sending message to Matter.server: \n", json.dumps(message,indent=4))
 
+                    self.busy_updating_firmware = True
+                    
                     json_message = json.dumps(message)
                     self.ws.send(json_message)
 

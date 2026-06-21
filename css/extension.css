@@ -471,6 +471,7 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	width:100%;
     flex-direction:column;
 	position: relative;
+	overflow: hidden;
 }
 
 .extension-matter-adapter-item-header{
@@ -693,6 +694,29 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	background-color:#1c6195;
 }
 
+.extension-matter-adapter-item-refreshed::before {
+	background-image: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.3) 100%);
+	content: "";
+	display: block;
+	height: 100%;
+	left: -75%;
+	position: absolute;
+	top: 0;
+	transform: skewX(-25deg);
+	width: 50%;
+	z-index: 2;
+	animation: extension-matter-adapter-shine 0.85s;
+	animation-iteration-count: 2;
+}
+.extension-matter-adapter-item-refreshed:hover::before{
+    animation: extension-matter-adapter-shine 0.85s;
+}
+@keyframes extension-matter-adapter-shine {
+  100% {
+    left: 125%;
+  }
+}
+
 
 /*  DEVICE ATTRIBUTES LIST  */
 
@@ -794,6 +818,11 @@ body.kiosk .extension-matter-adapter-hidden-on-kiosk,
 	opacity:.5;
 }
 
+.extension-matter-adapter-firmware-update-status{
+	display:inline-block;
+	padding:1rem 2rem;
+	border-radius:.5rem;
+}
 
 
 

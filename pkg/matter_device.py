@@ -726,6 +726,8 @@ class MatterDevice(Device):
                                                 print("Device: early pre-check: setting enabled state of attribute to the default value provided in supported_types: ", attribute_code, supported_attributes[attribute_code]['enabled'])
                                             self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] = bool(supported_attributes[attribute_code]['enabled'])
                                         else:
+                                            if self.DEBUG:
+                                                print("Device: early pre-check: setting enabled state of attribute to True because it was in supported_attributes: ", attribute_code)
                                             self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] = True
                                     else:
                                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['enabled'] = False
@@ -1389,7 +1391,7 @@ class MatterDevice(Device):
                             # WEBTHINGS PROPERTY DESCRIPTION AND @-TYPES
                             try:
 
-                                # Basic property description from supported_types
+                                # Basic property description from supported_attributes
 
 
                                 self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['title'] = str(property_title)
@@ -1495,7 +1497,7 @@ class MatterDevice(Device):
 
                                 #
                                 #
-                                #  START WITH ADDING CAPABILITIES FROM supported_types
+                                #  START WITH ADDING CAPABILITIES FROM supported_attributes
                                 #
                                 #
 
@@ -1536,7 +1538,7 @@ class MatterDevice(Device):
 
                                 except Exception as ex:
                                     if self.DEBUG:
-                                        print("Device: caught error adding capabilties from supported_types: " + str(ex))
+                                        print("Device: caught error adding capabilties from supported_attributes: " + str(ex))
                                         print(traceback.format_exc())
 
 

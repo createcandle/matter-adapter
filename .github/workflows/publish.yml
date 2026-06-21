@@ -1,8 +1,10 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  create
+#on:
+#  release:
+#    types: [published]
 
 jobs:
   build13:

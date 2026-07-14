@@ -76,6 +76,15 @@ class MatterDevice(Device):
         self.attribute_code_list = []
         self.attributes = None
 
+        #self.blur_is_relevant = False #  does it make sense to create a data blur property for this device?
+
+        self.data_mute = False
+        self.data_blur = 'Off'
+        self.blur_seconds = 0
+        self.data_blur_options =       ['Off','1 minute','2 minutes','5 minutes','10 minutes','15 minutes','30 minutes','1 hour'];
+        self.data_blur_option_seconds = [0    ,60        ,120        ,300        ,600         ,900         ,1800        , 3600   ];
+
+
         self.timesync_endpoint_id = None
 
         self.my_pairing_code = my_pairing_code
@@ -102,25 +111,42 @@ class MatterDevice(Device):
         self.node = node
         if not 'node_id' in node:
             if self.DEBUG:
-                print("\n\nERROR: DEVICE: no node_id in node data! Aborting device creation")
+                print("\n\nERROR: DEVICE: no node_id in node data! Aborting device creation\n\n")
             return False
-        self.node_id = node['node_id']
-        self.data_mute = False
-
+        self.node_id = node['node_id'] # Matter node ID number (integer)
         if self.DEBUG:
             print("Device: self.node_id: ", self.node_id)
+
+
+        
+
+        if 'data_mute' in self.adapter.persistent_data['nodez'][device_id]:
+            self.data_mute = bool(self.adapter.persistent_data['nodez'][device_id]['data_mute'])
+        if 'data_blur' in self.adapter.persistent_data['nodez'][device_id] and str(self.adapter.persistent_data['nodez'][device_id]['data_blur']) in self.data_blur_options:
+            self.data_blur = str(self.adapter.persistent_data['nodez'][device_id]['data_blur'])
+            self.blur_seconds = int(self.data_blur_option_seconds[ self.data_blur_options.index(self.data_blur) ])
+        if self.DEBUG:
+            print("Device: self.data_mute: ", self.data_mute)
+            print("Device: self.blur_seconds: ", self.blur_seconds)
+        
 
         # Only save actually useful attribute data in the persistent data.
         if not device_id in list(self.adapter.persistent_data['nodez'].keys()):
             self.adapter.persistent_data['nodez'][device_id] = {
                                                         'node_id':node['node_id'],
                                                         'thing_id':device_id,
-                                                        'attributes':{},
+                                                        'attributes':{}
                                                     }
             self.adapter.should_save = True
-
+        
+        
 
         self.update_from_node(node)
+
+        #if str(device_id) in self.adapter.persistent_data['nodez'] and 'blur_is_relevant' in self.adapter.persistent_data['nodez'][str(device_id)]:
+        #    self.blur_is_relevant = bool(self.adapter.persistent_data['nodez'][str(device_id)]['blur_is_relevant'])
+
+
 
 
     def reparse_node(self):
@@ -284,6 +310,12 @@ class MatterDevice(Device):
                     'maximum':100,
                     'unit':'percent',
                     'multipleOf':0.1},
+
+
+                'ColorControl.Attributes.EnhancedColorMode':{
+                    'title':'Color mode',
+                    'readOnly': True,
+                    'type':'string'},
 
                 'ColorControl.Attributes.CurrentHue':{
                     'title':'Color',
@@ -519,6 +551,9 @@ class MatterDevice(Device):
 
             # Check if it's useful to add DataMute property. If there is a readOnly property, then it is useful.
             add_data_mute = False
+
+            # Check if it's useful to add DataBlur property. If there is a readOnly property that is a number (and it's not battery percentage), then it is useful.
+            add_data_blur = False
 
 
 
@@ -1609,6 +1644,8 @@ class MatterDevice(Device):
 
                                 # LEVELCONTROL MIN AND MAX LEVEL
                                 if attribute_code.endswith('.MinLevel') and isinstance(node['attributes_list'][endpoint_name][attribute_code],(int,float)):
+
+                                    # TODO: there is no multiplier for mired, so this complexity is not needed
                                     if attribute_name in self.adapter.attribute_multipliers:
                                         self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['minimum'] = node['attributes_list'][endpoint_name][attribute_code] / self.adapter.attribute_multipliers[attribute_name]
                                     elif cluster_name in self.adapter.cluster_multipliers:
@@ -1647,15 +1684,16 @@ class MatterDevice(Device):
                                         # COLOR
                                         try:
 
-                                            enhanced_color_modes = ['Hue & saturation','X and Y','Color temperature','Enhanced hue & saturation']
-                                            if attribute_code == 'ColorControl.Attributes.EnhancedColorMode':
-                                                if isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode'],int) and node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode'] >= 0 and node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode'] < len(enhanced_color_modes):
-                                                    property_value = enhanced_color_modes[ int(node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode']) ]
-                                                    if self.DEBUG:
-                                                        print("Color was last set in mode: ", property_value)
-                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['readOnly'] = True
-                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'string'
-                                                self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type']['enum'] = enhanced_color_modes
+                                            # Handled automatically now
+                                            #enhanced_color_modes = ['Hue & saturation','X and Y','Color temperature','Enhanced hue & saturation']
+                                            #if attribute_code == 'ColorControl.Attributes.EnhancedColorMode':
+                                            #    if isinstance(node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode'],int) and node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode'] >= 0 and node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode'] < len(enhanced_color_modes):
+                                            #        property_value = enhanced_color_modes[ int(node['attributes_list'][endpoint_name]['ColorControl.Attributes.EnhancedColorMode']) ]
+                                            #        if self.DEBUG:
+                                            #            print("Color was last set in mode: ", property_value)
+                                            #    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['readOnly'] = True
+                                            #    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] = 'string'
+                                            #    self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type']['enum'] = enhanced_color_modes
 
                                             if self.DEBUG:
                                                 print("colorControl: property_value before: ", property_value)
@@ -2140,6 +2178,14 @@ class MatterDevice(Device):
                                 if 'readOnly' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'] and bool(self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['readOnly']) == True:
                                     add_data_mute = True
 
+                                    if 'type' in self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description'] and \
+                                      (self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] == 'integer' or \
+                                      self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] == 'float' or \
+                                      self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']['description']['type'] == 'number') and \
+                                      not str(attribute_name).endswith('BatPercentRemaining'):
+                                        add_data_blur = True
+                                    
+
                                 # ADD PROPERTY
                                 if self.DEBUG:
                                     print("CREATING PROPERTY FROM: \n" + str(self.adapter.persistent_data['nodez'][device_id]['attributes'][endpoint_name][attribute_code]['property']) + "\n\n")
@@ -2205,6 +2251,21 @@ class MatterDevice(Device):
                                     },
                                     self.data_mute,         # value (True or False)
                                     {'id':'data_mute','title': "Data mute"}) # details
+
+            
+            if add_data_blur:
+                if not 'data_blur' in self.properties:
+                    self.properties['data_blur'] = MatterProperty(  
+                                    self,                   # device
+                                    "data_blur",            # property_id
+                                    {                       # description
+                                        'title':'Data blur',
+                                        'readOnly': False,
+                                        'type': 'string',
+                                        'enum':self.data_blur_options
+                                    },
+                                    self.data_blur,         # value (True or False)
+                                    {'id':'data_blur','title': "Data blur"}) # details
 
 
 
@@ -2479,4 +2540,24 @@ class MatterDevice(Device):
 
 
 
-        
+    def flush_data_blur_buffers(self):
+        if self.DEBUG:
+            print("Device: in flush_data_blur_buffers")
+
+        all_properties = self.get_property_descriptions()
+        if self.DEBUG:
+            print("Device: flush_data_blur_buffers:  all_properties: ", all_properties)
+        #for property_id in all_properties.keys():
+        #for property_id, property_description in all_properties.items():
+        for property_id in all_properties.keys():
+            try:
+                if self.DEBUG:
+                    print("Device: flush_data_blur_buffers: looping over property_id: ", property_id)
+                prop = self.find_property(property_id)
+                if prop:
+                    # Attempt to set the property's value from accumulated buffer values (if there are any), and then clear its blur_buffer
+                    prop.update_from_blur_buffer()
+
+            except Exception as ex:
+                print("\nDevice: flush_data_blur_buffers: caught ERROR looping over properties: ", ex)
+                print(traceback.format_exc())

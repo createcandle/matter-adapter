@@ -4890,7 +4890,7 @@
 												received_values_container_el.classList.add('extension-matter-adapter-area');
 												attribute_el.appendChild(received_values_container_el);
 											}
-											const received_values_text = 'Received values: ' + attribute['received_values'].join(' , ');
+											const received_values_text = 'Received values: ' + attribute['received_values'].join(', ');
 											if(received_values_container_el.textContent != received_values_text){
 												received_values_container_el.textContent = received_values_text;
 											}

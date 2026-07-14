@@ -831,7 +831,7 @@ class MatterAdapter(Adapter):
         #print("self.nmcli_installed: ", self.nmcli_installed)
 
         if self.DEBUG:
-            print("self.use_hotspo: ", self.use_hotspot)
+            print("self.use_hotspot: ", self.use_hotspot)
         
         if self.use_hotspot and \
           (self.persistent_data['matter_network_interface'] == 'Hotspot (recommended)' or \
@@ -966,7 +966,7 @@ class MatterAdapter(Adapter):
         pwd = run_command('pwd')
         if self.DEBUG:
             self.s_print("PWD after chdir: " + str(pwd))
-            print("init done\n")
+            self.s_print("init done\n")
 
         #time.sleep(60)
         #self.ready = True
@@ -6158,7 +6158,7 @@ routeTable.linkEstablished = routerInfo.mLinkEstablished;
 
                     # figure out if this is a Thread or WiFi device
                     for ni in node['attributes']['Endpoint0']['GeneralDiagnostics']['NetworkInterfaces']:
-                        print("ni! : ", ni)
+                        #print("ni! : ", ni)
                         if "7" in ni: #node['attributes']['Endpoint0']['GeneralDiagnostics']['NetworkInterfaces']:
                             if self.DEBUG:
                                 #self.s_print("'7' was spotted in GeneralDiagnostics.NetworkInterfaces: ", node['attributes']['Endpoint0']['GeneralDiagnostics']['NetworkInterfaces']['7'])

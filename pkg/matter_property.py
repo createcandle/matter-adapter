@@ -6,6 +6,7 @@ if lib_path not in sys.path:
 	sys.path.append(lib_path)
 
 import json
+import time
 #import asyncio
 #from aiorun import run
 from gateway_addon import Property
@@ -80,6 +81,17 @@ class MatterProperty(Property):
             self.attribute_name = self.details['attribute_code'].split('.Attributes.')[1]
         
         self.value = value
+
+        self.blur_buffer = []
+        self.blur_start = time.time()
+        #if self.device.data_blur == True:
+        #    if isinstance(value,(int,float)) and value != 0 and value != 1:
+        #        self.blur_buffer.append(value)
+        
+        #if self.name == 'data_blur' and str(self.value) in self.device.data_blur_options:
+        #    self.device.blur_seconds = int(self.device.data_blur_option_seconds[ self.device.data_blur_options.index(str(self.value)) ])
+        #    if self.DEBUG:
+        #        print("set initial device blur seconds to: ", self.device.blur)
         
         if 'title' in description:
             if self.DEBUG:
@@ -124,7 +136,21 @@ class MatterProperty(Property):
             # Data Mute is a little different
             if self.id == 'data_mute':
                 self.device.data_mute = bool(value)
-                self.update(self.device.data_mute)
+                self.device.adapter.persistent_data['nodez'][str(self.device.id)]['data_mute'] = bool(self.device.data_mute)
+                self.device.adapter.should_save = True
+                if self.DEBUG:
+                    print("property: set_value: data_mute set to: ", self.device.data_mute)
+                return self.update(self.device.data_mute)
+
+            # Data Blur is a little different too
+            elif self.id == 'data_blur':
+                if str(value) in self.device.data_blur_options:
+                    self.device.data_blur = str(value)
+                    self.device.adapter.persistent_data['nodez'][str(self.device.id)]['data_blur'] = str(self.device.data_blur)
+                    self.device.adapter.should_save = True
+                    if self.DEBUG:
+                        print("property: set_value: data_blur set to: ", self.device.data_blur)
+                return self.update(self.device.data_blur)
                 
             # Turn property changes into Matter commands
             else:
@@ -134,7 +160,7 @@ class MatterProperty(Property):
                 
                 if 'readOnly' in self.description and self.description['readOnly'] == True:
                     if self.DEBUG:
-                        print("Error / impossible: readOnly property cannot be changed")
+                        print("Error / impossible: set_value: readOnly property cannot be changed")
                     return
                 
                 if 'attribute_code' in self.details and '.Attributes.' in str(self.details['attribute_code']):
@@ -397,23 +423,52 @@ class MatterProperty(Property):
 
 
 
+
+
     #
     #  UPDATE
     #
     #  TODO: maybe some of this, such as the percentage scaling, should move to the handle_event method in matter-adapter.py?
     #
 
-    def update(self, value, meta=None):
+    def update(self, value, meta=None, skip_blur=False):
         # This is a quick way to set the value of this property. It checks that the value is indeed new, and then notifies the controller that the value was changed.
         
         if meta != None:
             if self.DEBUG:
                 print("property: update: OK, Matter property received META data: ", meta)
         
-        if hasattr(self.device,'data_mute') and isinstance(self.device.data_mute,bool) and self.device.data_mute == True:
-            if self.DEBUG:
-                print("property: update:  updating value blocked by Data mute for: " + str(self.title))
-            return
+        if hasattr(self.device,'data_mute') and isinstance(self.device.data_mute,bool) and self.device.data_mute == True and self.name != 'data_blur':
+
+            if self.name == 'data_mute':
+                self.device.data_mute = bool(value)
+                if value != self.value:
+                    self.value = bool(value)
+                    self.set_cached_value(self.value)
+                    self.device.notify_property_changed(self)
+                if self.DEBUG:
+                    print("property: update:  data_mute disabled")
+            else:
+                if self.DEBUG:
+                    print("property: update:  updating value blocked by Data mute for: " + str(self.title))
+            
+            #return self.value
+            return value
+
+        if self.name == 'data_blur':
+            # TODO: if data-mute is set to a smaller value, then loop over all properties and update their values if the buffer has values, using update_from_blur_buffer
+            if value != self.value and str(value) in self.device.data_blur_options:
+                new_blur_seconds = int(self.device.data_blur_option_seconds[ self.device.data_blur_options.index(str(value)) ])
+
+                if new_blur_seconds < self.device.blur_seconds:
+                    if self.DEBUG:
+                        print("property: update: the data blur duration has been decreased")
+                    self.device.flush_data_blur_buffers()
+
+                self.device.data_blur = str(value)
+                self.device.blur_seconds = new_blur_seconds
+
+
 
         if not hasattr(self,'description') or 'type' not in self.description:
             if self.DEBUG:
@@ -520,7 +575,7 @@ class MatterProperty(Property):
                 #elif self.details['attribute_code'] == 'LevelControl.Attributes.CurrentLevel' and isinstance(value,(int,float)):
 
                 if 'unit' in self.description and (self.description['unit'] == 'percentage' or self.description['unit'] == '%'):
-                    
+                    pass
                     # TODO: somehow check if an int8 is used, and if so, then 255 can always be translated to null?
                     # this should be done when the data first comes in at handle_event
                     """
@@ -565,16 +620,54 @@ class MatterProperty(Property):
                         if self.DEBUG:
                             self.device.adapter.s_print("property: update: not applying percentage factor: value of provided level coming from controller was already more than 100: ", value )
                     """
+                    
+            
+            if isinstance(value,(int,float)):
 
+                # RESTRICT NUMERIC VALUE TO MINIMUM AND/OR MAXIMUM
+                if 'maximum' in self.description and isinstance(self.description['maximum'],(int,float)):
                     if value > self.description['maximum']:
                         if self.DEBUG:
                             self.device.adapter.s_print("property: update: WARNING, percentage scaled value ended up bigger than the allowed maximum: ", value, self.description['maximum'] )
                         value = self.description['maximum']
+                if 'minimum' in self.description and isinstance(self.description['minimum'],(int,float)):
                     if value < self.description['minimum']:
                         if self.DEBUG:
                             self.device.adapter.s_print("property: update: WARNING, percentage scaled value ended up smaller than the allowed minimum: ", value, self.description['minimum'] )
                         value = self.description['minimum']
+            
+            
+                # HANDLE DATA BLUR
+                if skip_blur == False and not self.name.endswith('BatPercentRemaining') and \
+                  (self.description['type'] == 'integer' or self.description['type'] == 'float' or self.description['type'] == 'number') and \
+                  hasattr(self.device,'blur_seconds') and isinstance(self.device.blur_seconds,int) and self.device.blur_seconds > 0:
+                    if self.DEBUG:
+                        print("property: update:  device has data_blur enabled: " + str(self.title), ", and it's set to: ", self.device.data_blur)
+
                     
+                    # TODO: this averaging method is very crude, and doesn't take the duration of each measurement into account
+                    # Another issue is that it only guarantees the duration has passed, but an actual interval timer might be prefered, similar to how Logging works
+                    # one upside is that all incoming values are added to the buffer, and not only the ones that are different from the current self.value
+
+                    now_stamp = time.time()
+                    # Check if the property's blur buffer should be flushed
+                    if now_stamp > self.blur_start + self.device.blur_seconds:
+                        if self.DEBUG:
+                            print("minimum duration of blur period reached.  number of values in self.blur_buffer: ", len(self.blur_buffer))
+                        if len(self.blur_buffer) > 0:
+                            self.blur_buffer.append(value)
+                            self.update_from_blur_buffer()
+                            self.blur_start = now_stamp
+                            return value
+                        else:
+                            # only one value received "during" the blur period, so let it go through as normal, skipping the averaging step
+                            self.blur_start = now_stamp
+                    else:
+                        if self.DEBUG:
+                            print("adding value to blur buffer: ", value)
+                        self.blur_buffer.append(value)
+                        return value
+
 
         except Exception as ex:
             self.device.adapter.s_print("ERROR: property: update: caught error trying to wrangle value based on attribute_code: ", self.id, ex)
@@ -618,6 +711,12 @@ class MatterProperty(Property):
                     # TODO: change 'None' value to 255? Or does the matter.server handle that?
                 elif str(self.description['type']) == 'boolean':
                     value = bool(value)
+
+                #if isintance(self.description['readOnly'],bool) and self.description['readOnly'] == True and \
+                #  str(self.description['type']) == 'integer' or str(self.description['type']) == 'float' or str(self.description['type']) == 'number' and \
+                #  not self.name.endswith('-BatPercentRemaining'):
+                
+                
             else:
                 if self.DEBUG:
                     self.device.adapter.s_print("property: update: value is None")
@@ -636,5 +735,22 @@ class MatterProperty(Property):
             self.set_cached_value(value)
             self.device.notify_property_changed(self)
 
+            # TODO: store value in persistent data?
+
         return self.value
  
+
+
+
+
+    def update_from_blur_buffer(self):
+        if self.DEBUG:
+            print("property: in update_from_blur_buffer. self.title: ", self.title)
+            print("property: update_from_blur_buffer: averaging self.blur_buffer: ", self.blur_buffer)
+        if len(self.blur_buffer):
+            average = sum(self.blur_buffer) / len(self.blur_buffer)
+            self.update(average,None,True) # True = Don't add this average to the blur buffer
+            self.blur_buffer = None
+            self.blur_buffer = []
+        self.blur_start = time.time()
+        
